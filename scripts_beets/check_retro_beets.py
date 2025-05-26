@@ -69,6 +69,7 @@ def check_mood_tags_in_beets(logname="Mixonaut", limit=None):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
+    parser.add_argument("--count", type=int, default=0, help="Nombre d'éléments à traiter (défaut: 0)")
         
     args = parser.parse_args()
-    check_mood_tags_in_beets(logname="Retro_Beets_Db", limit=10)
+    check_mood_tags_in_beets(logname="Retro_Beets_Db", limit=args.count)

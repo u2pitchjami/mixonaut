@@ -23,11 +23,11 @@ def shift_to_colname(prefix: str, shift: int) -> str:
     sign = "plus" if shift > 0 else "minus"
     return f"{prefix}_{sign}_{abs(shift)}"
 
-def generate_transpositions():
+def generate_transpositions(count=0):
     logger.info("🔍 Démarrage de Process de Transposition")
     rows = fetch_tracks_with_bpm_and_key()
     logger.info(f"🎯 {len(rows)} morceaux à traiter")
-    for track_id, bpm, key in rows:
+    for track_id, bpm, key in rows[:count]:
         keys, bpms = {}, {}
         for shift in SEMITONE_SHIFT_VALUES:
             key_col = shift_to_colname("key", shift)

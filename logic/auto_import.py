@@ -5,7 +5,7 @@ from logic.importer import build_track_dict, try_insert_track
 
 logger = get_logger("Import_Auto")
 
-def import_tracks_from_beets():
+def import_tracks_from_beets(count=0):
     """Importe les morceaux valides depuis Beets (automatique via genres EDM)"""
     logger.info("🚀 Lancement de l'import automatique depuis Beets")
 
@@ -13,7 +13,7 @@ def import_tracks_from_beets():
     logger.info(f"🎧 Titres valides récupérés depuis Beets : {len(rows)}")
 
     inserted = 0
-    for row in rows[:100]:
+    for row in rows[:count]:
         beet_id, *data = row  # beet_id + reste
         track = build_track_dict(beet_id, data)
 

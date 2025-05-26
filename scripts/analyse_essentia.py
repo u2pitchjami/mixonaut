@@ -124,12 +124,12 @@ def analyse_track(track, force=False, source="Mixonaut"):
     #     if temp_json.exists():
     #         temp_json.unlink()
 
-def main(force=False):
+def main(force=False, count=0):
     logger.info("🔍 Démarrage analyse des morceaux via Essentia")
     tracks = fetch_tracks_missing_essentia(force=force)
 
     logger.info(f"🎯 {len(tracks)} morceaux à analyser")
-    for track in tracks:
+    for track in tracks[:count]:
         track_features = analyse_track(track, force=force, source="Mixonaut")
         print(f"track_features : {track_features}")
         update_tracks_meta(track_id=track[0], energy_level=track_features["energy_level"], beat_intensity=track_features["beat_intensity"], mood=track_features["mood"], essentia_genres=track_features["essentia_genres"], force=True, logname="Essentia_Tags")
@@ -141,6 +141,7 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--force", action="store_true", help="Forcer le recalcul même si les champs sont déjà remplis")
+    parser.add_argument("--count", type=int, default=0, help="Nombre d'éléments à traiter (défaut: 0)")
     
     args = parser.parse_args()
-    main(force=args.force)
+    main(force=args.force, count=args.count)

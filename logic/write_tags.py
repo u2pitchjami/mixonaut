@@ -4,8 +4,6 @@ from utils.config import MUSIC_BASE_PATH, BEETS_MUSIC
 from utils.logger import get_logger
 import os
 
-
-
 # Configuration (à adapter)
 IMAGE_NAME = "beets-xtractor:latest_test2"
 HOST_MUSIC_DIR = MUSIC_BASE_PATH
