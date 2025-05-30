@@ -12,11 +12,26 @@ def update_beets_fields(track_path: str, field_values: dict, logname="Mixonaut",
         logname (str): Pour la journalisation
         dry_run (bool): Simulation sans exécution réelle
     """
+    track_path = track_path.decode("utf-8") if isinstance(track_path, bytes) else track_path
+
     # Transforme les champs en liste de type "key=value"
     args = ["-y"]  # Ajout ici pour forcer la modification sans confirmation
     args += [f"{key}={value}" for key, value in field_values.items()]
     args += ["--nomove"]
     args.append(track_path)
+
+    print(f"track_path : {track_path}")
+    #print(f"field_values : {field_values}")
+    print(f"args : {args}")
+
+    if "bpm" in field_values:
+        try:
+            field_values["bpm"] = int(float(field_values["bpm"]))
+            print(f"field_values['bpm'] : {type(field_values['bpm'])}")
+        except (TypeError, ValueError):
+            logger.warning(f"⚠️ BPM invalide : {field_values['bpm']}")
+            del field_values["bpm"]
+
 
     return run_beet_command(
         command="modify",

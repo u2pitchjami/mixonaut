@@ -11,7 +11,7 @@ def shift_camelot(key: str, shift: int) -> str:
         return CAMELOT_ORDER[(index + shift) % 24]
     except ValueError:
         logger.warning("Clé Camelot inconnue : %s", key)
-        return None
+        raise
 
 def shift_bpm(bpm: float, semitone_shift: int) -> float:
     ratio = 2 ** (semitone_shift / 12)
@@ -27,17 +27,20 @@ def generate_transpositions(count=0):
     logger.info("🔍 Démarrage de Process de Transposition")
     rows = fetch_tracks_with_bpm_and_key()
     logger.info(f"🎯 {len(rows)} morceaux à traiter")
-    for track_id, bpm, key in rows[:count]:
-        keys, bpms = {}, {}
-        for shift in SEMITONE_SHIFT_VALUES:
-            key_col = shift_to_colname("key", shift)
-            bpm_col = shift_to_colname("bpm", shift)
-            try:
-                keys[key_col] = shift_camelot(key, shift)
-                bpms[bpm_col] = shift_bpm(bpm, shift)
-            except Exception as e:
-                logger.warning("Erreur lors du shift %s pour track %s: %s", shift, track_id, e)
-        insert_transpositions(track_id, keys, bpms, logname="Process_Transposition")
-        update_tracks_meta(track_id=track_id, logname="Process_Transposition")
-    logger.info("Transpositions générées pour %d morceaux.", len(rows))
-
+    try:
+        for track_id, bpm, key in rows[:count]:
+            keys, bpms = {}, {}
+            for shift in SEMITONE_SHIFT_VALUES:
+                key_col = shift_to_colname("key", shift)
+                bpm_col = shift_to_colname("bpm", shift)
+                try:
+                    keys[key_col] = shift_camelot(key, shift)
+                    bpms[bpm_col] = shift_bpm(bpm, shift)
+                except Exception as e:
+                    logger.warning("Erreur lors du shift %s pour track %s: %s", shift, track_id, e)
+            insert_transpositions(track_id, keys, bpms, logname="Process_Transposition")
+            update_tracks_meta(track_id=track_id, logname="Process_Transposition")
+        logger.info("Transpositions générées pour %d morceaux.", len(rows))
+    except Exception as e:
+        logger.error(f"❌ [{__name__.split(".")[-1]}] Erreur lors de la transposition : {e}")
+        raise

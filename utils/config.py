@@ -55,6 +55,7 @@ ESSENTIA_SAV_JSON = get_str("ESSENTIA_SAV_JSON", "data/tsav_json")
 ESSENTIA_TEMP_AUDIO = get_str("ESSENTIA_TEMP_AUDIO", "data/temp_audio")
 ESSENTIA_TEMP_JSON = get_str("ESSENTIA_TEMP_JSON", "data/temp_json")
 SCRIPT_PATH_ESSENTIA = get_required("SCRIPT_PATH_ESSENTIA")
+SCRIPT_PATH_REPLAYGAIN = get_required("SCRIPT_PATH_ESSENTIA")
 
 #PATHS
 MUSIC_BASE_PATH = get_required("MUSIC_BASE_PATH")
@@ -132,7 +133,17 @@ ESSENTIA_MAPPING = {
     "spectral_complexity": ["lowlevel", "spectral_complexity", "mean"],
     "spectral_energy": ["lowlevel", "spectral_energy", "mean"],
     "zerocrossingrate": ["lowlevel", "zerocrossingrate", "mean"],
-    "dynamic_complexity": ["lowlevel", "dynamic_complexity"]
+    "dynamic_complexity": ["lowlevel", "dynamic_complexity"],
+    "key_edma": ["tonal", "key_edma", "key"], 
+    "scale_edma": ["tonal", "key_edma", "scale"],
+    "strength_edma": ["tonal", "key_edma", "strength"],
+    "key_krumhansl": ["tonal", "key_krumhansl", "key"], 
+    "scale_krumhansl": ["tonal", "key_krumhansl", "scale"],
+    "strength_krumhansl": ["tonal", "key_krumhansl", "strength"],
+    "key_temperley": ["tonal", "key_temperley", "key"], 
+    "scale_temperley": ["tonal", "key_temperley", "scale"],
+    "strength_temperley": ["tonal", "key_temperley", "strength"],
+    "rg_gain": ["lowlevel", "replaygain"]
 }
 MOOD_KEYS = [
     "acoustic",
@@ -149,5 +160,25 @@ GENRE_FIELDS = [
     "genre_rosamerica",
     "genre_tzanetakis"
 ]
-RETRO_MIXONAUT_BEETS_test = {"mood"}
-RETRO_MIXONAUT_BEETS = {"mood", "essentia_genres", "energy_level", "beat_intensity"}
+
+RETRO_MIXONAUT_BEETS = {
+    "mood": "mood",
+    "essentia_genres": "essentia_genres",
+    "energy_level": "energy_level",
+    "beat_intensity": "beat_intensity",
+    "bpm": "bpm",
+    "rg_gain": "rg_track_gain",
+    "key": "initial_key"
+}
+
+CAMELOT_MAP = {
+        "C":  "8B", "C#": "3B", "D":  "10B", "D#": "5B", "E":  "12B", "F":  "7B",
+        "F#": "2B", "G":  "9B", "G#": "4B", "A":  "11B", "A#": "6B", "B":  "1B",
+        "Cm": "5A", "C#m":"12A", "Dm": "7A", "D#m":"2A", "Em": "9A", "Fm": "4A",
+        "F#m":"11A", "Gm": "6A", "G#m":"1A", "Am": "8A", "A#m":"3A", "Bm": "10A"
+    }
+
+ENHARMONIC_MAP = {
+        "D#": "Eb", "A#": "Bb", "G#": "Ab", "C#": "Db", "F#": "Gb",
+        "Db": "C#", "Eb": "D#", "Bb": "A#", "Ab": "G#", "Gb": "F#"
+    }

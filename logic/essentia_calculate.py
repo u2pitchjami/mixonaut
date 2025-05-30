@@ -1,5 +1,5 @@
 from typing import Optional, Dict
-from utils.config import MOOD_KEYS, GENRE_FIELDS
+from utils.config import MOOD_KEYS, GENRE_FIELDS, CAMELOT_MAP, ENHARMONIC_MAP
 import subprocess
 from pathlib import Path
 from utils.logger import get_logger
@@ -28,7 +28,7 @@ def compute_mood_vector(features: dict, logname: str = "Mix_Assist") -> Optional
 
     except Exception as e:
         logger.warning(f"[ERROR] Échec extraction mood_vector: {e}")
-        return None
+        raise
 
 def get_dominant_mood(mood_vector: Dict[str, float]) -> Optional[str]:
     """
@@ -114,7 +114,7 @@ def compute_energy_level(features: dict, logname="Mix_Assist") -> float | None:
 
     except Exception as e:
         logging.warning(f"[ERROR] Échec calcul energy_level: {e}")
-        return None
+        raise
 
 def extract_essentia_genres(features: dict, logname: str = "Mix_Assist") -> Optional[str]:
     """
@@ -138,4 +138,10 @@ def extract_essentia_genres(features: dict, logname: str = "Mix_Assist") -> Opti
 
     except Exception as e:
         logger.warning(f"[ERROR] Échec extraction genres Essentia: {e}")
-        return None
+        raise
+
+def convert_to_camelot(key: str, scale: str) -> str:
+    
+    key = ENHARMONIC_MAP.get(key, key)  # remplace si enharmonique
+    label = f"{key}{'m' if scale.lower() == 'minor' else ''}"
+    return CAMELOT_MAP.get(label)

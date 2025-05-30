@@ -17,7 +17,7 @@ def create_tables():
             artist TEXT,
             album TEXT,
             path TEXT,
-            bpm REAL,
+            bpm INTEGER,
             key TEXT,
             rg_gain REAL,
             genre TEXT,
@@ -41,6 +41,7 @@ def create_tables():
 
             -- lowlevel
             average_loudness REAL,
+            rg_gain REAL,
 
             -- tonal
             chords_changes_rate REAL,
@@ -108,7 +109,18 @@ def create_tables():
             spectral_complexity REAL,
             spectral_energy REAL,
             zerocrossingrate REAL,
-            dynamic_complexity REAL
+            dynamic_complexity REAL,
+            
+            -- features pour la key
+            key_edma TEXT, 
+            scale_edma TEXT,
+            strength_edma REAL,
+            key_krumhansl TEXT, 
+            scale_krumhansl TEXT,
+            strength_krumhansl REAL,
+            key_temperley TEXT, 
+            scale_temperley TEXT,
+            strength_temperley REAL
         );
         """)
         

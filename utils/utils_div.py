@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 from datetime import datetime
 from utils.config import BEETS_MUSIC, HOST_MUSIC, WINDOWS_MUSIC
@@ -61,3 +62,38 @@ def add_updated_at(field_values: dict) -> dict:
     """
     field_values["updated_at"] = get_current_timestamp()
     return field_values
+
+def sanitize_value(value, format_type: str, logname: str = "Mixonaut"):
+    logger = get_logger(logname)
+    if value is None:
+        return None
+
+    try:
+        if format_type == "bpm":
+            bpm = int(round(float(value)))
+            if 40 <= bpm <= 300:
+                return bpm
+            logger.warning(f"❌ BPM hors limites : {bpm}")
+            return None
+
+        elif format_type == "rg_gain":
+            return round(float(value), 2)
+
+        elif format_type == "key":
+            val = str(value).strip().lower()
+            if re.match(r"^\d{1,2}[ab]$", val):
+                return val
+            logger.warning(f"❌ Key non conforme : {val}")
+            return None
+
+        elif format_type == "mood":
+            return str(value).strip().lower()
+
+        # Ajoute ici d’autres formats si besoin
+        else:
+            logger.warning(f"❓ Format non reconnu : {format_type}")
+            return value
+
+    except Exception as e:
+        logger.warning(f"❌ Erreur sur {format_type} : {value} ({e})")
+        return None

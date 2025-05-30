@@ -48,7 +48,7 @@ def run_beet_command(
             
         return None
 
-    except subprocess.CalledProcessError as e:
+    except exception as e:
         logger.error(f"Erreur beet : {e}")
         return {
             "stdout": e.stdout.strip() if e.stdout else "",

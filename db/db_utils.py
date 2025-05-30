@@ -10,6 +10,9 @@ def update_tracks_meta(
     mood_emb_1: float = None,
     mood_emb_2: float = None,
     essentia_genres: str = None,
+    key: str = None,
+    bpm: float = None,
+    rg_gain: float = None,
     force: bool = True,
     logname: str = "mix_assist"
 ):
@@ -28,6 +31,12 @@ def update_tracks_meta(
         fields["mood_emb_2"] = mood_emb_2
     if essentia_genres is not None:
         fields["essentia_genres"] = essentia_genres
+    if key is not None:
+        fields["key"] = key
+    if bpm is not None:
+        fields["bpm"] = bpm
+    if rg_gain is not None:
+        fields["rg_gain"] = rg_gain
     
         
     fields["updated_at"] = datetime.now().isoformat(timespec="seconds")
@@ -52,7 +61,7 @@ def update_tracks_meta(
     execute_query(query, tuple(values))
 
     
-def ensure_columns_exist(table: str, columns: dict):
+def ensure_columns_exist(table: str, columns: dict, logname: str = "Mixonaut"):
     """
     Vérifie que les colonnes existent dans la table, les crée si absentes.
 
