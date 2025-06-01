@@ -20,19 +20,6 @@ def update_beets_fields(track_path: str, field_values: dict, logname="Mixonaut",
     args += ["--nomove"]
     args.append(track_path)
 
-    print(f"track_path : {track_path}")
-    #print(f"field_values : {field_values}")
-    print(f"args : {args}")
-
-    if "bpm" in field_values:
-        try:
-            field_values["bpm"] = int(float(field_values["bpm"]))
-            print(f"field_values['bpm'] : {type(field_values['bpm'])}")
-        except (TypeError, ValueError):
-            logger.warning(f"⚠️ BPM invalide : {field_values['bpm']}")
-            del field_values["bpm"]
-
-
     return run_beet_command(
         command="modify",
         args=args,
@@ -41,3 +28,6 @@ def update_beets_fields(track_path: str, field_values: dict, logname="Mixonaut",
         dry_run=dry_run,
         logname=logname
     )
+
+def update_beets_field(track_path: str, field: str, value: str, **kwargs):
+    return update_beets_fields(track_path, {field: value}, **kwargs)

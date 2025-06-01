@@ -1,49 +1,63 @@
 from datetime import datetime
 from db.access import execute_query
-from db.db_utils import ensure_columns_exist
 from utils.config import BEETS_DB, EDM_GENRES
 from utils.logger import get_logger
 
-def fetch_tracks_missing_essentia(force: bool = False):
-    base_fields = "id, path, artist, album, title, beet_id"
-    try:
-        if force:
-            query = f"SELECT {base_fields} FROM tracks"
-            params = ()
-        else:
-            query = f"""
-            SELECT {base_fields} FROM tracks
-            WHERE beat_intensity IS NULL 
-            OR energy_level IS NULL
-            """
-            params = ()
+def fetch_tracks(missing_features=False, missing_field=None, path_contains=None):
+    base_query = """
+    SELECT i.id, i.path, i.artist, i.album, i.title
+    FROM items i
+    LEFT JOIN audio_features af ON i.id = af.id
+    """
+    where_clauses = []
+    params = []
 
-        return execute_query(query, params, fetch=True)
+    if missing_features:
+        where_clauses.append("af.id IS NULL")
+
+    if missing_field:
+        allowed_fields = {"bpm", "energy_level", "mood", "beat_intensity", "initial_key", "rg_track_gain"}
+        if missing_field not in allowed_fields:
+            raise ValueError(f"Champ interdit : {missing_field}")
+        where_clauses.append(f"af.{missing_field} IS NULL")
+
+    if path_contains:
+        where_clauses.append("i.path LIKE ?")
+        params.append(f"%{path_contains}%")
+
+    if where_clauses:
+        base_query += " WHERE " + " AND ".join(where_clauses)
+
+    try:
+        return execute_query(base_query, tuple(params), fetch=True)
     except Exception as e:
+        logger.error(f"Erreur dans fetch_tracks : {e}")
         raise
 
-def insert_or_update_audio_features(track_id: int, features: dict, force=True, logname="Mixonaut"):
+def insert_or_update_audio_features(item_id: int, features: dict, force=True, logname="Mixonaut"):
     logger = get_logger(logname)
+    
     try:
         if not features:
             logger.warning("Aucune feature fournie pour audio_features.")
-            return
+            return False
 
         features_cleaned = {k: v for k, v in features.items() if v is not None}
+
         if not features_cleaned:
             logger.warning("Aucun champ valide pour audio_features.")
-        
-            
-        #ensure_columns_exist(table="audio_features", columns=features_cleaned, logname=logname)
-        check_query = "SELECT id FROM audio_features WHERE track_id = ?"
-        exists = execute_query(check_query, (track_id,), fetch=True)
+            return False
+
+        # Vérifie si la ligne existe déjà
+        check_query = "SELECT id FROM audio_features WHERE id = ?"
+        exists = execute_query(check_query, (item_id,), fetch=True)
 
         field_list = ", ".join(features_cleaned.keys())
         placeholders = ", ".join("?" for _ in features_cleaned)
         values = list(features_cleaned.values())
 
+        
         if exists:
-            # UPDATE
             if force:
                 assignments = ", ".join(f"{k} = ?" for k in features_cleaned)
             else:
@@ -52,17 +66,48 @@ def insert_or_update_audio_features(track_id: int, features: dict, force=True, l
             update_query = f"""
                 UPDATE audio_features
                 SET {assignments}
-                WHERE track_id = ?
+                WHERE id = ?
             """
-            execute_query(update_query, tuple(values + [track_id]))
+            #logger.debug(f"[UPDATE] {update_query} {values + [item_id]}")
+            execute_query(update_query, tuple(values + [item_id]))
 
         else:
-            # INSERT
             insert_query = f"""
-                INSERT INTO audio_features (track_id, {field_list})
+                INSERT INTO audio_features (id, {field_list})
                 VALUES (?, {placeholders})
             """
-            execute_query(insert_query, tuple([track_id] + values))
+            #logger.debug(f"[INSERT] {insert_query} {[item_id] + values}")
+            execute_query(insert_query, tuple([item_id] + values))
+
+        return True
 
     except Exception as e:
+        logger.error(f"Erreur dans insert_or_update_audio_features pour ID {item_id} : {e}")
         raise
+
+def get_audio_features_by_id(track_id: int) -> dict:
+    query = "SELECT * FROM audio_features WHERE id = ?"
+    rows = execute_query(query, (track_id,), fetch=True)
+
+    if not rows:
+        return None
+
+    row = rows[0]  # On suppose un seul résultat
+
+    # Obtenir les noms de colonnes (si execute_query ne le fait pas)
+    columns_query = "PRAGMA table_info(audio_features)"
+    columns_info = execute_query(columns_query, (), fetch=True)
+    column_names = [col[1] for col in columns_info]  # col[1] = name
+
+    return dict(zip(column_names, row))
+
+def nb_query(table: str = "audio_features") -> dict:
+    query = f"SELECT * FROM {table}"
+    rows = execute_query(query, (), fetch=True)
+
+    if not rows:
+        return None
+
+    nb = len(rows)
+
+    return nb

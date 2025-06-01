@@ -4,15 +4,23 @@ from utils.config import BEETS_DB, EDM_GENRES
 from utils.logger import get_logger
 
 def fetch_tracks_with_bpm_and_key():
-    query = "SELECT id, bpm, key FROM tracks WHERE bpm IS NOT NULL AND key IS NOT NULL"
+    query = "SELECT id, bpm, initial_key \
+    FROM items \
+    WHERE bpm IS NOT NULL \
+    AND bpm != 0 \
+    AND initial_key IS NOT NULL \
+    AND initial_key != 0"
     return execute_query(query, fetch=True)
 
 def insert_transpositions(track_id, keys: dict, bpms: dict, logname="Mix_Assist"):
 
     logger = get_logger(logname)
-    
+    print(f"🔍 keys {keys}")
+    print(f"🔍 bpms {bpms}")
     fields = ["track_id"] + list(keys.keys()) + list(bpms.keys())
     values = [track_id] + list(keys.values()) + list(bpms.values())
+    print(f"🔍 fields {fields}")
+    print(f"🔍 values {values}")
     placeholders = ", ".join(["?"] * len(values))
     query = f"""
         INSERT OR REPLACE INTO track_transpositions ({', '.join(fields)})

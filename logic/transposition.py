@@ -29,6 +29,7 @@ def generate_transpositions(count=0):
     logger.info(f"🎯 {len(rows)} morceaux à traiter")
     try:
         for track_id, bpm, key in rows[:count]:
+            print(f"🔍 Traitement du morceau {track_id} avec BPM: {bpm}, Key: {key}")
             keys, bpms = {}, {}
             for shift in SEMITONE_SHIFT_VALUES:
                 key_col = shift_to_colname("key", shift)
@@ -39,7 +40,7 @@ def generate_transpositions(count=0):
                 except Exception as e:
                     logger.warning("Erreur lors du shift %s pour track %s: %s", shift, track_id, e)
             insert_transpositions(track_id, keys, bpms, logname="Process_Transposition")
-            update_tracks_meta(track_id=track_id, logname="Process_Transposition")
+            #update_tracks_meta(track_id=track_id, logname="Process_Transposition")
         logger.info("Transpositions générées pour %d morceaux.", len(rows))
     except Exception as e:
         logger.error(f"❌ [{__name__.split(".")[-1]}] Erreur lors de la transposition : {e}")

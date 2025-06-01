@@ -1,48 +1,46 @@
 import sqlite3
 from pathlib import Path
-from utils.config import MIX_DB
+from utils.config import BEETS_DB
 
 def create_tables():
-    with sqlite3.connect(MIX_DB) as conn:
+    with sqlite3.connect(BEETS_DB) as conn:
         cursor = conn.cursor()
-        print(MIX_DB)
+        
         # Table principale des morceaux
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS tracks (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            beet_id TEXT UNIQUE,
-            track_uid TEXT NOT NULL UNIQUE,
-            present_in_beets INTEGER,
-            title TEXT,
-            artist TEXT,
-            album TEXT,
-            path TEXT,
-            bpm INTEGER,
-            key TEXT,
-            rg_gain REAL,
-            genre TEXT,
-            length REAL,
-            mood TEXT,
-            energy_level INTEGER,
-            beat_intensity REAL,
-            essentia_genres TEXT,
-            mood_emb_1 FLOAT,
-            mood_emb_2 FLOAT,
-            added_at TEXT,
-            updated_at TEXT
-        );
-        """)
+        # cursor.execute("""
+        # CREATE TABLE IF NOT EXISTS tracks (
+        #     id INTEGER PRIMARY KEY AUTOINCREMENT,
+        #     beet_id TEXT UNIQUE,
+        #     track_uid TEXT NOT NULL UNIQUE,
+        #     present_in_beets INTEGER,
+        #     title TEXT,
+        #     artist TEXT,
+        #     album TEXT,
+        #     path TEXT,
+        #     bpm INTEGER,
+        #     key TEXT,
+        #     rg_gain REAL,
+        #     genre TEXT,
+        #     length REAL,
+        #     mood TEXT,
+        #     energy_level INTEGER,
+        #     beat_intensity REAL,
+        #     essentia_genres TEXT,
+        #     mood_emb_1 FLOAT,
+        #     mood_emb_2 FLOAT,
+        #     added_at TEXT,
+        #     updated_at TEXT
+        # );
+        # """)
 
         # Table des features analytiques
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS audio_features (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+            id INTEGER PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE,
 
             -- lowlevel
             average_loudness REAL,
-            rg_gain REAL,
-
+            
             -- tonal
             chords_changes_rate REAL,
             chords_key TEXT,
@@ -52,7 +50,7 @@ def create_tables():
             -- rhythm
             rhythm_danceability REAL,
             beats_count INTEGER,
-            bpm_essentia REAL,
+            bpm REAL,
             beats_loudness_mean REAL,
 
             -- highlevel - danceability
@@ -64,14 +62,51 @@ def create_tables():
             gender_probability REAL,
 
             -- highlevel - genres
+            genre TEXT,
+            -- dortmund
             genre_dortmund TEXT,
             genre_dortmund_probability REAL,
+            genre_dortmund_alternative REAL,
+            genre_dortmund_blues REAL,
+            genre_dortmund_electronic REAL,
+            genre_dortmund_folkcountry REAL,
+            genre_dortmund_funksoulrnb REAL,
+            genre_dortmund_jazz REAL,
+            genre_dortmund_pop REAL,
+            genre_dortmund_raphiphop REAL,
+            genre_dortmund_rock REAL,
+            -- electronic
             genre_electronic TEXT,
             genre_electronic_probability REAL,
+            genre_electronic_ambient REAL,
+            genre_electronic_dnb REAL,
+            genre_electronic_house REAL,
+            genre_electronic_techno REAL,
+            genre_electronic_trance REAL,
+            -- rosamerica
             genre_rosamerica TEXT,
             genre_rosamerica_probability REAL,
+            genre_rosamerica_cla REAL,
+            genre_rosamerica_dan REAL,
+            genre_rosamerica_hip REAL,
+            genre_rosamerica_jaz REAL,
+            genre_rosamerica_pop REAL,
+            genre_rosamerica_roc REAL,
+            genre_rosamerica_rhy REAL,
+            genre_rosamerica_spe REAL,
+            -- tzanetakis            
             genre_tzanetakis TEXT,
             genre_tzanetakis_probability REAL,
+            genre_tzanetakis_blu REAL,
+            genre_tzanetakis_cla REAL,
+            genre_tzanetakis_cou REAL,
+            genre_tzanetakis_dis REAL,
+            genre_tzanetakis_hip REAL,
+            genre_tzanetakis_jaz REAL,
+            genre_tzanetakis_met REAL,
+            genre_tzanetakis_pop REAL,
+            genre_tzanetakis_reg REAL,
+            genre_tzanetakis_roc REAL,
 
             -- highlevel - ismir04
             ismir04_rhythm TEXT,
@@ -120,7 +155,16 @@ def create_tables():
             strength_krumhansl REAL,
             key_temperley TEXT, 
             scale_temperley TEXT,
-            strength_temperley REAL
+            strength_temperley REAL,
+            
+            mood TEXT,
+            energy_level INTEGER,
+            beat_intensity REAL,
+            essentia_genres TEXT,
+            rg_track_gain REAL,
+            initial_key TEXT,
+            mood_emb_1 FLOAT,
+            mood_emb_2 FLOAT
         );
         """)
         
@@ -173,7 +217,7 @@ def create_tables():
         """)
 
         conn.commit()
-        print(f"✅ Base initialisée : {MIX_DB}")
+        print(f"✅ Base initialisée : {BEETS_DB}")
 
 if __name__ == "__main__":
     create_tables()

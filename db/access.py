@@ -1,13 +1,13 @@
 import sqlite3
 from utils.logger import get_logger
-from utils.config import MIX_DB, BEETS_DB
+from utils.config import BEETS_DB
 
 logname = __name__.split(".")[-1]
 
-def get_connection(db_path: str = MIX_DB):
+def get_connection(db_path: str = BEETS_DB):
     return sqlite3.connect(db_path)
 
-def execute_query(query: str, params: tuple = (), fetch: bool = False, db: str = MIX_DB, logname: str = logname):
+def execute_query(query: str, params: tuple = (), fetch: bool = False, db: str = BEETS_DB, logname: str = logname):
     """Exécute une requête SQL sur la base spécifiée"""
     logger = get_logger(logname)
     try:
@@ -29,7 +29,7 @@ def execute_query(query: str, params: tuple = (), fetch: bool = False, db: str =
         raise
     
 
-def execute_many(query: str, param_list: list[tuple], db: str = MIX_DB):
+def execute_many(query: str, param_list: list[tuple], db: str = BEETS_DB):
     """Execute plusieurs requêtes en une transaction"""
     conn = get_connection(db)
     cursor = conn.cursor()

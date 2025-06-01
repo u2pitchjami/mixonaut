@@ -8,9 +8,9 @@ def ensure_to_str(path) -> str:
     """
     Convertit un path potentiellement en bytes ou Path en str propre.
     """
-    if isinstance(path_like, bytes):
-        path_like = path_like.decode("utf-8")
-    return str(Path(path_like))
+    if isinstance(path, bytes):
+        path = path.decode("utf-8")
+    return str(Path(path))
 
 def ensure_to_path(path):
     """

@@ -69,6 +69,11 @@ SCRIPT_DIR = get_required("SCRIPT_DIR")
 #DB
 MIX_DB = get_required("MIX_DB")
 
+#IMAGES
+IMAGE_BEETS = get_required("IMAGE_BEETS")
+IMAGE_ESSENTIA = get_required("IMAGE_ESSENTIA")
+
+
 EDM_GENRES = {"techno", "house", "trance", "edm", "dance", "psychedelic", "rave", "space"}
 AUDIO_EXTENSIONS = {'.mp3', '.flac', '.wav', '.ogg', '.m4a', '.aac', '.alac', '.wma'}
 IGNORED_EXTENSIONS = {
@@ -77,8 +82,8 @@ IGNORED_EXTENSIONS = {
 }
 
 CAMELOT_ORDER = [
-    "1A", "2A", "3A", "4A", "5A", "6A", "7A", "8A", "9A", "10A", "11A", "12A",
-    "1B", "2B", "3B", "4B", "5B", "6B", "7B", "8B", "9B", "10B", "11B", "12B"
+    "1a", "2a", "3a", "4a", "5a", "6a", "7a", "8a", "9a", "10a", "11a", "12a",
+    "1b", "2b", "3b", "4b", "5b", "6b", "7b", "8b", "9b", "10b", "11b", "12b"
 ]
 SEMITONE_SHIFT_VALUES = [i * 3 for i in range(-4, 5)]  # -12 à +12
 
@@ -95,12 +100,44 @@ ESSENTIA_MAPPING = {
     "gender_probability": ["highlevel", "gender", "probability"],
     "genre_dortmund": ["highlevel", "genre_dortmund", "value"],
     "genre_dortmund_probability": ["highlevel", "genre_dortmund", "probability"],
+    "genre_dortmund_alternative": ["highlevel", "genre_dortmund", "all", "alternative"],
+    "genre_dortmund_blues": ["highlevel", "genre_dortmund", "all", "blues"],
+    "genre_dortmund_electronic": ["highlevel", "genre_dortmund", "all", "electronic"],
+    "genre_dortmund_folkcountry": ["highlevel", "genre_dortmund", "all", "folkcountry"],
+    "genre_dortmund_funksoulrnb": ["highlevel", "genre_dortmund", "all", "funksoulrnb"],    
+    "genre_dortmund_jazz": ["highlevel", "genre_dortmund", "all", "jazz"],
+    "genre_dortmund_pop": ["highlevel", "genre_dortmund", "all", "pop"],
+    "genre_dortmund_raphiphop": ["highlevel", "genre_dortmund", "all", "raphiphop"],
+    "genre_dortmund_rock": ["highlevel", "genre_dortmund", "all", "rock"],
     "genre_electronic": ["highlevel", "genre_electronic", "value"],
     "genre_electronic_probability": ["highlevel", "genre_electronic", "probability"],
+    "genre_electronic_ambient": ["highlevel", "genre_electronic", "all", "ambient"],
+    "genre_electronic_dnb": ["highlevel", "genre_electronic", "all", "dnb"],
+    "genre_electronic_house": ["highlevel", "genre_electronic", "all", "house"],
+    "genre_electronic_techno": ["highlevel", "genre_electronic", "all", "techno"],
+    "genre_electronic_trance": ["highlevel", "genre_electronic", "all", "trance"],
     "genre_rosamerica": ["highlevel", "genre_rosamerica", "value"],
     "genre_rosamerica_probability": ["highlevel", "genre_rosamerica", "probability"],
+    "genre_rosamerica_cla": ["highlevel", "genre_rosamerica", "all", "cla"],
+    "genre_rosamerica_dan": ["highlevel", "genre_rosamerica", "all", "dan"],
+    "genre_rosamerica_hip": ["highlevel", "genre_rosamerica", "all", "hip"],
+    "genre_rosamerica_jaz": ["highlevel", "genre_rosamerica", "all", "jaz"],
+    "genre_rosamerica_pop": ["highlevel", "genre_rosamerica", "all", "pop"],
+    "genre_rosamerica_roc": ["highlevel", "genre_rosamerica", "all", "roc"],
+    "genre_rosamerica_rhy": ["highlevel", "genre_rosamerica", "all", "rhy"],
+    "genre_rosamerica_spe": ["highlevel", "genre_rosamerica", "all", "spe"],
     "genre_tzanetakis": ["highlevel", "genre_tzanetakis", "value"],
     "genre_tzanetakis_probability": ["highlevel", "genre_tzanetakis", "probability"],
+    "genre_tzanetakis_blu": ["highlevel", "genre_tzanetakis", "all", "blu"],
+    "genre_tzanetakis_cla": ["highlevel", "genre_tzanetakis", "all", "cla"],
+    "genre_tzanetakis_cou": ["highlevel", "genre_tzanetakis", "all", "cou"],
+    "genre_tzanetakis_dis": ["highlevel", "genre_tzanetakis", "all", "dis"],
+    "genre_tzanetakis_hip": ["highlevel", "genre_tzanetakis", "all", "hip"],
+    "genre_tzanetakis_jaz": ["highlevel", "genre_tzanetakis", "all", "jaz"],
+    "genre_tzanetakis_met": ["highlevel", "genre_tzanetakis", "all", "met"],
+    "genre_tzanetakis_pop": ["highlevel", "genre_tzanetakis", "all", "pop"],
+    "genre_tzanetakis_reg": ["highlevel", "genre_tzanetakis", "all", "reg"],
+    "genre_tzanetakis_roc": ["highlevel", "genre_tzanetakis", "all", "roc"],
     "ismir04_rhythm": ["highlevel", "ismir04_rhythm", "value"],
     "ismir04_rhythm_probability": ["highlevel", "ismir04_rhythm", "probability"],
     "mood_acoustic": ["highlevel", "mood_acoustic", "value"],
@@ -126,7 +163,7 @@ ESSENTIA_MAPPING = {
     "tonal_atonal_probability": ["highlevel", "tonal_atonal", "probability"],
     "voice_instrumental": ["highlevel", "voice_instrumental", "value"],
     "voice_instrumental_probability": ["highlevel", "voice_instrumental", "probability"],
-    "bpm_essentia": ["rhythm", "bpm"],
+    "bpm": ["rhythm", "bpm"],
     "beats_loudness_mean": ["rhythm", "beats_loudness", "mean"],
     "spectral_centroid": ["lowlevel", "spectral_centroid", "mean"],
     "spectral_flux": ["lowlevel", "spectral_flux", "mean"],
@@ -143,7 +180,7 @@ ESSENTIA_MAPPING = {
     "key_temperley": ["tonal", "key_temperley", "key"], 
     "scale_temperley": ["tonal", "key_temperley", "scale"],
     "strength_temperley": ["tonal", "key_temperley", "strength"],
-    "rg_gain": ["lowlevel", "replaygain"]
+    "rg_track_gain": ["lowlevel", "replaygain"]
 }
 MOOD_KEYS = [
     "acoustic",
@@ -162,13 +199,13 @@ GENRE_FIELDS = [
 ]
 
 RETRO_MIXONAUT_BEETS = {
-    "mood": "mood",
-    "essentia_genres": "essentia_genres",
-    "energy_level": "energy_level",
-    "beat_intensity": "beat_intensity",
-    "bpm": "bpm",
-    "rg_gain": "rg_track_gain",
-    "key": "initial_key"
+    "mood",
+    "energy_level",
+    "beat_intensity",
+    "bpm",
+    "rg_track_gain",
+    "initial_key",
+    "genre"
 }
 
 CAMELOT_MAP = {
@@ -179,6 +216,6 @@ CAMELOT_MAP = {
     }
 
 ENHARMONIC_MAP = {
-        "D#": "Eb", "A#": "Bb", "G#": "Ab", "C#": "Db", "F#": "Gb",
-        "Db": "C#", "Eb": "D#", "Bb": "A#", "Ab": "G#", "Gb": "F#"
-    }
+    "Db": "C#", "Eb": "D#", "Bb": "A#", "Ab": "G#", "Gb": "F#",
+    "C#": "C#", "D#": "D#", "F#": "F#", "G#": "G#", "A#": "A#"
+}
