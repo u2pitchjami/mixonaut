@@ -27,7 +27,7 @@ def enrich_features(track_features, logname=logname):
         logger.debug(f"mood : {track_features['mood']}")
 
         track_features["genre"] = get_dominant_genre(track_features)
-        logger.debug(f"genre : {track_features['genre']}")
+        logger.debug(f"get_dominant_genre : {track_features['genre']}")
 
         best_key_data = get_best_key_from_essentia(track_features)
         if best_key_data:

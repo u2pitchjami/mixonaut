@@ -1,0 +1,20 @@
+services:
+  beets:
+    image: u2pitchjami/essentia-mixonaut:latest
+    container_name: essentia-mixonaut
+    user: 1000:1000
+    network_mode: bridge
+    volumes:
+      - /home/pipo/data/appdata/mixonaut/essentia/temp:/app/music
+      - /home/pipo/data/appdata/mixonaut/essentia:/app/profile
+      - /home/pipo/data/appdata/beets-xtractor-docker/config:/app/config
+    environment:
+      - HOME=/tmp
+      - TZ=Europe/Paris
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    entrypoint: ["bash"]
+    tty: true

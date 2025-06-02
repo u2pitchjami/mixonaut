@@ -48,10 +48,10 @@ def get_dominant_genre(track_features: dict) -> str:
     # Vérifie override électro (si les deux modèles pointent vers electro/dan)
     dortmund = track_features.get("genre_dortmund")
     dortmund_p = track_features.get("genre_dortmund_probability", 0.0)
-    print(f"dortmund: {dortmund}, prob: {dortmund_p}")
+    
     rosamerica = track_features.get("genre_rosamerica")
     rosamerica_p = track_features.get("genre_rosamerica_probability", 0.0)
-    print(f"rosamerica: {rosamerica}, prob: {rosamerica_p}")
+    
 
     if (
         dortmund in ELECTRO_OVERRIDE_GENRES
@@ -62,7 +62,6 @@ def get_dominant_genre(track_features: dict) -> str:
         # On prend uniquement le genre_electronic
         electronic = track_features.get("genre_electronic")
         electronic_p = track_features.get("genre_electronic_probability", 0.0)
-        print(f"electronic: {electronic}, prob: {electronic_p}")
         
         return GENRE_CANONICAL.get(electronic.lower(), electronic)
         

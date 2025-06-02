@@ -6,7 +6,6 @@ import sys
 
 # Chargement du .env à la racine du projet
 env_path = Path(__file__).resolve().parent.parent / ".env"
-print(env_path)
 load_dotenv(dotenv_path=env_path, override=True)
 
 # --- Fonctions utilitaires ---

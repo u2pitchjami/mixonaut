@@ -66,19 +66,36 @@ def build_sync_fields(track_id: int, track_features: dict, extra_fields=None, lo
         func_name = f"should_update_{field}"
         check_fn = globals().get(func_name)
 
-        # S'il y a une fonction de validation, on l'utilise
         if check_fn:
-            if not check_fn(track_id, value):
-                continue  # Ne pas synchroniser ce champ
-        # Sinon, on considère qu'on peut le synchroniser
-        result[field] = value
+            check_result = check_fn(track_id, value)
+            if check_result is False:
+                continue
+            elif check_result is not True:
+                value = check_result  # la fonction a renvoyé une nouvelle valeur
 
+        result[field] = value
+        
     return result
+
 
 def should_update_genre(track_id: int, new_genre: str) -> bool:
     current_genre = get_item_field_value("genre", track_id)
+    print(f"should_update_genre called with track_id: {track_id}, new_genre: {new_genre}, current_genre: {current_genre}")
     if not current_genre:
-        return True
+        return new_genre.strip()
     
-    current_genres = [g.strip().lower() for g in re.split(r"[;,/]", current_genre)]
-    return new_genre.strip().lower() not in current_genres
+    # Nettoyage des genres actuels
+    current_genres = [g.strip() for g in re.split(r"[;,/]", current_genre)]
+    new_genre_clean = new_genre.strip()
+
+    if new_genre_clean in current_genres:
+        return False  # Rien à faire
+
+    # Sinon, on ajoute à la liste
+    genres = current_genres + [new_genre_clean]
+    print(f"Genres après ajout : {genres}")
+    # Mise en forme (capitalisation facultative)
+    new_value = ", ".join(sorted(set(genres)))  # tri optionnel
+    print(f"Nouveau genre formaté : {new_value}")
+
+    return new_value

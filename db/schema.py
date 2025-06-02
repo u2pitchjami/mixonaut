@@ -6,33 +6,6 @@ def create_tables():
     with sqlite3.connect(BEETS_DB) as conn:
         cursor = conn.cursor()
         
-        # Table principale des morceaux
-        # cursor.execute("""
-        # CREATE TABLE IF NOT EXISTS tracks (
-        #     id INTEGER PRIMARY KEY AUTOINCREMENT,
-        #     beet_id TEXT UNIQUE,
-        #     track_uid TEXT NOT NULL UNIQUE,
-        #     present_in_beets INTEGER,
-        #     title TEXT,
-        #     artist TEXT,
-        #     album TEXT,
-        #     path TEXT,
-        #     bpm INTEGER,
-        #     key TEXT,
-        #     rg_gain REAL,
-        #     genre TEXT,
-        #     length REAL,
-        #     mood TEXT,
-        #     energy_level INTEGER,
-        #     beat_intensity REAL,
-        #     essentia_genres TEXT,
-        #     mood_emb_1 FLOAT,
-        #     mood_emb_2 FLOAT,
-        #     added_at TEXT,
-        #     updated_at TEXT
-        # );
-        # """)
-
         # Table des features analytiques
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS audio_features (
@@ -160,7 +133,6 @@ def create_tables():
             mood TEXT,
             energy_level INTEGER,
             beat_intensity REAL,
-            essentia_genres TEXT,
             rg_track_gain REAL,
             initial_key TEXT,
             mood_emb_1 FLOAT,

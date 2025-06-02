@@ -1,0 +1,331 @@
+---
+plugins: badfiles discogs bandcamp beatport4 convert deezer duplicates edit embedart 
+  export fetchart fish ftintitle hook info inline lastgenre lastimport listenbrainz lyrics 
+  mbsync missing permissions random scrub thumbnails yearfixer web
+
+directory: /app/data
+library: /app/db/collection.db
+threaded: yes
+original_date: no
+per_disc_numbering: no
+
+match:
+  strong_rec_thresh: 0.9
+  medium_rec_thresh: 0.8
+  max_rec_thresh: 0.95
+
+include:
+  - beatport_credentials.yaml
+
+web:
+  host: 0.0.0.0
+  port: 8337
+
+import:
+  write: yes
+  copy: no
+  move: yes
+  resume: ask
+  incremental: yes
+  quiet: no
+  quiet_fallback: skip
+  timid: yes
+  log: /app/logs/beet.log
+
+#Path Extensions#####################################################################################
+
+item_fields:
+  i_release_type: |
+    if len(albumtypes) > 1:
+        if albumtypes[1] == "compilation":
+            return "Compilation"
+        elif albumtypes[1] == "soundtrack":
+            return "Soundtrack"
+        elif albumtypes[1] == "live":
+            return "Live"
+        elif albumtypes[1] == "broadcast":
+            return "Broadcast"
+        elif albumtypes[1] == "dj-mix":
+            return "DJ-Mix"
+        elif albumtypes[1] == "demo":
+            return "Demo"
+        elif albumtypes[1] == "mixtape/street":
+            return "Mixtape"
+        elif albumtypes[1] == "remix":
+            return "Remix"
+
+    if len(albumtypes) > 0:
+        if albumtypes[0] == "album":
+            return "Album"
+        elif albumtypes[0] == "single":
+            return "Single"
+        elif albumtypes[0] == "ep":
+            return "EP"
+
+    return "Other"
+  disc_and_track: |
+    if disctotal > 9:
+      return u'%02i-%02i'% (disc, track)
+    elif disctotal > 1:
+      return u'%01i-%02i' % (disc, track)
+    elif tracktotal > 99:
+      return u'%03i' % (track)
+    elif tracktotal > 9:
+      return u'%02i' % (track)
+    else:
+      return u'%02i' % (track)
+
+paths:
+  default: $albumartist/$original_year - [$i_release_type] ($label) -
+    $album%aunique{albumartist album year, label catalognum}/$disc_and_track -
+    $artist - $album - $title
+  singleton: $albumartist/$original_year - [$i_release_type] ($label) -
+    $album%aunique{albumartist album year, label catalognum}/$disc_and_track -
+    $artist - $album - $title
+  comp: $albumartist/$original_year - [$i_release_type] ($label) -
+    $album%aunique{albumartist album year, label catalognum}/$disc_and_track -
+    $artist - $album - $title
+  albumtype_soundtrack: $albumartist/$original_year - [$i_release_type] ($label) -
+    $album%aunique{albumartist album year, label catalognum}/$disc_and_track -
+    $artist - $album - $title
+replace:
+  ^\.: ""
+  "[\\x00-\\x1f]": _
+  '[<>:"\?\*\|]': ""
+  "[\\xE8-\\xEB]": e
+  "[\\xEC-\\xEF]": i
+  "[\\xE2-\\xE6]": a
+  "[\\xF2-\\xF6]": o
+  "[\\xF8]": o
+  \.$: ""
+  \s+$: ""
+ftintitle:
+  auto: yes
+
+#Autotagger Extensions###############################################################################
+
+discogs:
+  index_tracks: yes
+  source_weight: 0.5
+  user_token: xxxxxxx
+
+bandcamp:
+  include_digital_only_tracks: true
+  search_max: 2
+  art: yes
+  comments_separator: |
+    
+    ---
+  truncate_comments: no
+  exclude_extra_fields: []
+  genre:
+    capitalize: no
+    maximum: 0
+    always_include: []
+    mode: progressive
+deezer:
+  source_weight: 0.5
+beatport4:
+  source_weight: 0.5
+  art: yes
+  art_overwrite: no
+bpsync:
+  auto: yes
+
+#### Listenbrainz and Last.fm ##############################################################
+
+listenbrainz:
+    token: xxxxxx
+    username: xxxxx
+
+lastfm:
+    user: xxxxxx
+
+lastimport:
+  per_page: 500
+  retry_limit: 3
+
+lastgenre:
+  auto: false
+  canonical: /app/config/lastgenre/genres-tree.yaml
+  count: 4
+  fallback: None
+  force: no
+  min_weight: 15
+  prefer_specific: true
+  source: album
+  separator: ", "
+  whitelist: /app/config/lastgenre/genres.txt
+  title_case: yes
+
+#Lyrics and Art Extensions#######################################################################
+
+lyrics:
+  auto: no
+  fallback: ""
+  force: no
+  sources:
+    - bandcamp
+    - genius
+    - lyricwiki
+    - google
+    - musixmatch
+art_filename: cover
+copyartifacts:
+  extensions: .jpg .pdf .png
+  print_ignored: yes
+fetchart:
+  auto: yes
+  cautious: no
+  enforce_ratio: yes
+  minwidth: 1000
+  maxwidth: 3000
+  sources:
+    - filesystem
+    - coverart
+    - albumart
+    - fanarttv
+    - bandcamp
+  fanarttv_key: xxxxxxxxxx
+  store_source: yes
+thumbnails:
+  auto: yes
+  force: no
+  dolphin: no
+embedart:
+  auto: yes
+  compare_threshold: 50
+  ifempty: yes
+  maxwidth: 0
+  remove_art_file: no
+
+##maintenance and cleanup extensions##########################################################
+
+duplicates:
+  album: no
+  checksum: ffmpeg -i {file} -f crc -
+  copy: none
+  count: yes
+  delete: no
+  format: format_item
+  full: yes
+  keys:
+    - mb_trackid
+    - mb_albumid
+  merge: no
+  move: none
+  path: no
+  strict: no
+  tiebreak: {}
+
+missing:
+  count: yes
+  total: yes
+badfiles:
+  check_on_import: no
+yearfixer:
+  force: yes
+scrub:
+  auto: yes
+permissions:
+  file: 775
+  dir: 775
+convert:
+  auto: no
+  ffmpeg: /usr/bin/ffmpeg
+  opts: -ab 320k -ac 2 -ar 48000
+  max_bitrate: 320
+  threads: 1
+export:
+  json:
+    formatting:
+      ensure_ascii: false
+      indent: 4
+      separators:
+        - ","
+        - ": "
+      sort_keys: true
+  csv:
+    formatting:
+      delimiter: ","
+      dialect: excel
+verbose: no
+ui:
+  color: yes
+  colors:
+    text_success:
+      - bold
+      - green
+    text_warning:
+      - bold
+      - yellow
+    text_error:
+      - bold
+      - red
+    text_highlight:
+      - bold
+      - red
+    text_highlight_minor:
+      - white
+    action_default:
+      - bold
+      - cyan
+    action:
+      - bold
+      - cyan
+    text:
+      - normal
+    text_faint:
+      - faint
+    import_path:
+      - bold
+      - blue
+    import_path_items:
+      - bold
+      - blue
+    added:
+      - green
+    removed:
+      - red
+    changed:
+      - yellow
+    added_highlight:
+      - bold
+      - green
+    removed_highlight:
+      - bold
+      - red
+    changed_highlight:
+      - bold
+      - yellow
+    text_diff_added:
+      - bold
+      - red
+    text_diff_removed:
+      - bold
+      - red
+    text_diff_changed:
+      - bold
+      - red
+    action_description:
+      - white
+hook:
+  hooks:
+    - event: album_imported
+      command: echo "\"{album}\""
+    - event: import
+      command: echo "imported from {paths}"
+    - event: art_set
+      command: echo "Coverart saved"
+    - event: import_begin
+      command: echo "Roon import started..."
+    - event: import_task_apply
+      command: echo "Metadata applied"
+    - event: item_copied
+      command: echo "\"{item}\" copied from \"{source}\" to \"{destination}\""
+    - event: item_moved
+      command: echo "Moved \"{item}\""
+    - event: write
+      command: echo "Writing to {path}"
+    - event: cli_exit
+      command: echo "All tasks finished!"

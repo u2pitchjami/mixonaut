@@ -1,0 +1,25 @@
+services:
+  beets:
+    image: u2pitchjami/beets-mixonaut:latest
+    container_name: beets-mixonaut
+    user: 1000:1000
+    network_mode: bridge
+    ports:
+      - "8337:8337"
+    volumes:
+      - /home/pipo/data/appdata/mixonaut/beets_config:/app/config
+      - /home/pipo/data/db/mixonaut:/app/db
+      - /home/pipo/data/logs/mixonaut/beets:/app/logs
+      - /mnt/user/Musiques/Collection:/app/data
+      - /mnt/user/Musiques/Atrier:/app/import
+    environment:
+      - HOME=/tmp
+      - TZ=Europe/Paris
+      - BEETSDIR=/app/config
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    entrypoint: ["/app/entrypoint.sh"]
+    tty: true

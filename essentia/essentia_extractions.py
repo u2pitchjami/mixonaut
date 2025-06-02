@@ -1,4 +1,4 @@
-from utils.config import ESSENTIA_TEMP_AUDIO, ESSENTIA_TEMP_JSON, SCRIPT_PATH_ESSENTIA, SCRIPT_PATH_REPLAYGAIN, PROF_ESSENTIA, ESSENTIA_MAPPING
+from utils.config import ESSENTIA_TEMP_AUDIO, PROF_ESSENTIA, ESSENTIA_MAPPING, IMAGE_ESSENTIA, BEETS_CONFIG_DIR
 import subprocess
 from pathlib import Path
 import json
@@ -10,16 +10,34 @@ def run_essentia_extraction(audio_path: Path, json_path: Path, profile_path: Pat
     """Lance l'extraction via le script Bash contenant l'appel à essentia_streaming_extractor_music"""
     logger = get_logger(logname)
     
-    script_path = Path(SCRIPT_PATH_ESSENTIA)
+    #script_path = Path(SCRIPT_PATH_ESSENTIA)
+    profile_dir = Path(PROF_ESSENTIA).parent
+
         
-    if not Path(script_path).exists():
-        logger.error(f"Script Bash introuvable : {script_path}")
-        return False
+    # if not Path(script_path).exists():
+    #     logger.error(f"Script Bash introuvable : {script_path}")
+    #     return False
 
     try:
         logger.info(f"▶️ Lancement extraction pour : {audio_path.name}")
+        
+        # Construction de la commande Docker
+        docker_cmd = [
+            "docker", "run", "--rm",
+            "-v", f"{str(ESSENTIA_TEMP_AUDIO)}:/app/music",
+            "-v", f"{str(profile_dir)}:/app/profile",
+            "-v", f"{str(BEETS_CONFIG_DIR)}:/app/config",
+            IMAGE_ESSENTIA,
+            "essentia_streaming_extractor_music",  # ou "python3 /app/add_replaygain.py" si pas executable
+            str(audio_path),
+            str(json_path),
+            str(profile_path)
+        ]
+        
+        logger.debug(f"▶️ Commande : {' '.join(docker_cmd)}")
+        
         result = subprocess.run(
-            [str(script_path), str(audio_path), str(json_path), str(profile_path)],
+            docker_cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             check=True,

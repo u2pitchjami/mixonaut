@@ -2,6 +2,7 @@
 import subprocess
 import sys
 from pathlib import Path
+from utils.config import IMAGE_ESSENTIA
 from utils.logger import get_logger
 
 logname = __name__.split(".")[-1]
@@ -25,7 +26,7 @@ def run_replaygain_in_container(audio_path: str, json_out_path: str, logname=log
         "docker", "run", "--rm",
         "-v", f"{temp_dir}:/app/music",
         "-v", f"{profile_dir}:/app/profile",
-        "essentia_docker:latest",
+        IMAGE_ESSENTIA,
         "python3", "/usr/local/bin/add_replaygain.py",  # ou "python3 /app/add_replaygain.py" si pas executable
         f"/app/music/{audio.name}",
         f"/app/music/{json_out.name}"

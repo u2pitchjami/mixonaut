@@ -1,0 +1,15 @@
+beets
+beets-beatport4
+beets[embedart]
+beets[fetchart,thumbnails]
+beets[lastgenre]
+beets[lastimport]
+beets[lyrics]
+beets[scrub]
+beets[web]
+beets-yearfixer
+beetcamp
+eyeD3
+beets[discog]
+python3-discogs-client
+requests-oauthlib
