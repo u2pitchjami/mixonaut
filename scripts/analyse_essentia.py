@@ -22,6 +22,9 @@ def main(force=False, count=0):
         
         for track in tracks[:count]:
             track_features = analyse_track(track, force=force, source="Mixonaut", logname=logname)
+            if track_features is None:
+                logger.warning(f"❌ Analyse échouée pour le morceau : {track[0]}")
+                continue
             logger.info(f"✅ Track mis à jour : {track[0]}")
             sync_fields_by_track_id(track_id=track[0], track_features=track_features, logname=logname)
             

@@ -16,7 +16,7 @@ def fetch_tracks(missing_features=False, missing_field=None, path_contains=None)
         where_clauses.append("af.id IS NULL")
 
     if missing_field:
-        allowed_fields = {"bpm", "energy_level", "mood", "beat_intensity", "initial_key", "rg_track_gain"}
+        allowed_fields = {"bpm", "energy_level", "mood", "beat_intensity", "initial_key", "rg_track_gain", "genre"}
         if missing_field not in allowed_fields:
             raise ValueError(f"Champ interdit : {missing_field}")
         where_clauses.append(f"af.{missing_field} IS NULL")

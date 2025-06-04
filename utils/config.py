@@ -67,6 +67,7 @@ SCRIPT_DIR = get_required("SCRIPT_DIR")
 
 #DB
 MIX_DB = get_required("MIX_DB")
+QUERIES_DIR = get_str("QUERIES_DIR", "./dashboard")
 
 #IMAGES
 IMAGE_BEETS = get_required("IMAGE_BEETS")

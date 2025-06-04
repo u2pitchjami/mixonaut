@@ -13,11 +13,16 @@ def analyse_track(track, force=False, source="Mixonaut", logname=logname):
     logger = get_logger(logname)
     logger.debug(f"SCRIPT_PATH_ESSENTIA : {SCRIPT_PATH_ESSENTIA}")
     logger.debug(f"ESSENTIA_PROFILE : {PROF_ESSENTIA}")
+    clean_trigger = False
 
     try:
-        track_id, original_path, safe_name, temp_audio, temp_json = prepare_track_paths(track, logname=logname)
+        result = prepare_track_paths(track, logname=logname)
+        if result is None:
+            logger.error(f"❌ Erreur préparation des chemins pour le morceau : {track}")
+            return None  # ou log + continue si tu veux tracer
+        track_id, original_path, safe_name, temp_audio, temp_json = result
         if not process_audio_file(original_path, temp_audio, logname=logname):
-            return False
+            return None
 
         profile = Path(PROF_ESSENTIA)
         track_features = extract_and_parse_features(temp_audio, temp_json, profile, logname=logname)
@@ -28,14 +33,16 @@ def analyse_track(track, force=False, source="Mixonaut", logname=logname):
 
         insert_or_update_audio_features(track_id, track_features, force=force, logname=logname)
         archive_json_result(track_id, safe_name, logname=logname)
-
+        clean_trigger = True
         return track_features
 
     except Exception as e:
         logger.exception(f"❌ Erreur traitement track {track_id} : {e}")
 
     finally:
-        clean_temp_files(temp_audio, temp_json, logname=logname)
+        if clean_trigger:
+            logger.debug(f"Nettoyage des fichiers temporaires pour le morceau {track_id}")
+            clean_temp_files(temp_audio, temp_json, logname=logname)
         
 def extract_and_parse_features(temp_audio, temp_json, profile, logname=logname):
     logger = get_logger(logname)
