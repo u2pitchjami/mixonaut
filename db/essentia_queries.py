@@ -1,9 +1,9 @@
 from datetime import datetime
-from db.access import execute_query
+from db.access import execute_query, select_one, select_scalar
 from utils.config import BEETS_DB, EDM_GENRES
 from utils.logger import get_logger
 
-def fetch_tracks(missing_features=False, missing_field=None, path_contains=None):
+def fetch_tracks(missing_features=False, is_edm=False, missing_field=None, path_contains=None):
     base_query = """
     SELECT i.id, i.path, i.artist, i.album, i.title
     FROM items i
@@ -19,11 +19,16 @@ def fetch_tracks(missing_features=False, missing_field=None, path_contains=None)
         allowed_fields = {"bpm", "energy_level", "mood", "beat_intensity", "initial_key", "rg_track_gain", "genre"}
         if missing_field not in allowed_fields:
             raise ValueError(f"Champ interdit : {missing_field}")
-        where_clauses.append(f"af.{missing_field} IS NULL")
+        where_clauses.append(f"(i.{missing_field} IS NULL OR i.{missing_field} = '')")
 
     if path_contains:
         where_clauses.append("i.path LIKE ?")
         params.append(f"%{path_contains}%")
+
+    if is_edm:
+        edm_clauses = [f"i.genre LIKE ?" for _ in EDM_GENRES]
+        where_clauses.append(f"({' OR '.join(edm_clauses)})")
+        params.extend([f"%{genre}%" for genre in EDM_GENRES])
 
     if where_clauses:
         base_query += " WHERE " + " AND ".join(where_clauses)
@@ -111,3 +116,21 @@ def nb_query(table: str = "audio_features") -> dict:
     nb = len(rows)
 
     return nb
+
+def count_existing_features(track_ids: list[int], logname="Mixonaut") -> int:
+    logger = get_logger(logname)
+    """
+    Retourne le nombre de tracks présents dans audio_features pour les ids fournis.
+    """
+    if not track_ids:
+        return 0
+    
+    placeholders = ','.join(['?'] * len(track_ids))
+    query = f"SELECT COUNT(*) FROM audio_features WHERE id IN ({placeholders})"
+    
+    try:
+        result = select_one(query, params=tuple(track_ids), logname=logname)
+        return result[0] if result else 0
+    except Exception as e:
+        logger.error(f"Erreur dans count_existing_features : {e}")
+        return 0

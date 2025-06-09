@@ -7,12 +7,13 @@ from utils.logger import get_logger
 
 logname = __name__.split(".")[-1]
 
-def run_replaygain_in_container(audio_path: str, json_out_path: str, logname=logname):
+def run_replaygain_in_container(audio_path: str, json_out_path: str, profile_path: str, logname=logname):
     logger = get_logger(logname)
     # Vérifie que les fichiers existent
     audio = Path(audio_path)
     json_out = Path(json_out_path)
-
+    profile = Path(profile_path)
+    
     if not audio.exists():
         logger.error(f"❌ Audio file not found: {audio}")
         sys.exit(1)
@@ -25,7 +26,7 @@ def run_replaygain_in_container(audio_path: str, json_out_path: str, logname=log
     docker_cmd = [
         "docker", "run", "--rm",
         "-v", f"{temp_dir}:/app/music",
-        "-v", f"{profile_dir}:/app/profile",
+        "-v", f"{profile}:/app/profile",
         IMAGE_ESSENTIA,
         "python3", "/usr/local/bin/add_replaygain.py",  # ou "python3 /app/add_replaygain.py" si pas executable
         f"/app/music/{audio.name}",
@@ -36,7 +37,7 @@ def run_replaygain_in_container(audio_path: str, json_out_path: str, logname=log
 
     try:
         subprocess.run(docker_cmd, check=True)
-        logger.info("✅ ReplayGain calculé avec succès.")
+        logger.debug("✅ ReplayGain calculé avec succès.")
     except subprocess.CalledProcessError as e:
         logger.error("❌ Erreur lors de l'exécution du conteneur :")
         raise

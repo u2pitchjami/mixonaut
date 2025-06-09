@@ -4,6 +4,34 @@ from datetime import datetime
 from utils.config import BEETS_MUSIC, HOST_MUSIC, WINDOWS_MUSIC
 from utils.logger import get_logger
 
+def format_percent(part: int, total: int, digits: int = 0, logname: str = "Mixonaut") -> str:
+    """
+    Calcule un pourcentage (part/total) en gérant la division par zéro.
+    Retourne une chaîne formatée avec '%' (arrondi à `digits` décimales).
+    """
+    logger = get_logger(logname)
+    try:
+        if total == 0:
+            return "N/A"
+        percent = (part / total) * 100
+        return f"{percent:.{digits}f}%"
+    except Exception as e:
+        logger.warning(f"Erreur de calcul pourcentage : {e}")
+        return "ERR%"
+
+
+def format_nb(nb: int, insécable: bool = False, logname: str = "Mixonaut") -> str:
+    logger = get_logger(logname)
+    """
+    Formate un entier avec des séparateurs de milliers.
+    Par défaut : espace normal. Si insécable=True, utilise l'espace fine insécable (U+202F).
+    """
+    try:
+        return f"{nb:,}".replace(",", " " if insécable else " ")
+    except Exception as e:
+        logger.warning(f"Erreur de formatage du nombre : {e}")
+        return str(nb)
+
 def ensure_to_str(path) -> str:
     """
     Convertit un path potentiellement en bytes ou Path en str propre.

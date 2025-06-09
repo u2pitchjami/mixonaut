@@ -19,7 +19,7 @@ def run_essentia_extraction(audio_path: Path, json_path: Path, profile_path: Pat
     #     return False
 
     try:
-        logger.info(f"▶️ Lancement extraction pour : {audio_path.name}")
+        logger.debug(f"▶️ Lancement extraction pour : {audio_path.name}")
         
         # Construction de la commande Docker
         docker_cmd = [
@@ -43,7 +43,7 @@ def run_essentia_extraction(audio_path: Path, json_path: Path, profile_path: Pat
             check=True,
             text=True
         )
-        logger.info(f"✅ Extraction terminée pour {audio_path.name}")
+        logger.debug(f"✅ Extraction terminée pour {audio_path.name}")
         return True
 
     except Exception as e:

@@ -23,7 +23,7 @@ def sync_fields_by_track_id(track_id: int, track_features: dict, logname: str = 
 def sync_beets_from_essentia(track_path: str, field_values,  logname=logname):
     logger = get_logger(logname)
     
-    logger.info(f"💾 Mise à jour de la base Beets field_values {field_values}")
+    logger.debug(f"💾 Mise à jour de la base Beets field_values {field_values}")
     try:
         update_beets_fields(
             track_path=track_path,
@@ -35,15 +35,14 @@ def sync_beets_from_essentia(track_path: str, field_values,  logname=logname):
         raise
     
     new_path = convert_path_format(path=track_path, to_beets=False)
-    print(f"🔄 Nouveau chemin converti : {new_path}")
-    logger.info("🏷️ Ecriture des tags")
+    logger.debug("🏷️ Ecriture des tags")
     write_tags_docker(
         path=new_path,
         track_features=field_values,
         logname=logname
     )
 
-    logger.info("🏁 Retro_Beets_Db : TERMINE \n")
+    logger.debug("🏁 Retro_Beets_Db : TERMINE \n")
     
 def build_sync_fields(track_id: int, track_features: dict, extra_fields=None, logname=logname) -> dict:
     logger = get_logger(logname)
@@ -80,7 +79,7 @@ def build_sync_fields(track_id: int, track_features: dict, extra_fields=None, lo
 
 def should_update_genre(track_id: int, new_genre: str) -> bool:
     current_genre = get_item_field_value("genre", track_id)
-    print(f"should_update_genre called with track_id: {track_id}, new_genre: {new_genre}, current_genre: {current_genre}")
+    #print(f"should_update_genre called with track_id: {track_id}, new_genre: {new_genre}, current_genre: {current_genre}")
     if not current_genre:
         return new_genre.strip()
     
@@ -93,9 +92,9 @@ def should_update_genre(track_id: int, new_genre: str) -> bool:
 
     # Sinon, on ajoute à la liste
     genres = current_genres + [new_genre_clean]
-    print(f"Genres après ajout : {genres}")
+    #print(f"Genres après ajout : {genres}")
     # Mise en forme (capitalisation facultative)
     new_value = ", ".join(sorted(set(genres)))  # tri optionnel
-    print(f"Nouveau genre formaté : {new_value}")
+    #print(f"Nouveau genre formaté : {new_value}")
 
     return new_value

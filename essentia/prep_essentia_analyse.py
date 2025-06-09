@@ -8,6 +8,26 @@ from utils.config import ESSENTIA_TEMP_AUDIO, ESSENTIA_TEMP_JSON, ESSENTIA_SAV_J
 
 logname = __name__.split(".")[-1]
 
+def generate_mode_text(count=0, missing_features=False, is_edm=False, missing_field=None, path_contains=None):
+# 🔤 Générer un texte explicite du mode actif
+        mode_label = []
+        if count > 0:
+            mode_label.append(f"Traitement de {count} morceaux")
+        else:
+            mode_label.append("Traitement de tous les morceaux")
+            
+        if missing_features:
+            mode_label.append("absents de audio_features")
+        if is_edm:
+            mode_label.append("EDM uniquement")
+        if missing_field:
+            mode_label.append(f"champ manquant : {missing_field}")
+        if path_contains:
+            mode_label.append(f"path contient « {path_contains} »")
+
+        mode_text = " | ".join(mode_label) if mode_label else "Tous les morceaux"
+        return mode_text
+
 def prepare_track_paths(track, logname=logname):
     logger = get_logger(logname)
     try:
