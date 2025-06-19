@@ -46,7 +46,7 @@ def sync_beets_from_essentia(track_path: str, field_values,  logname=logname):
     
 def build_sync_fields(track_id: int, track_features: dict, extra_fields=None, logname=logname) -> dict:
     logger = get_logger(logname)
-    logger.debug(f"build_sync_fields called with track_id: {track_id}, track_features: {track_features}")
+    #logger.debug(f"build_sync_fields called with track_id: {track_id}, track_features: {track_features}")
     fields_to_check = set(RETRO_MIXONAUT_BEETS)
     logger.debug(f"Initial fields to check: {fields_to_check}")
     if extra_fields:

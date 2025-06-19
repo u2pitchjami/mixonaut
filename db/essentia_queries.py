@@ -1,7 +1,11 @@
 from datetime import datetime
-from db.access import execute_query, select_one, select_scalar
+from db.access import execute_query, select_one, select_scalar, select_all
 from utils.config import BEETS_DB, EDM_GENRES
 from utils.logger import get_logger
+
+def get_all_track_ids():
+    rows = select_all("SELECT id FROM audio_features", (), logname=__name__)
+    return [row[0] for row in rows]
 
 def fetch_tracks(missing_features=False, is_edm=False, missing_field=None, path_contains=None):
     base_query = """

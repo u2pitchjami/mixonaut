@@ -1,5 +1,5 @@
 import argparse
-from db.essentia_queries import get_audio_features_by_id
+from db.essentia_queries import get_audio_features_by_id, insert_or_update_audio_features
 from db.db_beets_queries import get_item_field_value
 from essentia.essentia_calculate import calculate_beat_intensity, compute_energy_level
 from essentia.essentia_mood import compute_mood_vector
@@ -10,7 +10,8 @@ from utils.utils_div import ensure_to_str
 from logic.sync_beets_from_essentia import sync_beets_from_essentia, build_sync_fields
 from utils.logger import get_logger
 
-logger = get_logger("Essentia_Recalc")
+logname = "Essentia_Recalc"
+logger = get_logger(logname)
 
 AVAILABLE_CALCS = {
     "beat_intensity": calculate_beat_intensity,
@@ -31,8 +32,7 @@ def sync_fields_by_track_id(track_id: int, track_features: dict):
 
 def main_recalc(track_id: int, recalc_fields: list):
     features = get_audio_features_by_id(track_id)
-    print(f"[DEBUG] features = {features} ({type(features)})")
-
+    
     logger.debug(f"🔍 Recalcul des champs pour track {track_id} : {recalc_fields}")
     if not features:
         logger.warning(f"❌ Aucune donnée Essentia pour track {track_id}")
@@ -50,5 +50,5 @@ def main_recalc(track_id: int, recalc_fields: list):
             logger.info(f"✅ {field} recalculé : {features[field]}")
         except Exception as e:
             logger.warning(f"❌ Erreur recalcul {field} : {e}")
-
+    insert_or_update_audio_features(track_id, features, logname=logname)
     sync_fields_by_track_id(track_id, features)

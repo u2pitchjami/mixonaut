@@ -17,7 +17,7 @@ def insert_transpositions(track_id, keys: dict, bpms: dict, logname="Mix_Assist"
     logger = get_logger(logname)
     print(f"🔍 keys {keys}")
     print(f"🔍 bpms {bpms}")
-    fields = ["track_id"] + list(keys.keys()) + list(bpms.keys())
+    fields = ["id"] + list(keys.keys()) + list(bpms.keys())
     values = [track_id] + list(keys.values()) + list(bpms.values())
     print(f"🔍 fields {fields}")
     print(f"🔍 values {values}")

@@ -23,15 +23,16 @@ def calculate_beat_intensity(features: dict, logname=logname) -> float:
         beats_count = features.get("beats_count") or 0
         beats_loudness_mean = features.get("beats_loudness_mean") or 0
         danceability = features.get("danceability") or 0
+        spectral_flux = features.get("spectral_flux") or 0
+        dynamic_complexity = features.get("dynamic_complexity") or 0
 
         # Normalisation + pondération (adaptable selon préférences)
         score = (
-            (bpm / 200) * 0.3 +
-            (average_loudness / 60) * 0.2 +
-            (beats_count / 1000) * 0.2 +
-            (beats_loudness_mean / 1.0) * 0.2 +
-            (danceability) * 0.1
-        ) * 10
+            (beats_loudness_mean or 0) * 4 +         # puissance moyenne des beats
+            (spectral_flux or 0) * 3 +               # variation spectrale : mouvement
+            (dynamic_complexity or 0) * 2 +          # complexité dynamique
+            (danceability or 0) * 1
+            )
 
         return round(min(score, 10.0), 2)
 
@@ -53,27 +54,24 @@ def compute_energy_level(features: dict, logname=logname) -> float | None:
             return min(val / max_val, 1.0)
 
         centroid = norm(features.get("spectral_centroid", 0), 5000.0)
-        flux = norm(features.get("spectral_flux", 0), 0.4)
+        spectral_flux = norm(features.get("spectral_flux", 0), 0.4)
         complexity = norm(features.get("spectral_complexity", 0), 30.0)
-        energy = norm(features.get("spectral_energy", 0), 0.3)
-        loudness = norm(features.get("average_loudness", 0), 1.5)
+        spectral_energy = norm(features.get("spectral_energy", 0), 0.3)
+        average_loudness = norm(features.get("average_loudness", 0), 1.5)
         zcr = norm(features.get("zerocrossingrate", 0), 0.2)
-        beats_loudness = norm(features.get("beats_loudness", 0), 0.3)
+        beats_loudness_mean = norm(features.get("beats_loudness_mean", 0), 0.3)
         bpm = norm(features.get("bpm_essentia", 0), 180.0)
-        dyn_complex = norm(features.get("dynamic_complexity", 0), 10.0)
-
+        dynamic_complexity = norm(features.get("dynamic_complexity", 0), 10.0)
+        
         energy_level = round(
-            0.15 * loudness +
-            0.15 * centroid +
-            0.1 * flux +
-            0.1 * energy +
-            0.1 * beats_loudness +
-            0.1 * bpm +
-            0.1 * complexity +
-            0.1 * dyn_complex +
-            0.1 * zcr,
-            3
+        (spectral_energy or 0) * 3 +
+        (beats_loudness_mean or 0) * 3 +
+        (spectral_flux or 0) * 2 +
+        (average_loudness or 0) * 1 +
+        (dynamic_complexity or 0) * 1,
+        3
         )
+        print(f"energy_level {energy_level}")
         return energy_level
 
     except Exception as e:

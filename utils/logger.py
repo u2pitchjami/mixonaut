@@ -9,14 +9,14 @@ def get_logger(name: str) -> logging.Logger:
     rotation_days = int(os.getenv("LOG_ROTATION_DAYS", "30"))
 
     os.makedirs(log_path, exist_ok=True)
-    log_file = os.path.join(LOG_FILE_PATH, f"{datetime.now().strftime('%Y-%m')}_{name.split('.')[0]}.log")
+    log_file = os.path.join(LOG_FILE_PATH, f"{datetime.now().strftime('%Y-%m-%d')}_{name.split('.')[0]}.log")
 
     rotate_logs(log_path, rotation_days, logf=log_file)
 
     logger = logging.getLogger(name)
 
     if not logger.handlers:
-        logger.setLevel(logging.INFO)
+        logger.setLevel(logging.DEBUG)
 
         formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 

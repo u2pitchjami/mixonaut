@@ -1,7 +1,6 @@
 from utils.logger import get_logger
 from utils.config import CAMELOT_ORDER, SEMITONE_SHIFT_VALUES
 from db.transposition_queries import fetch_tracks_with_bpm_and_key, insert_transpositions
-from db.db_utils import update_tracks_meta
 
 logger = get_logger("Process_Transposition")
 
