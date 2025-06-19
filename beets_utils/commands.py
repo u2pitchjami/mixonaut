@@ -1,5 +1,8 @@
 import subprocess
+import os
+from utils.config import LOCK_FILE
 from utils.logger import get_logger
+from beets_utils.beets_safe import safe_beets_call, read_lock_pid, get_current_pid
 
 def run_beet_command(
     command: str,
@@ -30,23 +33,24 @@ def run_beet_command(
     if dry_run:
         logger.info(f"[SIMULATION] {' '.join(cmd)}")
         return
-
-    logger.debug(f"🔧 Exécution Beets : {' '.join(cmd)}")
+    
     try:
-        result = subprocess.run(
-            cmd,
-            text=True,
-            check=check,
-            capture_output=capture_output
-        )
-        if capture_output:
-            return {
-            "stdout": result.stdout.strip(),
-            "stderr": result.stderr.strip(),
-            "returncode": result.returncode
-            }
-            
-        return None
+        if not safe_beets_call(logname=logname):
+            logger.debug(f"🔧 Exécution Beets : {' '.join(cmd)}")
+            result = subprocess.run(
+                cmd,
+                text=True,
+                check=check,
+                capture_output=capture_output
+            )
+            if capture_output:
+                return {
+                "stdout": result.stdout.strip(),
+                "stderr": result.stderr.strip(),
+                "returncode": result.returncode
+                }
+                
+            return None
 
     except Exception as e:
         logger.error(f"Erreur beet : {e}")
@@ -55,6 +59,12 @@ def run_beet_command(
             "stderr": e.stderr.strip() if e.stderr else str(e),
             "returncode": e.returncode
         }
+    finally:
+        if read_lock_pid() == get_current_pid():
+                os.remove(LOCK_FILE)
+                logger.info("🔓 Verrou supprimé.")
+        else:
+            logger.warning("⚠️ Tentative de suppression du verrou non possédé (ignorée).")
 
 def run_beet_action_by_dirs(action, dirs, dry_run=False, logname=None):
     logger = getLogger(logname + "." + "run_beet_action_by_dirs")

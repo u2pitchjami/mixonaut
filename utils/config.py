@@ -64,6 +64,8 @@ WINDOWS_MUSIC = get_required("WINDOWS_MUSIC")
 MANUAL_LIST = get_str("MANUAL_LIST_PATH", "import_manuel.txt")
 BEETS_IMPORT_PATH = get_required("BEETS_IMPORT_PATH")
 SCRIPT_DIR = get_required("SCRIPT_DIR")
+LOCK_FILE = get_str("LOCK_FILE", "beets_db.lock")
+EXPORT_COMPATIBLE_TRACKS = get_str("EXPORT_COMPATIBLE_TRACKS", "./exports")
 
 #DB
 MIX_DB = get_required("MIX_DB")

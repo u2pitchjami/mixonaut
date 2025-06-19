@@ -7,7 +7,8 @@ def get_all_track_ids():
     rows = select_all("SELECT id FROM audio_features", (), logname=__name__)
     return [row[0] for row in rows]
 
-def fetch_tracks(missing_features=False, is_edm=False, missing_field=None, path_contains=None):
+def fetch_tracks(missing_features=False, is_edm=False, missing_field=None, path_contains=None, logname=__name__):
+    logger = get_logger(logname)
     base_query = """
     SELECT i.id, i.path, i.artist, i.album, i.title
     FROM items i

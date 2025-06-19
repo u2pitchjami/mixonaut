@@ -1,13 +1,17 @@
 import argparse
+from datetime import datetime
+import os
 from db.access import select_one, select_all
+from utils.config import EXPORT_COMPATIBLE_TRACKS
 from utils.logger import get_logger
+from collections import defaultdict
 from typing import List, Dict
 import math
 
 logname = __name__.split(".")[-1]
 logger = get_logger(logname)
 
-CAMELOT_ORDER = [f"{n}{l}" for n in range(1, 13) for l in ["A", "B"]]
+CAMELOT_ORDER = [f"{n}{l}" for n in range(1, 13) for l in ["a", "b"]]
 
 KEY_TRANSITION_SCORES = {
     0: ("identique", 1.0),
@@ -19,14 +23,26 @@ KEY_TRANSITION_SCORES = {
 }
 
 PENALTY_PER_SEMITONE = 0.05
-BPM_SHIFT_PENALTY = 0.20
+BPM_SHIFT_PENALTY = 0.05
+
+def group_matches_by_transition_type(matches: list, ref_key: str, max_results: int = 10):
+    grouped = defaultdict(list)
+    for m in matches:
+        t_type = classify_transition_type(ref_key, m["key"])
+        grouped[t_type].append(m)
+
+    for t_type in grouped:
+        print(f"t_type : {t_type}")
+        grouped[t_type] = sorted(grouped[t_type], key=lambda x: x["score"], reverse=True)[:max_results]
+        print(f"grouped[t_type] : {len(grouped[t_type])}")
+
+    return dict(grouped)
 
 
 def get_key_score(ref_key: str, candidate_key: str) -> float:
     try:
         if ref_key == candidate_key:
             return 1.0
-
         ref_idx = CAMELOT_ORDER.index(ref_key)
         cand_idx = CAMELOT_ORDER.index(candidate_key)
         diff = abs(ref_idx - cand_idx) % 24
@@ -38,8 +54,34 @@ def get_key_score(ref_key: str, candidate_key: str) -> float:
                 return score
         return 0.4
     except:
+        print(f"Erreur dans get_key_score: ref_key={ref_key}, cand_key={candidate_key} → {e}")
         return 0.0
 
+def classify_transition_type(ref_key: str, candidate_key: str) -> str:
+    if ref_key == candidate_key:
+        return "perfect"
+
+    try:
+        ref_idx = CAMELOT_ORDER.index(ref_key)
+        cand_idx = CAMELOT_ORDER.index(candidate_key)
+        diff = (cand_idx - ref_idx) % 24
+
+        if diff == 1:
+            return "+1"
+        elif diff == 23:
+            return "-1"
+        elif candidate_key[-1] != ref_key[-1] and candidate_key[:-1] == ref_key[:-1]:
+            return "scale_change"
+        elif diff in [11, 13] and candidate_key[-1] != ref_key[-1]:
+            return "diagonal"
+        elif diff in [6, 18]:
+            return "jaws"
+        elif diff in [7, 17]:
+            return "mood"
+        else:
+            return "other"
+    except:
+        return "unknown"
 
 def find_compatible_tracks(
     track_id: int,
@@ -48,9 +90,10 @@ def find_compatible_tracks(
     tolerance_energy: int = 2,
     key_match: bool = True,
     mood_match: bool = True,
-    max_results: int = 100,
+    max_results: int = 15,
+    grouped: bool = False,
     logname: str = logname
-) -> List[Dict]:
+) -> List[Dict] | Dict[str, List[Dict]]:
     try:
         query = """
         SELECT bpm, initial_key, mood, energy_level, mood_emb_1, mood_emb_2
@@ -63,8 +106,26 @@ def find_compatible_tracks(
             return []
 
         ref_bpm, ref_key, ref_mood, ref_energy, ref_emb1, ref_emb2 = ref
+        print(f"ref_key : {ref_key}")
+        effective_ref_key = ref_key
+        print(f"effective_ref_key : {effective_ref_key}")
+        print(f"target_bpm 1 : {target_bpm}")
         if target_bpm is None:
             target_bpm = ref_bpm
+        else:
+            print(f"target_bpm : {target_bpm}")
+            # Calcul du pitch shift du track de référence
+            ref_pitch_shift = 12 * math.log2(target_bpm / ref_bpm)
+            ref_semitone_shift = round(ref_pitch_shift)
+
+            # Lecture dans sa propre transpo
+            ref_transpo = select_one("SELECT * FROM track_transpositions WHERE id = ?", (track_id,), logname=logname)
+            
+            if ref_transpo:
+                transpo_dict = dict(zip([...], ref_transpo[1:]))  # comme dans ton code
+                key_col = f"key_{'plus' if ref_semitone_shift > 0 else 'minus' if ref_semitone_shift < 0 else '0'}_{abs(ref_semitone_shift)}"
+                if key_col in transpo_dict and transpo_dict[key_col]:
+                    effective_ref_key = transpo_dict[key_col]
 
         bpm_min = target_bpm * (1 - tolerance_bpm_percent / 100)
         bpm_max = target_bpm * (1 + tolerance_bpm_percent / 100)
@@ -75,7 +136,7 @@ def find_compatible_tracks(
         WHERE id != ?
         """
         candidates = select_all(candidates_query, (track_id,), logname=logname)
-
+        print(f"candidates : {len(candidates)}")
         compatibles = []
         for row in candidates:
             cid, bpm, key, mood, energy, emb1, emb2 = row
@@ -106,7 +167,7 @@ def find_compatible_tracks(
                     b = transpo_dict.get(b_col)
                     if k is not None and b is not None:
                         if bpm_min <= b <= bpm_max:
-                            score = get_key_score(ref_key, k)
+                            score = get_key_score(effective_ref_key, k)
                             pitch_shift = 0.0
                             if b > 0 and bpm > 0:
                                 pitch_shift = 12 * math.log2(b / bpm)
@@ -115,7 +176,7 @@ def find_compatible_tracks(
                                     score -= penalty
                                     score = max(score, 0)
 
-                            logger.debug(f"CID={cid} k={k} b={b:.2f} score={score:.2f} pitch_shift={pitch_shift:.2f}")
+                            #logger.debug(f"CID={cid} k={k} b={b:.2f} score={score:.2f} pitch_shift={pitch_shift:.2f}")
 
                             if score > best_harmony_score:
                                 best_harmony_score = score
@@ -156,21 +217,73 @@ def find_compatible_tracks(
                 "diagnostic": f"key_score={best_harmony_score:.2f}, semitones={best_semitone}, transposed_bpm={best_transposed_bpm}, bpm_target={target_bpm}, energy_delta={abs(energy - ref_energy):.2f}, mood_sim={mood_sim:.2f}, pitch_shift={best_actual_pitch_shift:.2f}"
             })
 
-        compatibles.sort(key=lambda x: x["score"], reverse=True)
-        return compatibles[:max_results]
+        if not grouped:
+            compatibles.sort(key=lambda x: x["score"], reverse=True)
+            return compatibles[:max_results]
+        else:
+            return group_matches_by_transition_type(compatibles, effective_ref_key, max_results)
 
     except Exception as e:
         logger.exception(f"Erreur dans find_compatible_tracks: {e}")
         return []
 
+def enrich_matches_with_metadata(matches: list[dict]) -> list[dict]:
+    for match in matches:
+        row = select_one(
+            "SELECT artist, album, title FROM items WHERE id = ?",
+            (match["track_id"],),
+            logname=logname
+        )
+        if row:
+            match["artist"], match["album"], match["title"] = row
+        else:
+            match["artist"], match["album"], match["title"] = "Unknown", "Unknown", "Unknown"
+    return matches
+
+def export_matches_to_markdown(results_by_type: dict[str, list[dict]], output_dir: str = EXPORT_COMPATIBLE_TRACKS):
+    print(f"output_dir : {output_dir}")
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    os.makedirs(output_dir, exist_ok=True)
+    filename = f"mixonaut_matches_{timestamp}.md"
+    output_path = os.path.join(output_dir, filename)
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        for mix_type, matches in results_by_type.items():
+            f.write(f"### 🎧 Mix Type: {mix_type}\n\n")
+            f.write("| Artist | Title | Album | BPM | Key | Score | Diagnostic |\n")
+            f.write("|--------|-------|-------|-----|-----|-------|------------|\n")
+
+            enriched = enrich_matches_with_metadata(matches)
+
+            for m in enriched:
+                f.write(
+                    f"| {m.get('artist', '')} | {m.get('title', '')} | {m.get('album', '')} "
+                    f"| {m['bpm']} | {m['key']} | {m['score']} | {m['diagnostic']} |\n"
+                )
+            f.write("\n\n")
+
+    return output_path
+
+
+def format_matches_markdown(matches: list[dict]) -> str:
+    lines = [
+        "| Artist | Title | Album | BPM | Key | Score | Diagnostic |",
+        "|--------|-------|-------|-----|-----|-------|------------|"
+    ]
+    for m in matches:
+        lines.append(
+            f"| {m.get('artist', '')} | {m.get('title', '')} | {m.get('album', '')} "
+            f"| {m['bpm']} | {m['key']} | {m['score']} | {m['diagnostic']} |"
+        )
+    return "\n".join(lines)
 
 if __name__ == "__main__":
     try:
         parser = argparse.ArgumentParser()
         parser.add_argument("--track-id", type=int, required=True)
-        parser.add_argument("--target-bpm", type=float, required=False)
+        parser.add_argument("--target-bpm", type=float, required=False, default=None)
         args = parser.parse_args()
-        tracks = find_compatible_tracks(track_id=args.track_id, key_match=True, mood_match=True)
-        print(f"tracks : {tracks}")
+        tracks = find_compatible_tracks(track_id=args.track_id, target_bpm=args.target_bpm, key_match=True, mood_match=True, grouped=True)
+        export_matches_to_markdown(tracks, EXPORT_COMPATIBLE_TRACKS)
     except Exception as e:
         raise

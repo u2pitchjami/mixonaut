@@ -15,14 +15,10 @@ logger = get_logger(logname)
 def main(force=False, count=0, missing_features=False, is_edm=False, missing_field=None, path_contains=None):
     logger.info("🔍 Démarrage analyse des morceaux via Essentia")
     try:
-        total = fetch_tracks(missing_features=False, is_edm=is_edm, missing_field=missing_field, path_contains=path_contains)
-        print(f"total {len(total)}")
-        tracks = fetch_tracks(missing_features=missing_features, is_edm=is_edm, missing_field=missing_field, path_contains=path_contains)
-        print(f"tracks {len(tracks)}")
+        total = fetch_tracks(missing_features=False, is_edm=is_edm, missing_field=missing_field, path_contains=path_contains, logname=logname)
+        tracks = fetch_tracks(missing_features=missing_features, is_edm=is_edm, missing_field=missing_field, path_contains=path_contains, logname=logname)
         track_ids = [t[0] for t in total]
-        print(f"track_ids {len(track_ids)}")
         existing = count_existing_features(track_ids)
-        print(f"existing {existing}")
         text = generate_mode_text(count=count, missing_features=missing_features, is_edm=is_edm, missing_field=missing_field, path_contains=path_contains)
         logger.info(f"🎯 [{text}]")
         logger.info(f"🎯 [{format_nb(existing)} titres déjà analysés sur un total de {format_nb(len(total))} --> {format_percent(existing, len(total))}]")
