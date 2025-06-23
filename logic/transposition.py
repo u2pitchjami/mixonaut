@@ -1,11 +1,14 @@
 from utils.logger import get_logger
+import random
 from utils.config import CAMELOT_ORDER, SEMITONE_SHIFT_VALUES
 from db.transposition_queries import fetch_tracks_with_bpm_and_key, insert_transpositions
+from utils.utils_div import format_nb, format_percent
 
-logger = get_logger("Process_Transposition")
+logname = f"{__name__.split(".")[-1]}"
 
-def shift_camelot(key: str, shift: int) -> str:
+def shift_camelot(key: str, shift: int, logname=logname) -> str:
     try:
+        logger = get_logger(logname)
         index = CAMELOT_ORDER.index(key)
         return CAMELOT_ORDER[(index + shift) % 24]
     except ValueError:
@@ -22,25 +25,44 @@ def shift_to_colname(prefix: str, shift: int) -> str:
     sign = "plus" if shift > 0 else "minus"
     return f"{prefix}_{sign}_{abs(shift)}"
 
-def generate_transpositions(count=0):
+def generate_transpositions(nb_limit=0, track_id=None, logname=logname):
+    args_to_log = {k: v for k, v in locals().items() if k != "logname"}
+    logger = get_logger(logname)
     logger.info("🔍 Démarrage de Process de Transposition")
+    logger.info("Arguments reçus : " + ", ".join([f"{k}={v}" for k, v in args_to_log.items()]))
+    
     rows = fetch_tracks_with_bpm_and_key()
-    logger.info(f"🎯 {len(rows)} morceaux à traiter")
+    
+    if track_id:
+        filtered = [row for row in rows if row[0] == track_id]
+        if not filtered:
+            raise ValueError(f"Track ID {track_id} non trouvé dans les données.")
+        rows = filtered
+                
+    total = nb_limit
+    if nb_limit == 0:
+        nb_limit = len(rows)
+        total = len(rows)
+    random.shuffle(rows)
+    logger.info(f"🎯 {format_nb(total)} morceaux à traiter")
+    count = 0
     try:
-        for track_id, bpm, key in rows[:count]:
-            print(f"🔍 Traitement du morceau {track_id} avec BPM: {bpm}, Key: {key}")
+        for track_id, bpm, key in rows[:nb_limit]:
+            count += 1
+            logger.info(f"🔍 Traitement du morceau {track_id} - [{format_nb(count)}/{format_nb(total)}] ({format_percent(count, total)})")
+            print(f"logname : {logname}")
             keys, bpms = {}, {}
             for shift in SEMITONE_SHIFT_VALUES:
                 key_col = shift_to_colname("key", shift)
                 bpm_col = shift_to_colname("bpm", shift)
                 try:
-                    keys[key_col] = shift_camelot(key, shift)
+                    keys[key_col] = shift_camelot(key, shift, logname=logname)
                     bpms[bpm_col] = shift_bpm(bpm, shift)
                 except Exception as e:
-                    logger.warning("Erreur lors du shift %s pour track %s: %s", shift, track_id, e)
-            insert_transpositions(track_id, keys, bpms, logname="Process_Transposition")
-            #update_tracks_meta(track_id=track_id, logname="Process_Transposition")
-        logger.info("Transpositions générées pour %d morceaux.", len(rows))
+                    logger.warning("⛔ Erreur lors du shift %s pour track %s: %s", shift, track_id, e)
+            insert_transpositions(track_id, keys, bpms, logname=logname)
+            
+        logger.info(f"🏁 Terminé. {count} transpositions réalisées")
     except Exception as e:
-        logger.error(f"❌ [{__name__.split(".")[-1]}] Erreur lors de la transposition : {e}")
+        logger.error(f"❌ [{logname}] Erreur lors de la transposition : {e}")
         raise

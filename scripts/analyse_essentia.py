@@ -6,7 +6,7 @@ from essentia.essentia_analyse import analyse_track
 from logic.sync_beets_from_essentia import sync_fields_by_track_id
 from utils.utils_div import format_nb, format_percent
 from essentia.prep_essentia_analyse import generate_mode_text
-
+from logic.transposition import generate_transpositions
 
 
 logname = "Analyse_Essentia"
@@ -39,6 +39,8 @@ def main(force=False, count=0, missing_features=False, is_edm=False, missing_fie
                 continue
             logger.info(f"✅ Track mis à jour : {track[0]}")
             sync_fields_by_track_id(track_id=track[0], track_features=track_features, logname=logname)
+            generate_transpositions(track_id=track[0], logname=logname)
+            
             
         logger.info("🏁 Traitement terminé")
     except Exception as e:

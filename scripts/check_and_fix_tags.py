@@ -1,4 +1,6 @@
 import subprocess
+import argparse
+import random
 from utils.config import RETRO_MIXONAUT_BEETS, MUSIC_BASE_PATH, BEETS_MUSIC, IMAGE_BEETS
 from utils.utils_div import format_nb, format_percent
 from db.access import select_all, execute_query
@@ -81,19 +83,34 @@ def check_and_fix_tags(track_id: int, path: str, track_features: dict, dry_run: 
 
     return False
 
-def process_all_tracks(dry_run: bool = True):
+def process_all_tracks(dry_run: bool = False, track_id: int = None, nb_limit: int = 0):
+    args_to_log = {k: v for k, v in locals().items() if k != "track_ids"}
+
     track_ids = get_all_track_ids()
-    total = len(track_ids)
+    if track_id:
+        if track_id in track_ids:
+            track_ids = [track_id]  # ← transforme en liste d’un seul élément            
+        else:
+            raise ValueError(f"Track ID {track_id} non trouvé dans la base.")
+    total = nb_limit
+    if nb_limit == 0:
+        nb_limit = len(track_ids)
+        total = len(track_ids)
+    random.shuffle(track_ids)
+    track_ids = track_ids[:nb_limit]
+    
+         
+    logger.info(f"Démarrage de la vérification des tags pour {format_nb(total)} pistes (dry_run={dry_run})")
+    logger.info("Arguments reçus : " + ", ".join([f"{k}={v}" for k, v in args_to_log.items()]))
     updated = 0
     count = 0
-    logger.info(f"Démarrage de la vérification des tags pour {format_nb(total)} pistes (dry_run={dry_run})")
 
     for i, track_id in enumerate(track_ids, 1):
         count += 1
         if updated >= 1:
-            logger.info(f"▶️  Analyse : {i} - [{format_nb(count)}/{format_nb(total)}] ({format_percent(count, total)}) - {format_nb(updated)} updated ({format_percent(updated, total)})")
+            logger.info(f"▶️  Analyse : {track_id} - [{format_nb(count)}/{format_nb(total)}] ({format_percent(count, total)}) - {format_nb(updated)} updated ({format_percent(updated, total)})")
         else:
-            logger.info(f"▶️  Analyse : {i} - [{format_nb(count)}/{format_nb(total)}] ({format_percent(count, total)})")
+            logger.info(f"▶️  Analyse : {track_id} - [{format_nb(count)}/{format_nb(total)}] ({format_percent(count, total)})")
         features = get_audio_features_by_id(track_id)
         if not features:
             continue
@@ -111,4 +128,9 @@ def process_all_tracks(dry_run: bool = True):
     logger.info(f"🏁 Terminé. {updated} fichiers avec tags modifiés (ou à modifier en dry_run)")
 
 if __name__ == "__main__":
-    process_all_tracks(dry_run=False)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--track-id", type=int, required=False)
+    parser.add_argument("--dry-run", action="store_true", help="Mode Dry")
+    parser.add_argument("--nb-limit", type=int, default=0, help="Nombre d'éléments à traiter (défaut: 0)")
+    args = parser.parse_args()
+    process_all_tracks(dry_run=args.dry_run, track_id=args.track_id, nb_limit=args.nb_limit)

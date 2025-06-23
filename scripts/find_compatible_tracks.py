@@ -22,6 +22,14 @@ KEY_TRANSITION_SCORES = {
     6: ("dissonance volontaire", 0.5),
 }
 
+WEIGHTS = {
+                "key": 3.0,
+                "energy": 2.5,
+                "beat_intensity": 1.5,
+                "mood": 0.5,
+                "mood_sim": 2.5,
+            }
+
 PENALTY_PER_SEMITONE = 0.05
 BPM_SHIFT_PENALTY = 0.2
 
@@ -89,11 +97,44 @@ def classify_transition_type(ref_key: str, candidate_key: str) -> str:
     except:
         return "unknown"
 
+def calculate_energy_score(energy: int, ref_energy: int, tolerance: int) -> float:
+    return max(0.0, 1 - abs(energy - ref_energy) / tolerance)
+
+def calculate_beat_intensity_score(beat_intensity: int, ref_beat_intensity: int, tolerance: int) -> float:
+    return max(0.0, 1 - abs(beat_intensity - ref_beat_intensity) / tolerance)
+
+def calculate_mood_score(mood: str, ref_mood: str, mood_match: bool) -> float:
+    if mood_match and mood == ref_mood:
+        return 1.0
+    elif not mood_match:
+        return 0.5
+    return 0.0
+
+def calculate_mood_sim_score(ref_emb1, ref_emb2, emb1, emb2) -> float:
+    if ref_emb1 is not None and emb1 is not None:
+        return max(0.0, 1 - math.sqrt((ref_emb1 - emb1)**2 + (ref_emb2 - emb2)**2))
+    return 0.0
+
+def calculate_key_score(effective_ref_key, bpm_original, bpm_transposed, transposed_key, bpm_penalty_factor) -> tuple:
+    key_score = get_key_score(effective_ref_key, transposed_key)
+    pitch_shift = 12 * math.log2(bpm_transposed / bpm_original) if bpm_transposed > 0 and bpm_original > 0 else 0.0
+
+    if abs(pitch_shift):
+        penalty = bpm_penalty_factor * abs(pitch_shift)
+        key_score = max(0.0, key_score - penalty)
+    else:
+        penalty = 0.0
+
+    return key_score, pitch_shift, penalty
+
+def compute_total_score(scores: dict, weights: dict) -> float:
+    return sum(scores[k] * weights[k] for k in scores if k in weights)
+
 def find_compatible_tracks(
     track_id: int,
     target_bpm: float = None,
     tolerance_bpm_percent: float = 3.0,
-    tolerance_energy: int = 1,
+    tolerance_energy: int = 2,
     key_match: bool = True,
     mood_match: bool = True,
     max_results: int = 15,
@@ -101,12 +142,12 @@ def find_compatible_tracks(
     logname: str = logname
 ) -> List[Dict] | Dict[str, List[Dict]]:
     try:
-        query = """
+        ref_query = """
         SELECT bpm, initial_key, mood, energy_level, beat_intensity, mood_emb_1, mood_emb_2
         FROM audio_features
         WHERE id = ?
         """
-        ref = select_one(query, (track_id,), logname=logname)
+        ref = select_one(ref_query, (track_id,), logname=logname)
         if not ref:
             logger.warning(f"Track ID {track_id} introuvable dans audio_features")
             return []
@@ -128,20 +169,19 @@ def find_compatible_tracks(
 
         bpm_min = target_bpm * (1 - tolerance_bpm_percent / 100)
         bpm_max = target_bpm * (1 + tolerance_bpm_percent / 100)
-        logger.debug(f"bpm_min : {bpm_min}, bpm_max : {bpm_max}, target_bpm : {target_bpm}")
+
         candidates_query = """
         SELECT id, bpm, initial_key, mood, energy_level, beat_intensity, mood_emb_1, mood_emb_2
         FROM audio_features
         WHERE id != ?
         """
         candidates = select_all(candidates_query, (track_id,), logname=logname)
-        logger.debug(f"candidates : {len(candidates)}")
+
         compatibles = []
         for row in candidates:
             cid, bpm, key, mood, energy, beat_intensity, emb1, emb2 = row
+            row2 = select_one("SELECT * FROM track_transpositions WHERE id = ?", (cid,), logname=logname)
 
-            transpo_query = "SELECT * FROM track_transpositions WHERE id = ?"
-            row2 = select_one(transpo_query, (cid,), logname=logname)
             best_combo = {
                 "score": 0.0,
                 "key": key,
@@ -166,74 +206,43 @@ def find_compatible_tracks(
                     b = transpo_dict.get(b_col)
 
                     if k is not None and b is not None and bpm_min <= b <= bpm_max:
-                        score = get_key_score(effective_ref_key, k)
-                        pitch_shift = 12 * math.log2(b / bpm) if b > 0 and bpm > 0 else 0.0
-                        penalty = 0.0
-
-                        if abs(pitch_shift) >= 1.0:
-                            penalty = BPM_SHIFT_PENALTY * (abs(pitch_shift) - 1.0)
-                            score -= penalty
-                            score = max(score, 0.0)
-                            logger.debug(f"penalty : {penalty}, BPM_SHIFT_PENALTY : {BPM_SHIFT_PENALTY}, score : {score}")
-
-                        if score > best_combo["score"]:
+                        key_score, pitch_shift, penalty = calculate_key_score(
+                            effective_ref_key, bpm, b, k, BPM_SHIFT_PENALTY
+                        )
+                        if key_score > best_combo["score"]:
                             best_combo.update({
-                                "score": score,
+                                "score": key_score,
                                 "key": k,
                                 "semitone": i,
                                 "transposed_bpm": b,
                                 "pitch_shift": pitch_shift
                             })
-
             elif not key_match:
-                best_combo["score"] = 0.5
+                best_combo["score"] = 0.1
 
             if best_combo["score"] == 0:
                 continue
 
-            best_harmony_score = best_combo["score"]
-            best_key = best_combo["key"]
-            best_semitone = best_combo["semitone"]
-            best_transposed_bpm = best_combo["transposed_bpm"]
-            best_actual_pitch_shift = best_combo["pitch_shift"]
-            logger.debug(f"best_key : {best_key}, best_semitone : {best_semitone}, best_transposed_bpm : {best_transposed_bpm}, best_actual_pitch_shift : {best_actual_pitch_shift}")
+            scores = {
+                "key": best_combo["score"],
+                "energy": calculate_energy_score(energy, ref_energy, tolerance_energy),
+                "beat_intensity": calculate_beat_intensity_score(beat_intensity, ref_beat_intensity, tolerance_energy),
+                "mood": calculate_mood_score(mood, ref_mood, mood_match),
+                "mood_sim": calculate_mood_sim_score(ref_emb1, ref_emb2, emb1, emb2)
+            }
 
-            score = best_harmony_score
-            energy_score = 1 - abs(energy - ref_energy) / tolerance_energy
-            logger.debug(f"energy : {energy}, ref_energy : {ref_energy}, tolerance_energy : {tolerance_energy}")
-            score += energy_score
-            logger.debug(f"score : {score}, energy_score : {energy_score}")
-
-            beat_intensity_score = 1 - abs(beat_intensity - ref_beat_intensity) / tolerance_energy
-            logger.debug(f"beat_intensity : {beat_intensity}, ref_beat_intensity : {ref_beat_intensity}, tolerance_energy : {tolerance_energy}")
-            score += beat_intensity_score
-            logger.debug(f"score : {score}, energy_score : {energy_score}")
-
-            mood_score = 0.0
-            if mood_match and mood == ref_mood:
-                mood_score = 1.0
-            elif not mood_match:
-                mood_score = 0.5
-            score += mood_score
-            logger.debug(f"score : {score}, mood_score : {mood_score}")
-
-            mood_sim = 0.0
-            if ref_emb1 is not None and emb1 is not None:
-                mood_sim = 1 - math.sqrt((ref_emb1 - emb1)**2 + (ref_emb2 - emb2)**2)
-                score += mood_sim
-
-            logger.debug(f"score : {score}, mood_sim : {mood_sim}")
+            total_score = compute_total_score(scores, WEIGHTS)
 
             compatibles.append({
                 "track_id": cid,
                 "bpm": bpm,
-                "key": best_key,
+                "key": best_combo["key"],
                 "mood": mood,
                 "energy_level": energy,
-                "score": round(score, 3),
-                "diagnostic": f"key_score={best_harmony_score:.2f}, semitones={best_semitone}, transposed_bpm={best_transposed_bpm}, bpm_target={target_bpm}, energy_delta={abs(energy - ref_energy):.2f}, mood_sim={mood_sim:.2f}, pitch_shift={best_actual_pitch_shift:.2f}"
+                "score": round(total_score, 3),
+                "diagnostic": ", ".join([f"{k}_score={scores[k]:.2f}" for k in scores])
             })
-            logger.debug(f"compatibles.append : {compatibles.append}")
+
         if not grouped:
             compatibles.sort(key=lambda x: x["score"], reverse=True)
             return compatibles[:max_results]
@@ -243,6 +252,7 @@ def find_compatible_tracks(
     except Exception as e:
         logger.exception(f"Erreur dans find_compatible_tracks: {e}")
         return []
+
 
 
 def enrich_matches_with_metadata(matches: list[dict]) -> list[dict]:

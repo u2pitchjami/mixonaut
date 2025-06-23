@@ -2,6 +2,7 @@ from datetime import datetime
 from db.access import execute_query
 from utils.config import BEETS_DB, EDM_GENRES
 from utils.logger import get_logger
+logname = f"{__name__.split(".")[-1]}"
 
 def fetch_tracks_with_bpm_and_key():
     query = "SELECT id, bpm, initial_key \
@@ -12,8 +13,7 @@ def fetch_tracks_with_bpm_and_key():
     AND initial_key != 0"
     return execute_query(query, fetch=True)
 
-def insert_transpositions(track_id, keys: dict, bpms: dict, logname="Mix_Assist"):
-
+def insert_transpositions(track_id, keys: dict, bpms: dict, logname=logname):
     logger = get_logger(logname)
     fields = ["id"] + list(keys.keys()) + list(bpms.keys())
     values = [track_id] + list(keys.values()) + list(bpms.values())

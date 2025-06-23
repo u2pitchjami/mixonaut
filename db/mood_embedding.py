@@ -13,7 +13,7 @@ def compute_mood_embeddings(n_components: int = 2, logname: str = "Mix_Assist") 
     logger = get_logger(logname)
     try:
         mood_cols = ", ".join([f"mood_{m}_probability" for m in MOOD_KEYS])
-        query = f"SELECT id, {mood_cols} FROM tracks"
+        query = f"SELECT id, {mood_cols} FROM audio_features"
         rows = execute_query(query, fetch=True)
 
         ids = []
@@ -21,12 +21,13 @@ def compute_mood_embeddings(n_components: int = 2, logname: str = "Mix_Assist") 
 
         for row in rows:
             try:
-                vec = [float(row[f"mood_{m}_probability"]) for m in MOOD_KEYS]
+                track_id = row[0]
+                vec = [float(row[i + 1]) for i in range(len(MOOD_KEYS))]  # mood values start at index 1
                 if all(v is not None for v in vec):
-                    ids.append(row["id"])
+                    ids.append(track_id)
                     vectors.append(vec)
             except Exception as e:
-                logger.warning(f"Track {row.get('id', '?')} ignoré : {e}")
+                logger.warning(f"Track {track_id if 'track_id' in locals() else '?'} ignoré : {e}")
 
         if not vectors:
             logger.warning("Aucun vecteur mood valide trouvé.")
@@ -41,7 +42,8 @@ def compute_mood_embeddings(n_components: int = 2, logname: str = "Mix_Assist") 
             for d in range(n_components):
                 entry[f"mood_emb_{d+1}"] = round(float(reduced[i][d]), 4)
             results.append(entry)
-
+            
+        logger.info(f"{len(results)} embeddings mood générés.")
         return results
 
     except Exception as e:

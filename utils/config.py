@@ -87,7 +87,6 @@ CAMELOT_ORDER = [
     "1a", "2a", "3a", "4a", "5a", "6a", "7a", "8a", "9a", "10a", "11a", "12a",
     "1b", "2b", "3b", "4b", "5b", "6b", "7b", "8b", "9b", "10b", "11b", "12b"
 ]
-#SEMITONE_SHIFT_VALUES = [i * 3 for i in range(-4, 5)]  # -12 à +12
 SEMITONE_SHIFT_VALUES = list(range(-12, 13))
 
 ESSENTIA_MAPPING = {
