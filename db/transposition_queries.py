@@ -15,12 +15,8 @@ def fetch_tracks_with_bpm_and_key():
 def insert_transpositions(track_id, keys: dict, bpms: dict, logname="Mix_Assist"):
 
     logger = get_logger(logname)
-    print(f"🔍 keys {keys}")
-    print(f"🔍 bpms {bpms}")
     fields = ["id"] + list(keys.keys()) + list(bpms.keys())
     values = [track_id] + list(keys.values()) + list(bpms.values())
-    print(f"🔍 fields {fields}")
-    print(f"🔍 values {values}")
     placeholders = ", ".join(["?"] * len(values))
     query = f"""
         INSERT OR REPLACE INTO track_transpositions ({', '.join(fields)})

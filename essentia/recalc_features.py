@@ -21,16 +21,16 @@ AVAILABLE_CALCS = {
     "initial_key": lambda f: convert_to_camelot(**get_best_key_from_essentia(f))
 }
 
-def sync_fields_by_track_id(track_id: int, track_features: dict):
+def sync_fields_by_track_id(track_id: int, track_features: dict, no_tags = None):
     path = get_item_field_value("path", track_id)
     if not path:
         logger.warning(f"⚠️ Chemin introuvable pour track {track_id}")
         return
     path_str = ensure_to_str(path)
     sync_fields = build_sync_fields(track_id, track_features)
-    sync_beets_from_essentia(path_str, sync_fields, logname="Essentia_Recalc")
+    sync_beets_from_essentia(path_str, sync_fields, no_tags=no_tags, logname="Essentia_Recalc")
 
-def main_recalc(track_id: int, recalc_fields: list):
+def main_recalc(track_id: int, recalc_fields: list, no_tags = None):
     features = get_audio_features_by_id(track_id)
     
     logger.debug(f"🔍 Recalcul des champs pour track {track_id} : {recalc_fields}")
@@ -47,8 +47,8 @@ def main_recalc(track_id: int, recalc_fields: list):
             continue
         try:
             features[field] = calc_fn(features)
-            logger.info(f"✅ {field} recalculé : {features[field]}")
+            logger.debug(f"✅ {field} recalculé : {features[field]}")
         except Exception as e:
             logger.warning(f"❌ Erreur recalcul {field} : {e}")
     insert_or_update_audio_features(track_id, features, logname=logname)
-    sync_fields_by_track_id(track_id, features)
+    sync_fields_by_track_id(track_id, features, no_tags=no_tags)

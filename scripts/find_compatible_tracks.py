@@ -23,38 +23,44 @@ KEY_TRANSITION_SCORES = {
 }
 
 PENALTY_PER_SEMITONE = 0.05
-BPM_SHIFT_PENALTY = 0.05
+BPM_SHIFT_PENALTY = 0.2
 
 def group_matches_by_transition_type(matches: list, ref_key: str, max_results: int = 10):
     grouped = defaultdict(list)
+    logger.debug(f"group_matches_by_transition_type grouped : {grouped}")
     for m in matches:
         t_type = classify_transition_type(ref_key, m["key"])
         grouped[t_type].append(m)
+        logger.debug(f"group_matches_by_transition_type m : {m}, t_type : {t_type}, grouped[t_type].append(m) : {grouped[t_type].append(m)}")
 
     for t_type in grouped:
-        print(f"t_type : {t_type}")
+        logger.debug(f"group_matches_by_transition_type t_type : {t_type}")
         grouped[t_type] = sorted(grouped[t_type], key=lambda x: x["score"], reverse=True)[:max_results]
-        print(f"grouped[t_type] : {len(grouped[t_type])}")
+        logger.debug(f"group_matches_by_transition_type grouped[t_type] : {len(grouped[t_type])}")
 
     return dict(grouped)
 
 
 def get_key_score(ref_key: str, candidate_key: str) -> float:
     try:
+        logger.debug(f"get_key_score ref_key : {ref_key}, candidate_key : {candidate_key}")
         if ref_key == candidate_key:
             return 1.0
         ref_idx = CAMELOT_ORDER.index(ref_key)
         cand_idx = CAMELOT_ORDER.index(candidate_key)
         diff = abs(ref_idx - cand_idx) % 24
+        logger.debug(f"get_key_score ref_idx : {ref_idx}, cand_idx : {cand_idx}, diff : {diff}")
         if diff > 12:
             diff = 24 - diff
+            logger.debug(f"get_key_score diff > 12, diff : {diff}")
 
         for dist, (_, score) in KEY_TRANSITION_SCORES.items():
+            logger.debug(f"get key score : for dist, dist : {dist}, diff : {diff}")
             if diff == dist:
                 return score
         return 0.4
     except:
-        print(f"Erreur dans get_key_score: ref_key={ref_key}, cand_key={candidate_key} → {e}")
+        logger.error(f"Erreur dans get_key_score: ref_key={ref_key}, cand_key={candidate_key} → {e}")
         return 0.0
 
 def classify_transition_type(ref_key: str, candidate_key: str) -> str:
@@ -86,8 +92,8 @@ def classify_transition_type(ref_key: str, candidate_key: str) -> str:
 def find_compatible_tracks(
     track_id: int,
     target_bpm: float = None,
-    tolerance_bpm_percent: float = 5.0,
-    tolerance_energy: int = 2,
+    tolerance_bpm_percent: float = 3.0,
+    tolerance_energy: int = 1,
     key_match: bool = True,
     mood_match: bool = True,
     max_results: int = 15,
@@ -96,7 +102,7 @@ def find_compatible_tracks(
 ) -> List[Dict] | Dict[str, List[Dict]]:
     try:
         query = """
-        SELECT bpm, initial_key, mood, energy_level, mood_emb_1, mood_emb_2
+        SELECT bpm, initial_key, mood, energy_level, beat_intensity, mood_emb_1, mood_emb_2
         FROM audio_features
         WHERE id = ?
         """
@@ -105,51 +111,44 @@ def find_compatible_tracks(
             logger.warning(f"Track ID {track_id} introuvable dans audio_features")
             return []
 
-        ref_bpm, ref_key, ref_mood, ref_energy, ref_emb1, ref_emb2 = ref
-        print(f"ref_key : {ref_key}")
+        ref_bpm, ref_key, ref_mood, ref_energy, ref_beat_intensity, ref_emb1, ref_emb2 = ref
         effective_ref_key = ref_key
-        print(f"effective_ref_key : {effective_ref_key}")
-        print(f"target_bpm 1 : {target_bpm}")
+
         if target_bpm is None:
             target_bpm = ref_bpm
         else:
-            print(f"target_bpm : {target_bpm}")
-            # Calcul du pitch shift du track de référence
             ref_pitch_shift = 12 * math.log2(target_bpm / ref_bpm)
             ref_semitone_shift = round(ref_pitch_shift)
-
-            # Lecture dans sa propre transpo
             ref_transpo = select_one("SELECT * FROM track_transpositions WHERE id = ?", (track_id,), logname=logname)
-            
             if ref_transpo:
-                transpo_dict = dict(zip([...], ref_transpo[1:]))  # comme dans ton code
+                transpo_dict = dict(zip([...], ref_transpo[1:]))
                 key_col = f"key_{'plus' if ref_semitone_shift > 0 else 'minus' if ref_semitone_shift < 0 else '0'}_{abs(ref_semitone_shift)}"
                 if key_col in transpo_dict and transpo_dict[key_col]:
                     effective_ref_key = transpo_dict[key_col]
 
         bpm_min = target_bpm * (1 - tolerance_bpm_percent / 100)
         bpm_max = target_bpm * (1 + tolerance_bpm_percent / 100)
-
+        logger.debug(f"bpm_min : {bpm_min}, bpm_max : {bpm_max}, target_bpm : {target_bpm}")
         candidates_query = """
-        SELECT id, bpm, initial_key, mood, energy_level, mood_emb_1, mood_emb_2
+        SELECT id, bpm, initial_key, mood, energy_level, beat_intensity, mood_emb_1, mood_emb_2
         FROM audio_features
         WHERE id != ?
         """
         candidates = select_all(candidates_query, (track_id,), logname=logname)
-        print(f"candidates : {len(candidates)}")
+        logger.debug(f"candidates : {len(candidates)}")
         compatibles = []
         for row in candidates:
-            cid, bpm, key, mood, energy, emb1, emb2 = row
-
-            best_harmony_score = 0.0
-            best_key = key
-            best_semitone = 0
-            best_transposed_bpm = bpm
-            best_actual_pitch_shift = 0.0
+            cid, bpm, key, mood, energy, beat_intensity, emb1, emb2 = row
 
             transpo_query = "SELECT * FROM track_transpositions WHERE id = ?"
             row2 = select_one(transpo_query, (cid,), logname=logname)
-            candidate_transposed_pairs = set()
+            best_combo = {
+                "score": 0.0,
+                "key": key,
+                "semitone": 0,
+                "transposed_bpm": bpm,
+                "pitch_shift": 0.0
+            }
 
             if row2:
                 transpo_dict = dict(zip([
@@ -165,35 +164,50 @@ def find_compatible_tracks(
                     b_col = f"bpm_{'plus' if i > 0 else 'minus' if i < 0 else '0'}_{abs(i)}" if i != 0 else "bpm_0"
                     k = transpo_dict.get(k_col)
                     b = transpo_dict.get(b_col)
-                    if k is not None and b is not None:
-                        if bpm_min <= b <= bpm_max:
-                            score = get_key_score(effective_ref_key, k)
-                            pitch_shift = 0.0
-                            if b > 0 and bpm > 0:
-                                pitch_shift = 12 * math.log2(b / bpm)
-                                if abs(pitch_shift) >= 1.0:
-                                    penalty = BPM_SHIFT_PENALTY * (abs(pitch_shift) - 1.0)
-                                    score -= penalty
-                                    score = max(score, 0)
 
-                            #logger.debug(f"CID={cid} k={k} b={b:.2f} score={score:.2f} pitch_shift={pitch_shift:.2f}")
+                    if k is not None and b is not None and bpm_min <= b <= bpm_max:
+                        score = get_key_score(effective_ref_key, k)
+                        pitch_shift = 12 * math.log2(b / bpm) if b > 0 and bpm > 0 else 0.0
+                        penalty = 0.0
 
-                            if score > best_harmony_score:
-                                best_harmony_score = score
-                                best_key = k
-                                best_semitone = i
-                                best_transposed_bpm = b
-                                best_actual_pitch_shift = pitch_shift
+                        if abs(pitch_shift) >= 1.0:
+                            penalty = BPM_SHIFT_PENALTY * (abs(pitch_shift) - 1.0)
+                            score -= penalty
+                            score = max(score, 0.0)
+                            logger.debug(f"penalty : {penalty}, BPM_SHIFT_PENALTY : {BPM_SHIFT_PENALTY}, score : {score}")
+
+                        if score > best_combo["score"]:
+                            best_combo.update({
+                                "score": score,
+                                "key": k,
+                                "semitone": i,
+                                "transposed_bpm": b,
+                                "pitch_shift": pitch_shift
+                            })
 
             elif not key_match:
-                best_harmony_score = 0.5
+                best_combo["score"] = 0.5
 
-            if best_harmony_score == 0:
+            if best_combo["score"] == 0:
                 continue
+
+            best_harmony_score = best_combo["score"]
+            best_key = best_combo["key"]
+            best_semitone = best_combo["semitone"]
+            best_transposed_bpm = best_combo["transposed_bpm"]
+            best_actual_pitch_shift = best_combo["pitch_shift"]
+            logger.debug(f"best_key : {best_key}, best_semitone : {best_semitone}, best_transposed_bpm : {best_transposed_bpm}, best_actual_pitch_shift : {best_actual_pitch_shift}")
 
             score = best_harmony_score
             energy_score = 1 - abs(energy - ref_energy) / tolerance_energy
+            logger.debug(f"energy : {energy}, ref_energy : {ref_energy}, tolerance_energy : {tolerance_energy}")
             score += energy_score
+            logger.debug(f"score : {score}, energy_score : {energy_score}")
+
+            beat_intensity_score = 1 - abs(beat_intensity - ref_beat_intensity) / tolerance_energy
+            logger.debug(f"beat_intensity : {beat_intensity}, ref_beat_intensity : {ref_beat_intensity}, tolerance_energy : {tolerance_energy}")
+            score += beat_intensity_score
+            logger.debug(f"score : {score}, energy_score : {energy_score}")
 
             mood_score = 0.0
             if mood_match and mood == ref_mood:
@@ -201,11 +215,14 @@ def find_compatible_tracks(
             elif not mood_match:
                 mood_score = 0.5
             score += mood_score
+            logger.debug(f"score : {score}, mood_score : {mood_score}")
 
             mood_sim = 0.0
             if ref_emb1 is not None and emb1 is not None:
                 mood_sim = 1 - math.sqrt((ref_emb1 - emb1)**2 + (ref_emb2 - emb2)**2)
                 score += mood_sim
+
+            logger.debug(f"score : {score}, mood_sim : {mood_sim}")
 
             compatibles.append({
                 "track_id": cid,
@@ -216,7 +233,7 @@ def find_compatible_tracks(
                 "score": round(score, 3),
                 "diagnostic": f"key_score={best_harmony_score:.2f}, semitones={best_semitone}, transposed_bpm={best_transposed_bpm}, bpm_target={target_bpm}, energy_delta={abs(energy - ref_energy):.2f}, mood_sim={mood_sim:.2f}, pitch_shift={best_actual_pitch_shift:.2f}"
             })
-
+            logger.debug(f"compatibles.append : {compatibles.append}")
         if not grouped:
             compatibles.sort(key=lambda x: x["score"], reverse=True)
             return compatibles[:max_results]
@@ -226,6 +243,7 @@ def find_compatible_tracks(
     except Exception as e:
         logger.exception(f"Erreur dans find_compatible_tracks: {e}")
         return []
+
 
 def enrich_matches_with_metadata(matches: list[dict]) -> list[dict]:
     for match in matches:
@@ -241,7 +259,7 @@ def enrich_matches_with_metadata(matches: list[dict]) -> list[dict]:
     return matches
 
 def export_matches_to_markdown(results_by_type: dict[str, list[dict]], output_dir: str = EXPORT_COMPATIBLE_TRACKS):
-    print(f"output_dir : {output_dir}")
+    logger.debug(f"output_dir : {output_dir}")
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     os.makedirs(output_dir, exist_ok=True)
     filename = f"mixonaut_matches_{timestamp}.md"
@@ -263,19 +281,6 @@ def export_matches_to_markdown(results_by_type: dict[str, list[dict]], output_di
             f.write("\n\n")
 
     return output_path
-
-
-def format_matches_markdown(matches: list[dict]) -> str:
-    lines = [
-        "| Artist | Title | Album | BPM | Key | Score | Diagnostic |",
-        "|--------|-------|-------|-----|-----|-------|------------|"
-    ]
-    for m in matches:
-        lines.append(
-            f"| {m.get('artist', '')} | {m.get('title', '')} | {m.get('album', '')} "
-            f"| {m['bpm']} | {m['key']} | {m['score']} | {m['diagnostic']} |"
-        )
-    return "\n".join(lines)
 
 if __name__ == "__main__":
     try:

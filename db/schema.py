@@ -25,6 +25,7 @@ def create_tables():
             beats_count INTEGER,
             bpm REAL,
             beats_loudness_mean REAL,
+            onset_rate REAL,
 
             -- highlevel - danceability
             danceable TEXT,
@@ -116,6 +117,8 @@ def create_tables():
             spectral_flux REAL,
             spectral_complexity REAL,
             spectral_energy REAL,
+            spectral_rms_mean REAL,
+            spectral_rms_stdev REAL,
             zerocrossingrate REAL,
             dynamic_complexity REAL,
             

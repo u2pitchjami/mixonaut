@@ -18,23 +18,32 @@ def calculate_beat_intensity(features: dict, logname=logname) -> float:
     """
     logger = get_logger(logname)
     try:
-        bpm = features.get("bpm_essentia") or 0
-        average_loudness = features.get("average_loudness") or 0
-        beats_count = features.get("beats_count") or 0
-        beats_loudness_mean = features.get("beats_loudness_mean") or 0
-        danceability = features.get("danceability") or 0
-        spectral_flux = features.get("spectral_flux") or 0
-        dynamic_complexity = features.get("dynamic_complexity") or 0
-
-        # Normalisation + pondération (adaptable selon préférences)
-        score = (
-            (beats_loudness_mean or 0) * 4 +         # puissance moyenne des beats
-            (spectral_flux or 0) * 3 +               # variation spectrale : mouvement
-            (dynamic_complexity or 0) * 2 +          # complexité dynamique
-            (danceability or 0) * 1
+        def norm(val, max_val):
+            return min(val / max_val, 1.0)
+        
+        beats_loudness_mean = norm(features.get("beats_loudness_mean", 0), 0.4)
+        onset_rate = norm(features.get("onset_rate", 0), 10)
+        spectral_flux = norm(features.get("spectral_flux", 0), 0.3)
+        zcr = norm(features.get("zerocrossingrate", 0), 0.2)
+        dynamic_complexity = norm(features.get("dynamic_complexity", 0), 60.0)
+        average_loudness = norm(features.get("average_loudness", 0), 1.0)
+        beats_count = norm(features.get("beats_count", 0), 1000.0)
+        danceability = norm(features.get("danceability", 0), 1.0)
+                
+        score = round(
+            (beats_loudness_mean or 0) * 3.5 +         # puissance moyenne des beats
+            (onset_rate or 0) * 2.5 +
+            (spectral_flux or 0) * 1.5 +
+            (zcr or 0) * 1 +
+            (dynamic_complexity or 0) * 0.8 +
+            (average_loudness or 0) * 0.4 +
+            (beats_count or 0) * 0.2 +
+            (danceability or 0) * 0.1,
+            3
             )
-
-        return round(min(score, 10.0), 2)
+        #print(f"score {score} ")
+        #print(f"beats_loudness_mean {beats_loudness_mean *10 * 4}, spectral_flux {spectral_flux * 3},dynamic_complexity {dynamic_complexity / 10 * 2},danceabilityn {danceability},")
+        return round(min(score, 10.0), 3)
 
     except Exception as e:
         logger.warning(f"Erreur calcul beat_intensity : {e}")
@@ -53,25 +62,29 @@ def compute_energy_level(features: dict, logname=logname) -> float | None:
         def norm(val, max_val):
             return min(val / max_val, 1.0)
 
-        centroid = norm(features.get("spectral_centroid", 0), 5000.0)
-        spectral_flux = norm(features.get("spectral_flux", 0), 0.4)
-        complexity = norm(features.get("spectral_complexity", 0), 30.0)
+        spectral_centroid = norm(features.get("spectral_centroid", 0), 5000.0)
+        spectral_flux = norm(features.get("spectral_flux", 0), 0.3)
+        spectral_complexity = norm(features.get("spectral_complexity", 0), 30.0)
         spectral_energy = norm(features.get("spectral_energy", 0), 0.3)
-        average_loudness = norm(features.get("average_loudness", 0), 1.5)
-        zcr = norm(features.get("zerocrossingrate", 0), 0.2)
-        beats_loudness_mean = norm(features.get("beats_loudness_mean", 0), 0.3)
-        bpm = norm(features.get("bpm_essentia", 0), 180.0)
-        dynamic_complexity = norm(features.get("dynamic_complexity", 0), 10.0)
+        average_loudness = norm(features.get("average_loudness", 0), 1.0)
+        zrc = norm(features.get("zerocrossingrate", 0), 0.2)
+        beats_loudness_mean = norm(features.get("beats_loudness_mean", 0), 0.4)
+        dynamic_complexity = norm(features.get("dynamic_complexity", 0), 60.0)
         
         energy_level = round(
-        (spectral_energy or 0) * 3 +
         (beats_loudness_mean or 0) * 3 +
-        (spectral_flux or 0) * 2 +
-        (average_loudness or 0) * 1 +
-        (dynamic_complexity or 0) * 1,
+        (average_loudness or 0) * 2 +
+        (spectral_centroid or 0) * 1 +
+        (spectral_energy or 0) * 1 +
+        (spectral_flux or 0) * 1 +
+        (spectral_complexity or 0) * 0.5 +
+        (dynamic_complexity or 0) * 0.3 +
+        (zrc or 0) * 0.2,
         3
         )
-        print(f"energy_level {energy_level}")
+        #print(f"energy_level {energy_level}")
+        #print(f"spectral_energy {spectral_energy * 3}, average_loudness {average_loudness * 1}, spectral_flux {spectral_flux * 2}, dynamic_complexity {dynamic_complexity}, beats_loudness_mean {beats_loudness_mean * 3},")
+        
         return energy_level
 
     except Exception as e:

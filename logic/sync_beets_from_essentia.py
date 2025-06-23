@@ -20,7 +20,7 @@ def sync_fields_by_track_id(track_id: int, track_features: dict, logname: str = 
     sync_fields = build_sync_fields(track_id=track_id, track_features=track_features, logname=logname)
     sync_beets_from_essentia(track_path=path_str, field_values=sync_fields, logname=logname)
 
-def sync_beets_from_essentia(track_path: str, field_values,  logname=logname):
+def sync_beets_from_essentia(track_path: str, field_values, no_tags=None,  logname=logname):
     logger = get_logger(logname)
     
     logger.debug(f"💾 Mise à jour de la base Beets field_values {field_values}")
@@ -33,14 +33,14 @@ def sync_beets_from_essentia(track_path: str, field_values,  logname=logname):
     except Exception as e:
         logger.error(f"❌ Erreur lors de la mise à jour des champs Beets : {e}")
         raise
-    
-    new_path = convert_path_format(path=track_path, to_beets=False)
-    logger.debug("🏷️ Ecriture des tags")
-    write_tags_docker(
-        path=new_path,
-        track_features=field_values,
-        logname=logname
-    )
+    if not no_tags:
+        new_path = convert_path_format(path=track_path, to_beets=False)
+        logger.debug("🏷️ Ecriture des tags")
+        write_tags_docker(
+            path=new_path,
+            track_features=field_values,
+            logname=logname
+        )
 
     logger.debug("🏁 Retro_Beets_Db : TERMINE \n")
     
@@ -78,7 +78,9 @@ def build_sync_fields(track_id: int, track_features: dict, extra_fields=None, lo
 
 
 def should_update_genre(track_id: int, new_genre: str) -> bool:
+    #logger.debug(f"should_update_genre new_genre : {new_genre}")
     current_genre = get_item_field_value("genre", track_id)
+    #logger.debug(f"current_genre : {current_genre}")
     #print(f"should_update_genre called with track_id: {track_id}, new_genre: {new_genre}, current_genre: {current_genre}")
     if not current_genre:
         return new_genre.strip()
@@ -86,15 +88,17 @@ def should_update_genre(track_id: int, new_genre: str) -> bool:
     # Nettoyage des genres actuels
     current_genres = [g.strip() for g in re.split(r"[;,/]", current_genre)]
     new_genre_clean = new_genre.strip()
+    #logger.debug(f"current_genre : {current_genre}")
+    #logger.debug(f"new_genre_clean : {new_genre_clean}")
 
     if new_genre_clean in current_genres:
         return False  # Rien à faire
 
     # Sinon, on ajoute à la liste
     genres = current_genres + [new_genre_clean]
-    #print(f"Genres après ajout : {genres}")
+    #logger.debug(f"Genres après ajout : {genres}")
     # Mise en forme (capitalisation facultative)
     new_value = ", ".join(sorted(set(genres)))  # tri optionnel
-    #print(f"Nouveau genre formaté : {new_value}")
-
+    #logger.debug(f"new_value : {new_value}")
+    
     return new_value

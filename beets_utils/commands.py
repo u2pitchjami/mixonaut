@@ -62,7 +62,7 @@ def run_beet_command(
     finally:
         if read_lock_pid() == get_current_pid():
                 os.remove(LOCK_FILE)
-                logger.info("🔓 Verrou supprimé.")
+                logger.debug("🔓 Verrou supprimé.")
         else:
             logger.warning("⚠️ Tentative de suppression du verrou non possédé (ignorée).")
 
