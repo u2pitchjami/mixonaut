@@ -17,8 +17,8 @@ def enrich_features(track_features, logname=logname):
         track_features["beat_intensity"] = calculate_beat_intensity(track_features, logname=logname)
         logger.debug(f"beat_intensity : {track_features['beat_intensity']}")
 
-        track_features["energy_level"] = compute_energy_level(track_features, logname=logname)
-        logger.debug(f"energy_level : {track_features['energy_level']}")
+        #track_features["energy_level"] = compute_energy_level(track_features, logname=logname)
+        #logger.debug(f"energy_level : {track_features['energy_level']}")
 
         mood_vector = compute_mood_vector(track_features, logname=logname)
         logger.debug(f"mood_vector : {mood_vector}")

@@ -78,7 +78,7 @@ def insert_or_update_audio_features(item_id: int, features: dict, force=True, lo
                 SET {assignments}
                 WHERE id = ?
             """
-            #logger.debug(f"[UPDATE] {update_query} {values + [item_id]}")
+            logger.debug(f"[UPDATE] {update_query} {values + [item_id]}")
             execute_query(update_query, tuple(values + [item_id]))
 
         else:
@@ -86,7 +86,7 @@ def insert_or_update_audio_features(item_id: int, features: dict, force=True, lo
                 INSERT INTO audio_features (id, {field_list})
                 VALUES (?, {placeholders})
             """
-            #logger.debug(f"[INSERT] {insert_query} {[item_id] + values}")
+            logger.debug(f"[INSERT] {insert_query} {[item_id] + values}")
             execute_query(insert_query, tuple([item_id] + values))
 
         return True

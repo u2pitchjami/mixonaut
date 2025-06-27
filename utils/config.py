@@ -54,7 +54,8 @@ ESSENTIA_SAV_JSON = get_str("ESSENTIA_SAV_JSON", "data/tsav_json")
 ESSENTIA_TEMP_AUDIO = get_str("ESSENTIA_TEMP_AUDIO", "data/temp_audio")
 ESSENTIA_TEMP_JSON = get_str("ESSENTIA_TEMP_JSON", "data/temp_json")
 SCRIPT_PATH_ESSENTIA = get_required("SCRIPT_PATH_ESSENTIA")
-SCRIPT_PATH_REPLAYGAIN = get_required("SCRIPT_PATH_ESSENTIA")
+SCRIPT_PATH_REPLAYGAIN = get_required("SCRIPT_PATH_REPLAYGAIN")
+MAX_SAFENAME_LENGTH = 100
 
 #PATHS
 MUSIC_BASE_PATH = get_required("MUSIC_BASE_PATH")
@@ -168,6 +169,12 @@ ESSENTIA_MAPPING = {
     "bpm": ["rhythm", "bpm"],
     "beats_loudness_mean": ["rhythm", "beats_loudness", "mean"],
     "onset_rate": ["rhythm", "onset_rate"],
+    "blbr_mean_b1": ["rhythm", "beats_loudness_band_ratio", "dmean", 0],
+    "blbr_mean_b2": ["rhythm", "beats_loudness_band_ratio", "dmean", 1],
+    "blbr_mean_b3": ["rhythm", "beats_loudness_band_ratio", "dmean", 2],
+    "blbr_mean_b4": ["rhythm", "beats_loudness_band_ratio", "dmean", 3],
+    "blbr_mean_b5": ["rhythm", "beats_loudness_band_ratio", "dmean", 4],
+    "blbr_mean_b6": ["rhythm", "beats_loudness_band_ratio", "dmean", 5],
     "spectral_centroid": ["lowlevel", "spectral_centroid", "mean"],
     "spectral_flux": ["lowlevel", "spectral_flux", "mean"],
     "spectral_complexity": ["lowlevel", "spectral_complexity", "mean"],
@@ -185,7 +192,8 @@ ESSENTIA_MAPPING = {
     "key_temperley": ["tonal", "key_temperley", "key"], 
     "scale_temperley": ["tonal", "key_temperley", "scale"],
     "strength_temperley": ["tonal", "key_temperley", "strength"],
-    "rg_track_gain": ["lowlevel", "replaygain"]
+    "rg_track_gain": ["lowlevel", "replaygain"],
+    "duration": ["metadata", "audio_properties", "analysis", "length"]
 }
 MOOD_KEYS = [
     "acoustic",
@@ -205,7 +213,6 @@ GENRE_FIELDS = [
 
 RETRO_MIXONAUT_BEETS = {
     "mood",
-    "energy_level",
     "beat_intensity",
     "bpm",
     "rg_track_gain",

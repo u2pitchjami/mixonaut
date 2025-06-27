@@ -11,7 +11,6 @@ CONTAINER_MUSIC_DIR = BEETS_MUSIC
 
 def write_tags_docker(path: str, track_features: Dict, logname="Mixonaut") -> None:
     logger = get_logger(logname)
-    print(f"path : {path}")
     tags_to_write = list(track_features.keys())
     logger.debug(f"tags_to_write : {tags_to_write}")
     

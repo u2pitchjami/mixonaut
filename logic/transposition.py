@@ -50,7 +50,6 @@ def generate_transpositions(nb_limit=0, track_id=None, logname=logname):
         for track_id, bpm, key in rows[:nb_limit]:
             count += 1
             logger.info(f"🔍 Traitement du morceau {track_id} - [{format_nb(count)}/{format_nb(total)}] ({format_percent(count, total)})")
-            print(f"logname : {logname}")
             keys, bpms = {}, {}
             for shift in SEMITONE_SHIFT_VALUES:
                 key_col = shift_to_colname("key", shift)

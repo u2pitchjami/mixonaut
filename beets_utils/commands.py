@@ -26,7 +26,6 @@ def run_beet_command(
     """
     logger = get_logger(logname + "." + __name__)
     cmd = ["beet", command]
-    
     if args and all(arg is not None for arg in args):
         cmd.extend(args)
        
@@ -35,7 +34,7 @@ def run_beet_command(
         return
     
     try:
-        if not safe_beets_call(logname=logname):
+        if safe_beets_call(logname=logname):
             logger.debug(f"🔧 Exécution Beets : {' '.join(cmd)}")
             result = subprocess.run(
                 cmd,

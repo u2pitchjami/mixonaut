@@ -4,7 +4,7 @@ import re
 import shutil
 from utils.logger import get_logger
 from utils.utils_div import ensure_to_path, convert_path_format
-from utils.config import ESSENTIA_TEMP_AUDIO, ESSENTIA_TEMP_JSON, ESSENTIA_SAV_JSON
+from utils.config import ESSENTIA_TEMP_AUDIO, ESSENTIA_TEMP_JSON, ESSENTIA_SAV_JSON, MAX_SAFENAME_LENGTH
 
 logname = __name__.split(".")[-1]
 
@@ -38,6 +38,9 @@ def prepare_track_paths(track, logname=logname):
             return None
 
         safe_name = f"{track_id}_{sanitize_filename(artist)}_{sanitize_filename(album)}_{sanitize_filename(title)}"
+        # Tronque si trop long
+        if len(safe_name) > MAX_SAFENAME_LENGTH:
+            safe_name = safe_name[:MAX_SAFENAME_LENGTH]
         temp_audio = Path(ESSENTIA_TEMP_AUDIO) / f"{safe_name}{path.suffix}"
         temp_json = Path(ESSENTIA_TEMP_JSON) / f"{safe_name}.json"
         return track_id, path, safe_name, temp_audio, temp_json

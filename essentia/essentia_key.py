@@ -11,7 +11,7 @@ ENHARMONIC_MAP = {
     "C#": "C#", "D#": "D#", "F#": "F#", "G#": "G#", "A#": "A#"
 }
 
-def convert_to_camelot(key: str, scale: str) -> str:
+def convert_to_camelot(key: str, scale: str, strength=None) -> str:
     """
     Convert musical key + scale to Camelot notation.
     Examples:
@@ -28,10 +28,11 @@ def convert_to_camelot(key: str, scale: str) -> str:
     label = f"{key}{'m' if scale.lower() == 'minor' else ''}"
     return CAMELOT_MAP.get(label)
 
-def get_best_key_from_essentia(track_features: dict):
+def get_best_key_from_essentia(track_features: dict, threshold: float = 5.0):
     """
-    Sélectionne la tonalité la plus fiable en fonction de la plus grande strength
-    parmi les 3 analyseurs : edma, krumhansl, temperley.
+    Sélectionne la tonalité la plus fiable, avec priorité à edma.
+    Si un autre algo a une probabilité significativement plus élevée (> threshold),
+    alors il est préféré à edma.
     """
     candidates = {
         "edma": {
@@ -50,31 +51,35 @@ def get_best_key_from_essentia(track_features: dict):
             "strength": track_features.get("strength_temperley")
         }
     }
+    edma = candidates["edma"]
+    if not edma["key"] or edma["strength"] is None:
+        # fallback total sur le meilleur score
+        best = max(
+            (data for data in candidates.values() if data["key"] and data["strength"] is not None),
+            key=lambda x: x["strength"],
+            default=None
+        )
+        return best
 
-    best = None
-    max_strength = -1
+    best_non_edma = max(
+        (data for k, data in candidates.items() if k != "edma" and data["key"] and data["strength"] is not None),
+        key=lambda x: x["strength"],
+        default=None
+    )
+    if best_non_edma and best_non_edma["strength"] - edma["strength"] > threshold:
+        return best_non_edma
+    else:
+        return edma
 
-    for algo, data in candidates.items():
-        if data["key"] and data["strength"] is not None:
-            if data["strength"] > max_strength:
-                max_strength = data["strength"]
-                best = {
-                    "algorithm": algo,
-                    "key": data["key"],
-                    "scale": data["scale"],
-                    "strength": data["strength"]
-                }
 
-    return best  # dict or None
-
-# Optional test
-if __name__ == "__main__":
-    tests = [
-        ("F#", "major"),
-        ("Gb", "major"),
-        ("F♯", "major"),
-        ("A", "minor"),
-        ("Bb", "minor")
-    ]
-    for key, scale in tests:
-        print(f"{key} {scale} => {convert_to_camelot(key, scale)}")
+# # Optional test
+# if __name__ == "__main__":
+#     tests = [
+#         ("F#", "major"),
+#         ("Gb", "major"),
+#         ("F♯", "major"),
+#         ("A", "minor"),
+#         ("Bb", "minor")
+#     ]
+#     for key, scale in tests:
+#         print(f"{key} {scale} => {convert_to_camelot(key, scale)}")

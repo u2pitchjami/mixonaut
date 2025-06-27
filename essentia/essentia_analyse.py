@@ -55,6 +55,6 @@ def extract_and_parse_features(temp_audio, temp_json, profile, logname=logname):
     if not temp_json.exists():
         logger.error(f"JSON non généré pour : {temp_audio}")
         return None
-
+    
     run_replaygain_in_container(audio_path=temp_audio, json_out_path=temp_json, profile_path=profile, logname=logname)
     return parse_essentia_json(temp_json)

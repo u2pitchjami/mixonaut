@@ -26,6 +26,12 @@ def create_tables():
             bpm REAL,
             beats_loudness_mean REAL,
             onset_rate REAL,
+            blbr_mean_b1 REAL,
+            blbr_mean_b2 REAL,
+            blbr_mean_b3 REAL,
+            blbr_mean_b4 REAL,
+            blbr_mean_b5 REAL,
+            blbr_mean_b6 REAL,
 
             -- highlevel - danceability
             danceable TEXT,
@@ -134,12 +140,14 @@ def create_tables():
             strength_temperley REAL,
             
             mood TEXT,
-            energy_level INTEGER,
+            duration REAL,
             beat_intensity REAL,
             rg_track_gain REAL,
             initial_key TEXT,
             mood_emb_1 FLOAT,
-            mood_emb_2 FLOAT
+            mood_emb_2 FLOAT,
+            genre_emb_1 FLOAT,
+            genre_emb_2 FLOAT
         );
         """)
         
@@ -222,7 +230,7 @@ def create_tables():
         FOREIGN KEY(id) REFERENCES tracks(id)
         );
         """)
-
+         
         conn.commit()
         print(f"✅ Base initialisée : {BEETS_DB}")
 

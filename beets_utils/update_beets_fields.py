@@ -13,7 +13,7 @@ def update_beets_fields(track_path: str, field_values: dict, logname="Mixonaut",
         dry_run (bool): Simulation sans exécution réelle
     """
     track_path = track_path.decode("utf-8") if isinstance(track_path, bytes) else track_path
-
+    
     # Transforme les champs en liste de type "key=value"
     args = ["-y"]  # Ajout ici pour forcer la modification sans confirmation
     args += [f"{key}={value}" for key, value in field_values.items()]
