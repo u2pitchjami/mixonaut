@@ -10,7 +10,7 @@ def check_mb_albumid(artist=None):
     logger.info(f"📅 CHECK MB_ALBUMID : {datetime.now().strftime('%d-%m-%Y')}")
     logger.info("--- (vérifie si tous les albums sont reliés à Musicbrainz) ---")
 
-    lines = get_beet_list(query=artist, album=True, format=True, format_fields="$path|$mb_albumid", logname="Check_Musicbrainz")
+    lines = get_beet_list(query=artist, album=True, format=True, format_fields="$path|$mb_albumid", logger=logger)
     if not lines:
         return
 

@@ -1,16 +1,11 @@
 import sqlite3
 import os
-from utils.logger import get_logger
+from utils.logger import get_logger, with_child_logger
 from utils.config import BEETS_DB, LOCK_FILE
 from beets_utils.beets_safe import safe_beets_call, read_lock_pid, get_current_pid
 
-logname = __name__.split(".")[-1]
-
-# def get_connection(db_path: str = BEETS_DB):
-#     return sqlite3.connect(db_path)
-
-def get_connection(db_path: str = BEETS_DB, retries: int = 5, delay: int = 2, timeout: int = 10, logname = logname):
-    logger = get_logger(logname)
+@with_child_logger
+def get_connection(db_path: str = BEETS_DB, retries: int = 5, delay: int = 2, timeout: int = 10, logger=None):
     for attempt in range(retries):
         try:
             conn = sqlite3.connect(db_path, timeout=timeout)
@@ -21,23 +16,21 @@ def get_connection(db_path: str = BEETS_DB, retries: int = 5, delay: int = 2, ti
     logger.error(f"❌ Connexion à la base échouée après {retries} tentatives.")
     raise RuntimeError("Impossible d'obtenir une connexion à la base SQLite.")
 
+@with_child_logger
 def execute_query(query: str, params: tuple = (), fetch: bool = False,
-                  db: str = BEETS_DB, logname: str = logname):
+                  db: str = BEETS_DB, logger: str = None):
     """Exécute une requête SQL sur la base spécifiée"""
-    logger = get_logger(logname)
     try:
         conn = False
-        if safe_beets_call(logname=logname):
-            conn = get_connection(db)
+        if safe_beets_call(logger=logger):
+            conn = get_connection(db, logger=logger)
     except sqlite3.Error as e:
         logger.error(f"❌ [{__name__.split('.')[-1]}] Erreur connexion DB → {e}")
         raise
     try:
         cursor = conn.cursor()
         cursor.execute(query, params)
-
         result = cursor.fetchall() if fetch else None
-
         conn.commit()
         return result
     except sqlite3.Error as e:
@@ -61,16 +54,20 @@ def execute_many(query: str, param_list: list[tuple], db: str = BEETS_DB):
     conn.commit()
     conn.close()
 
-def select_all(query: str, params: tuple = (), db=BEETS_DB, logname=None):
-    return execute_query(query, params=params, fetch=True, db=db, logname=logname)
+@with_child_logger
+def select_all(query: str, params: tuple = (), db=BEETS_DB, logger=None):
+    return execute_query(query, params=params, fetch=True, db=db, logger=logger)
 
-def select_one(query: str, params: tuple = (), db=BEETS_DB, logname=None):
-    result = execute_query(query, params=params, fetch=True, db=db, logname=logname)
+@with_child_logger
+def select_one(query: str, params: tuple = (), db=BEETS_DB, logger=None):
+    result = execute_query(query, params=params, fetch=True, db=db, logger=logger)
     return result[0] if result else None
 
-def execute_write(query: str, params: tuple = (), db=BEETS_DB, logname=None):
-    return execute_query(query, params, fetch=False, db=db, logname=logname)
+@with_child_logger
+def execute_write(query: str, params: tuple = (), db=BEETS_DB, logger=None):
+    return execute_query(query, params, fetch=False, db=db, logger=logger)
 
-def select_scalar(query: str, params: tuple = (), db=BEETS_DB, logname=None):
-    row = select_one(query, params, db=db, logname=logname)
+@with_child_logger
+def select_scalar(query: str, params: tuple = (), db=BEETS_DB, logger=None):
+    row = select_one(query, params, db=db, logger=logger)
     return row[0] if row else 0

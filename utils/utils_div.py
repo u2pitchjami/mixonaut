@@ -2,14 +2,14 @@ import re
 from pathlib import Path
 from datetime import datetime
 from utils.config import BEETS_MUSIC, HOST_MUSIC, WINDOWS_MUSIC
-from utils.logger import get_logger
+from utils.logger import get_logger, with_child_logger
 
-def format_percent(part: int, total: int, digits: int = 0, logname: str = "Mixonaut") -> str:
+@with_child_logger
+def format_percent(part: int, total: int, digits: int = 0, logger: str = None) -> str:
     """
     Calcule un pourcentage (part/total) en gérant la division par zéro.
     Retourne une chaîne formatée avec '%' (arrondi à `digits` décimales).
     """
-    logger = get_logger(logname)
     try:
         if total == 0:
             return "N/A"
@@ -19,9 +19,8 @@ def format_percent(part: int, total: int, digits: int = 0, logname: str = "Mixon
         logger.warning(f"Erreur de calcul pourcentage : {e}")
         return "ERR%"
 
-
-def format_nb(nb: int, insécable: bool = False, logname: str = "Mixonaut") -> str:
-    logger = get_logger(logname)
+@with_child_logger
+def format_nb(nb: int, insécable: bool = False, logger: str = None) -> str:
     """
     Formate un entier avec des séparateurs de milliers.
     Par défaut : espace normal. Si insécable=True, utilise l'espace fine insécable (U+202F).
@@ -67,12 +66,10 @@ def convert_path_format(path: Path, to_beets: bool = False) -> Path:
         if str(path).startswith(str(HOST_MUSIC)):
             relative = path.relative_to(HOST_MUSIC)
             return Path(BEETS_MUSIC) / relative
-
         elif str(path).startswith("W:\\") or str(path).startswith("W:/"):
             # Conversion chemin Windows vers chemin Beets
             windows_relative = Path(str(path).replace("W:\\Collection\\", "").replace("\\", "/"))
             return Path(BEETS_MUSIC) / windows_relative
-
     else:
         if str(path).startswith(str(BEETS_MUSIC)):
             relative = path.relative_to(BEETS_MUSIC)
@@ -91,11 +88,10 @@ def add_updated_at(field_values: dict) -> dict:
     field_values["updated_at"] = get_current_timestamp()
     return field_values
 
-def sanitize_value(value, format_type: str, logname: str = "Mixonaut"):
-    logger = get_logger(logname)
+@with_child_logger
+def sanitize_value(value, format_type: str, logger: str = None):
     if value is None:
         return None
-
     try:
         if format_type == "bpm":
             bpm = int(round(float(value)))

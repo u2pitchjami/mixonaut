@@ -11,7 +11,7 @@ services:
       - /home/pipo/data/db/mixonaut:/app/db
       - /home/pipo/data/logs/mixonaut/beets:/app/logs
       - /mnt/user/Musiques/Collection:/app/data
-      - /mnt/user/Musiques/Atrier:/app/import
+      - /mnt/user/Zin-progress/Mixonaut/imports:/app/imports
     environment:
       - HOME=/tmp
       - TZ=Europe/Paris

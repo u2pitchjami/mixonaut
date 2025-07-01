@@ -1,16 +1,13 @@
 import os
 from datetime import datetime
 from utils.config import BEETS_LOGS, BEETS_MANUAL_LIST
-from utils.logger import get_logger
+from utils.logger import get_logger, with_child_logger
 
-def extract_manual_imports(logname = None):
-    logger = get_logger(logname + "." + __name__)
-      
-
+@with_child_logger
+def extract_manual_imports(logger = None):
     if not os.path.isfile(BEETS_LOGS):
         logger.warning(f"Fichier log introuvable : {BEETS_LOGS}")
         return
-
     try:
         with open(BEETS_LOGS, "r", encoding="utf-8") as f:
             lines = f.readlines()

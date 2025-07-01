@@ -5,7 +5,7 @@ import os
 from beets_utils.commands import get_beet_list
 from utils.config import BEETS_RECAP_DIR
 from utils.logger import get_logger
-logger = get_logger("Beets_recap")
+logger = get_logger("Beets_Recap")
 
 def export_beet_snapshot():
     """
@@ -24,7 +24,7 @@ def export_beet_snapshot():
         format_fields="$mtime|$added|$path",
         output_file=file_path,
         format=True,
-        logname="Beets_recap"
+        logger=logger
     )
 
        

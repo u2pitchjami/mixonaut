@@ -1,11 +1,6 @@
 import math
-from utils.logger import get_logger
 
-logname = __name__.split(".")[-1]
-logger = get_logger(logname)
-
-
-def calculate_mood_score(mood: str, ref_mood: str, mood_match: bool) -> float:
+def calculate_mood_score(mood: str, ref_mood: str, mood_match=True) -> float:
     if mood_match and mood == ref_mood:
         return 1.0
     elif not mood_match:
@@ -42,8 +37,8 @@ def calculate_duration_similarity(ref_duration: float, candidate_duration: float
 def calculate_energy_score(energy: int, ref_energy: int, tolerance: int) -> float:
     return max(0.0, 1 - abs(energy - ref_energy) / tolerance)
 
-def calculate_beat_intensity_score(beat_intensity: int, ref_beat_intensity: int, tolerance: int) -> float:
-    return max(0.0, 1 - abs(beat_intensity - ref_beat_intensity) / tolerance)
+def calculate_beat_intensity_score(beat_intensity: int, ref_beat_intensity: int) -> float:
+    return max(0.0, 1 - abs(beat_intensity - ref_beat_intensity) / 100)
 
 def calculate_genre_sim_score(ref_emb1, ref_emb2, emb1, emb2) -> float:
     """

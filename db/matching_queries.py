@@ -1,34 +1,35 @@
 from db.access import select_one, select_all
-from utils.logger import get_logger
-logname = __name__.split(".")[-1]
-logger = get_logger(logname)
+from utils.logger import get_logger, with_child_logger
 
-def get_track_features(track_id: int, logname: str) -> tuple | None:
+@with_child_logger
+def get_track_features(track_id: int, logger: str = None) -> tuple | None:
     query = """
-    SELECT bpm, initial_key, mood, beat_intensity, mood_emb_1, mood_emb_2, genre_emb_1, genre_emb_2, duration
+    SELECT bpm, initial_key, beat_intensity, mood_emb_1, mood_emb_2, genre_emb_1, genre_emb_2, duration
     FROM audio_features
     WHERE id = ?
     """
-    return select_one(query, (track_id,), logname=logname)
+    return select_one(query, (track_id,), logger=logger)
 
-def get_transpositions(track_id: int, logname: str) -> tuple | None:
-    return select_one("SELECT * FROM track_transpositions WHERE id = ?", (track_id,), logname=logname)
+@with_child_logger
+def get_transpositions(track_id: int, logger: str = None) -> tuple | None:
+    return select_one("SELECT * FROM track_transpositions WHERE id = ?", (track_id,), logger=logger)
 
-def get_candidate_tracks(track_id: int, logname: str) -> list[tuple]:
+@with_child_logger
+def get_candidate_tracks(track_id: int, logger: str = None) -> list[tuple]:
     query = """
-    SELECT id, bpm, initial_key, mood, beat_intensity, mood_emb_1, mood_emb_2, genre_emb_1, genre_emb_2, duration
+    SELECT id, bpm, initial_key, beat_intensity, mood_emb_1, mood_emb_2, genre_emb_1, genre_emb_2, duration
     FROM audio_features
     WHERE id != ?
     """
-    return select_all(query, (track_id,), logname=logname)
+    return select_all(query, (track_id,), logger=logger)
 
-
-def enrich_matches_with_metadata(matches: list[dict]) -> list[dict]:
+@with_child_logger
+def enrich_matches_with_metadata(matches: list[dict], logger: str = None) -> list[dict]:
     for match in matches:
         row = select_one(
             "SELECT artist, album, title FROM items WHERE id = ?",
             (match["track_id"],),
-            logname=logname
+            logger=logger
         )
         if row:
             match["artist"], match["album"], match["title"] = row

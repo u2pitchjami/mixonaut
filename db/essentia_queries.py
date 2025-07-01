@@ -1,14 +1,15 @@
 from datetime import datetime
 from db.access import execute_query, select_one, select_scalar, select_all
 from utils.config import BEETS_DB, EDM_GENRES
-from utils.logger import get_logger
+from utils.logger import get_logger, with_child_logger
 
-def get_all_track_ids():
-    rows = select_all("SELECT id FROM audio_features", (), logname=__name__)
+@with_child_logger
+def get_all_track_ids(logger=None) -> list[int]:
+    rows = select_all("SELECT id FROM audio_features", (), logger=logger)
     return [row[0] for row in rows]
 
-def fetch_tracks(missing_features=False, is_edm=False, missing_field=None, path_contains=None, logname=__name__):
-    logger = get_logger(logname)
+@with_child_logger
+def fetch_tracks(missing_features=False, is_edm=False, missing_field=None, path_contains=None, logger=None):
     base_query = """
     SELECT i.id, i.path, i.artist, i.album, i.title
     FROM items i
@@ -39,14 +40,13 @@ def fetch_tracks(missing_features=False, is_edm=False, missing_field=None, path_
         base_query += " WHERE " + " AND ".join(where_clauses)
 
     try:
-        return execute_query(base_query, tuple(params), fetch=True)
+        return execute_query(base_query, tuple(params), fetch=True, logger=logger)
     except Exception as e:
         logger.error(f"Erreur dans fetch_tracks : {e}")
         raise
 
-def insert_or_update_audio_features(item_id: int, features: dict, force=True, logname="Mixonaut"):
-    logger = get_logger(logname)
-    
+@with_child_logger
+def insert_or_update_audio_features(item_id: int, features: dict, force=True, logger=None):
     try:
         if not features:
             logger.warning("Aucune feature fournie pour audio_features.")
@@ -60,12 +60,11 @@ def insert_or_update_audio_features(item_id: int, features: dict, force=True, lo
 
         # Vérifie si la ligne existe déjà
         check_query = "SELECT id FROM audio_features WHERE id = ?"
-        exists = execute_query(check_query, (item_id,), fetch=True)
+        exists = execute_query(check_query, (item_id,), fetch=True, logger=logger)
 
         field_list = ", ".join(features_cleaned.keys())
         placeholders = ", ".join("?" for _ in features_cleaned)
         values = list(features_cleaned.values())
-
         
         if exists:
             if force:
@@ -79,15 +78,14 @@ def insert_or_update_audio_features(item_id: int, features: dict, force=True, lo
                 WHERE id = ?
             """
             logger.debug(f"[UPDATE] {update_query} {values + [item_id]}")
-            execute_query(update_query, tuple(values + [item_id]))
-
+            execute_query(update_query, tuple(values + [item_id]), logger=logger)
         else:
             insert_query = f"""
                 INSERT INTO audio_features (id, {field_list})
                 VALUES (?, {placeholders})
             """
             logger.debug(f"[INSERT] {insert_query} {[item_id] + values}")
-            execute_query(insert_query, tuple([item_id] + values))
+            execute_query(insert_query, tuple([item_id] + values), logger=logger)
 
         return True
 
@@ -95,9 +93,10 @@ def insert_or_update_audio_features(item_id: int, features: dict, force=True, lo
         logger.error(f"Erreur dans insert_or_update_audio_features pour ID {item_id} : {e}")
         raise
 
-def get_audio_features_by_id(track_id: int) -> dict:
+@with_child_logger
+def get_audio_features_by_id(track_id: int, logger=None) -> dict:
     query = "SELECT * FROM audio_features WHERE id = ?"
-    rows = execute_query(query, (track_id,), fetch=True)
+    rows = execute_query(query, (track_id,), fetch=True, logger=logger)
 
     if not rows:
         return None
@@ -106,7 +105,7 @@ def get_audio_features_by_id(track_id: int) -> dict:
 
     # Obtenir les noms de colonnes (si execute_query ne le fait pas)
     columns_query = "PRAGMA table_info(audio_features)"
-    columns_info = execute_query(columns_query, (), fetch=True)
+    columns_info = execute_query(columns_query, (), fetch=True, logger=logger)
     column_names = [col[1] for col in columns_info]  # col[1] = name
 
     return dict(zip(column_names, row))
@@ -122,8 +121,8 @@ def nb_query(table: str = "audio_features") -> dict:
 
     return nb
 
-def count_existing_features(track_ids: list[int], logname="Mixonaut") -> int:
-    logger = get_logger(logname)
+@with_child_logger
+def count_existing_features(track_ids: list[int], logger=None) -> int:
     """
     Retourne le nombre de tracks présents dans audio_features pour les ids fournis.
     """
@@ -134,7 +133,7 @@ def count_existing_features(track_ids: list[int], logname="Mixonaut") -> int:
     query = f"SELECT COUNT(*) FROM audio_features WHERE id IN ({placeholders})"
     
     try:
-        result = select_one(query, params=tuple(track_ids), logname=logname)
+        result = select_one(query, params=tuple(track_ids), logger=logger)
         return result[0] if result else 0
     except Exception as e:
         logger.error(f"Erreur dans count_existing_features : {e}")

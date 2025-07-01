@@ -3,12 +3,10 @@ import subprocess
 import sys
 from pathlib import Path
 from utils.config import IMAGE_ESSENTIA
-from utils.logger import get_logger
+from utils.logger import get_logger, with_child_logger
 
-logname = __name__.split(".")[-1]
-
-def run_replaygain_in_container(audio_path: str, json_out_path: str, profile_path: str, logname=logname):
-    logger = get_logger(logname)
+@with_child_logger
+def run_replaygain_in_container(audio_path: str, json_out_path: str, profile_path: str, logger=None):
     # Vérifie que les fichiers existent
     audio = Path(audio_path)
     json_out = Path(json_out_path)

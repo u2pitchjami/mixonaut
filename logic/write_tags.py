@@ -1,7 +1,6 @@
 import subprocess
-from typing import Dict, Set
 from utils.config import MUSIC_BASE_PATH, BEETS_MUSIC, IMAGE_BEETS
-from utils.logger import get_logger
+from utils.logger import get_logger, with_child_logger
 import os
 
 # Configuration (à adapter)
@@ -9,8 +8,8 @@ IMAGE_NAME = IMAGE_BEETS  # Nom de l'image Docker
 HOST_MUSIC_DIR = MUSIC_BASE_PATH
 CONTAINER_MUSIC_DIR = BEETS_MUSIC
 
-def write_tags_docker(path: str, track_features: Dict, logname="Mixonaut") -> None:
-    logger = get_logger(logname)
+@with_child_logger
+def write_tags_docker(path: str, track_features: dict, logger=None) -> None:
     tags_to_write = list(track_features.keys())
     logger.debug(f"tags_to_write : {tags_to_write}")
     
@@ -69,10 +68,6 @@ def write_tags_docker(path: str, track_features: Dict, logname="Mixonaut") -> No
                         )
                     
 
-            #full_cmd = " && ".join(tag_cmds)
-            #logger.debug(f"Commande Docker FLAC : {full_cmd}")
-
-
         elif ext == ".mp3":
             for tag in tags_to_write:
                 value = track_features.get(tag)
@@ -94,9 +89,7 @@ def write_tags_docker(path: str, track_features: Dict, logname="Mixonaut") -> No
 
         else:
             logger.error(f"Format non supporté : {ext}")
-            return
-        
-
+            return        
     except subprocess.CalledProcessError as e:
         logger.error(f"Erreur lors de l'écriture des tags dans {path} : {e}")
 

@@ -1,14 +1,14 @@
 import os
 from datetime import datetime
-from utils.logger import get_logger
+from utils.logger import get_logger, with_child_logger
 
-def extract_paths_from_file(source_file: str, output_file: str, mode: str = "path_extract", logname = None) -> None:
+@with_child_logger
+def extract_paths_from_file(source_file: str, output_file: str, mode: str = "path_extract", logger = None) -> None:
     """
     Extrait des chemins à partir d'un fichier en fonction du mode :
     - mode 'skip' : lignes commençant par 'skip '
     - mode 'path_extract' : cherche des chemins contenant '/app/data/'
-    """
-    logger = get_logger(logname + "." + __name__)
+    """    
     if not os.path.isfile(source_file):
         logger.warning(f"Fichier introuvable : {source_file}")
         return

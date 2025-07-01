@@ -5,7 +5,7 @@ from collections import defaultdict
 from datetime import datetime
 from beets_utils.commands import get_beet_list
 from utils.logger import get_logger
-logger = get_logger("Beets_duplicates")
+logger = get_logger("Beets_Check_Duplicates")
 
 def normalize(s):
     return s.strip().lower()
@@ -15,7 +15,7 @@ def detect_beets_album_duplicates():
     logger.info("--- (identifie les albums potentiellement en doublons) ---")
 
     try:
-        result = get_beet_list(album=True, format=True, format_fields="$album|$albumartist|$year", output_file=False, logname="Beets_duplicates")
+        result = get_beet_list(album=True, format=True, format_fields="$album|$albumartist|$year", output_file=False, logger=logger)
         
     except subprocess.CalledProcessError as e:
         logger.error("Erreur lors de l'exécution de la commande 'beet list'")

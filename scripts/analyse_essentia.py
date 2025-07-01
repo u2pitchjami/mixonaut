@@ -9,19 +9,18 @@ from essentia.prep_essentia_analyse import generate_mode_text
 from logic.transposition import generate_transpositions
 
 
-logname = "Analyse_Essentia"
-logger = get_logger(logname)
+logger = get_logger("Analyse_Essentia")
 
 def main(force=False, count=0, missing_features=False, is_edm=False, missing_field=None, path_contains=None):
     logger.info("🔍 Démarrage analyse des morceaux via Essentia")
     try:
-        total = fetch_tracks(missing_features=False, is_edm=is_edm, missing_field=missing_field, path_contains=path_contains, logname=logname)
-        tracks = fetch_tracks(missing_features=missing_features, is_edm=is_edm, missing_field=missing_field, path_contains=path_contains, logname=logname)
+        total = fetch_tracks(missing_features=False, is_edm=is_edm, missing_field=missing_field, path_contains=path_contains, logger=logger)
+        tracks = fetch_tracks(missing_features=missing_features, is_edm=is_edm, missing_field=missing_field, path_contains=path_contains, logger=logger)
         track_ids = [t[0] for t in total]
-        existing = count_existing_features(track_ids)
+        existing = count_existing_features(track_ids, logger=logger)
         text = generate_mode_text(count=count, missing_features=missing_features, is_edm=is_edm, missing_field=missing_field, path_contains=path_contains)
         logger.info(f"🎯 [{text}]")
-        logger.info(f"🎯 [{format_nb(existing)} titres déjà analysés sur un total de {format_nb(len(total))} --> {format_percent(existing, len(total))}]")
+        logger.info(f"🎯 [{format_nb(existing, logger=logger)} titres déjà analysés sur un total de {format_nb(len(total), logger=logger)} --> {format_percent(existing, len(total), logger=logger)}]")
 
         if count == 0:
             count = len(tracks)
@@ -31,15 +30,15 @@ def main(force=False, count=0, missing_features=False, is_edm=False, missing_fie
             return
         
         for i, track in enumerate(tracks[:count], start=1):
-            logger.info(f"▶️  [{format_nb(i)}/{format_nb(count)}] ({format_percent(i, count)}) Analyse : {track[0]} - {track[2]} - {track[3]} - {track[4]}")
+            logger.info(f"▶️  [{format_nb(i, logger=logger)}/{format_nb(count, logger=logger)}] ({format_percent(i, count, logger=logger)}) Analyse : {track[0]} - {track[2]} - {track[3]} - {track[4]}")
                            
-            track_features = analyse_track(track, force=force, source="Mixonaut", logname=logname)
+            track_features = analyse_track(track, force=force, source="Mixonaut", logger=logger)
             if track_features is None:
                 logger.warning(f"❌ Analyse échouée pour le morceau : {track[0]}")
                 continue
             logger.info(f"✅ Track mis à jour : {track[0]}")
-            sync_fields_by_track_id(track_id=track[0], track_features=track_features, logname=logname)
-            generate_transpositions(track_id=track[0], logname=logname)
+            sync_fields_by_track_id(track_id=track[0], track_features=track_features, logger=logger)
+            generate_transpositions(track_id=track[0], logger=logger)
             
             
         logger.info("🏁 Traitement terminé")

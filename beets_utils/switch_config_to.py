@@ -1,11 +1,12 @@
 import os
-import shutil
-from utils.logger import get_logger
-from utils.config import BEETS_CONFIG_MANUEL, BEETS_CONFIG_NORMAL, BEETS_CONFIG
+from utils.logger import get_logger, with_child_logger
+from utils.config import BEETS_CONFIG
+import yaml
 
-def switch_config_to(mode_target: str, logname = __name__) -> str:
+@with_child_logger
+def switch_config_to(mode_target: str, logger=None) -> str:
     """
-    Bascule le fichier de config vers le mode spécifié (auto ou manuel),
+    Modifie le fichier de config Beets (config.yaml) pour activer le mode spécifié (auto ou manuel),
     uniquement si ce n’est pas déjà le cas.
 
     Args:
@@ -14,33 +15,33 @@ def switch_config_to(mode_target: str, logname = __name__) -> str:
     Returns:
         str: Le mode activé ou un message si rien n’a été fait
     """
-    logger = getLogger(logname + "." + __name__)
-
     try:
         if mode_target not in {"auto", "manuel"}:
             logger.error("Mode invalide. Utilisez 'auto' ou 'manuel'.")
             return "erreur"
 
-        # Déterminer le mode actuel
-        if os.path.samefile(BEETS_CONFIG, BEETS_CONFIG_MANUEL):
-            current_mode = "manuel"
-        elif os.path.samefile(BEETS_CONFIG, BEETS_CONFIG_NORMAL):
-            current_mode = "auto"
-        else:
-            logger.warning("Mode actuel non identifiable, on suppose 'auto'")
-            current_mode = "auto"
+        with open(BEETS_CONFIG, 'r') as f:
+            config = yaml.safe_load(f)
 
-        if current_mode == mode_target:
-            logger.info(f"✅ Mode déjà actif : {mode_target}")
-            return mode_target
+        current_quiet = config.get('import', {}).get('quiet', False)
+        current_timid = config.get('import', {}).get('timid', False)
 
-        # Switch en fonction du mode demandé
-        if mode_target == "manuel":
-            shutil.move(BEETS_CONFIG, BEETS_CONFIG_NORMAL)
-            shutil.move(BEETS_CONFIG_MANUEL, BEETS_CONFIG)
-        else:  # mode_target == "auto"
-            shutil.move(BEETS_CONFIG, BEETS_CONFIG_MANUEL)
-            shutil.move(BEETS_CONFIG_NORMAL, BEETS_CONFIG)
+        if mode_target == "auto":
+            if current_quiet and not current_timid:
+                logger.info("✅ Mode déjà actif : auto")
+                return "auto"
+            config['import']['quiet'] = True
+            config['import']['timid'] = False
+
+        elif mode_target == "manuel":
+            if not current_quiet and current_timid:
+                logger.info("✅ Mode déjà actif : manuel")
+                return "manuel"
+            config['import']['quiet'] = False
+            config['import']['timid'] = True
+
+        with open(BEETS_CONFIG, 'w') as f:
+            yaml.safe_dump(config, f, default_flow_style=False)
 
         logger.info(f"✅ Mode {mode_target} activé")
         return mode_target

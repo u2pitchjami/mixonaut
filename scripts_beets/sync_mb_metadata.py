@@ -6,17 +6,17 @@ from utils.logger import get_logger
 
 
 def sync_metadata(target_path=None, dry_run=False):
-    #logger=get_new_logger_or_not(name="Musicbrainz Sync", logname=args.logname)
-    logger = get_logger("Musicbrainz Sync")
+    logger = get_logger("Musicbrainz_Sync")
         
     logger.info(f"📅 SYNC MUSICBRAINZ : {datetime.now().strftime('%d-%m-%Y')}")
     logger.info("--- (synchronise les données avec la base Musicbrainz) ---")
     scope = target_path if target_path else "toute la base"
     logger.info(f"🎯 Portée : {scope}")
 
-    run_beet_command(command="mbsync", args=[target_path], capture_output=False, dry_run=dry_run, logname="Musicbrainz Sync")
-    run_beet_command(command="write -f", args=[target_path], capture_output=False, dry_run=dry_run, logname="Musicbrainz Sync")
-    run_beet_command(command="move", args=[target_path], capture_output=False, dry_run=dry_run, logname="Musicbrainz Sync")
+    mbsync = run_beet_command(command="mbsync", args=[target_path], capture_output=True, dry_run=dry_run, logger=logger)
+    print(mbsync)
+    run_beet_command(command="write -f", args=[target_path], capture_output=False, dry_run=dry_run, logger=logger)
+    run_beet_command(command="move", args=[target_path], capture_output=False, dry_run=dry_run, logger=logger)
 
     logger.info(f"🏁 SYNC MUSICBRAINZ : TERMINE !! \n\n")
 

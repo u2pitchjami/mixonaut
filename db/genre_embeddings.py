@@ -1,5 +1,5 @@
 from sklearn.decomposition import PCA
-from utils.logger import get_logger
+from utils.logger import get_logger, with_child_logger
 from db.access import select_all
 
 # Configuration
@@ -12,13 +12,12 @@ GENRE_COLUMNS = [
     "genre_electronic_ambient", "genre_electronic_dnb", "genre_electronic_house",
     "genre_electronic_techno", "genre_electronic_trance"
 ]
-
-def compute_genre_embeddings(n_components: int = 2, logname: str = "Genre_Embeddings"):
-    logger = get_logger(logname)
+@with_child_logger
+def compute_genre_embeddings(n_components: int = 2, logger: str = None):
     try:
         cols = ", ".join(["id"] + GENRE_COLUMNS)
         query = f"SELECT {cols} FROM audio_features"
-        rows = select_all(query, logname=logname)
+        rows = select_all(query, logger=logger)
 
         ids = []
         vectors = []

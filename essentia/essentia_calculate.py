@@ -1,11 +1,9 @@
-from typing import Optional, Dict
 from utils.config import GENRE_FIELDS, CAMELOT_MAP, ENHARMONIC_MAP
 from pathlib import Path
-from utils.logger import get_logger
-logname = __name__.split(".")[-1]
+from utils.logger import get_logger, with_child_logger
 
-
-def calculate_beat_intensity(features: dict, logname=logname) -> float:
+@with_child_logger
+def calculate_beat_intensity(features: dict, logger=None) -> float:
     """
     Calcule une valeur d'intensité du beat sur une échelle de 0 à 10,
     en combinant plusieurs caractéristiques musicales issues d'Essentia.
@@ -16,9 +14,7 @@ def calculate_beat_intensity(features: dict, logname=logname) -> float:
     Returns:
         float: score d'intensité du beat
     """
-    logger = get_logger(logname)
-    try:
-        
+    try:        
         spectral_flux = features.get("spectral_flux", 0.0)
         #print(f"spectral_flux : {spectral_flux * 1000 * 0.20}")
         spectral_rms_mean = features.get("spectral_rms_mean", 0.0)
@@ -32,8 +28,7 @@ def calculate_beat_intensity(features: dict, logname=logname) -> float:
         onset_rate = features.get("onset_rate", 0.0)
         #print(f"onset_rat : {onset_rate * 10 * 0.15}")
         beats_loudness_mean = features.get("beats_loudness_mean", 0.0)
-        #print(f"beats_loudness_mean : {beats_loudness_mean * 1000 * 0.15}")
-        
+        #print(f"beats_loudness_mean : {beats_loudness_mean * 1000 * 0.15}")        
 
         # Pondérations (en %)
         score = (
@@ -46,20 +41,18 @@ def calculate_beat_intensity(features: dict, logname=logname) -> float:
             beats_loudness_mean  * 0.15       # ex: 0.1 → 10 * 0.15 = 1.5
         ) * 45
         return round(score, 2)
-
     except Exception as e:
         logger.warning(f"Erreur calcul beat_intensity : {e}")
         return 0.0
 
-
-def compute_energy_level(features: dict, logname=logname) -> float | None:
+@with_child_logger
+def compute_energy_level(features: dict, logger=None) -> float | None:
     """
     Calcule un niveau d'énergie global à partir de caractéristiques audio issues d'Essentia.
 
     :param features: dictionnaire contenant les features extraites
     :return: float normalisé [0.0 - 1.0] ou None en cas d'erreur
     """
-    logger = get_logger(logname)
     try:
         def norm(val, max_val):
             return min(val / max_val, 1.0)

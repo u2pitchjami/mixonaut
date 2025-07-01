@@ -2,13 +2,12 @@ import os
 import csv
 import random
 import argparse
-from typing import List
 from utils.config import REPORT_PATH
 from datetime import datetime
 from utils.logger import get_logger
 from beets_utils.commands import get_beet_list, run_beet_command
 
-def append_to_csv_report(rows: List[dict], filename: str = REPORT_PATH):
+def append_to_csv_report(rows: list[dict], filename: str = REPORT_PATH):
     os.makedirs(os.path.dirname(filename), exist_ok=True)
     header = ["date", "album", "path", "message"]
     file_exists = os.path.exists(filename)
@@ -20,7 +19,7 @@ def append_to_csv_report(rows: List[dict], filename: str = REPORT_PATH):
         writer.writerows(rows)
 
 def check_random_albums(n: int = 3) -> None:
-    logger = get_logger("Check Random Bad Dirs")
+    logger = get_logger("Check_Random_Bad_Dirs")
     logger.info(f"📅 CHECK RANDOM BAD DIRS : {datetime.now().strftime('%d-%m-%Y')}")
     
     # Liste des albums
@@ -29,7 +28,7 @@ def check_random_albums(n: int = 3) -> None:
     format_fields='$path',
     album=True,
     format=True,
-    logname="Check Random Bad Dirs"
+    logger=logger
 )
 
     if not album_paths:
@@ -51,7 +50,7 @@ def check_random_albums(n: int = 3) -> None:
             args=[album_dir],
             capture_output=True,
             check=False,
-            logname="Check Random Bad Dirs"
+            logger=logger
         )
         timestamp = datetime.now().isoformat()
         stdout = result.get("stdout", "").strip()

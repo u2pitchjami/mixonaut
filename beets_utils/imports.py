@@ -1,19 +1,17 @@
 import os
-from beets_utils.backup import backup_beets_config
-from beets_utils.switch_mode import switch_config_to
+from scripts_beets.backup_beets_config import backup_beets_config
+from beets_utils.switch_config_to import switch_config_to
 from beets_utils.commands import run_beet_command
-from utils.config import BEETS_MANUAL_LIST
-from utils.logger import get_logger
+from utils.config import BEETS_MANUAL_LIST, BEETS_IMPORT_PATH
+from utils.logger import get_logger, with_child_logger
 
-def import_auto(logname = None):
+@with_child_logger
+def import_auto(logger = None):
     """
-    Lance un import automatique de /app/data après avoir :
+    Lance un import automatique de /app/imports après avoir :
     - sauvegardé la config Beets
     - activé le mode auto
     """
-    logger = getLogger(logname + "." + __name__)
-    logger.info("🚀 Lancement import automatique")
-
     backup = backup_beets_config()
     if not backup:
         logger.warning("⚠️ Sauvegarde config échouée ou ignorée")
@@ -22,19 +20,18 @@ def import_auto(logname = None):
     if mode != "auto":
         logger.warning("⚠️ Le switch en mode auto n’a pas fonctionné")
 
-    result = run_beet_command("import", ["/app/data/"], capture_output=False)
+    result = run_beet_command("import", [BEETS_IMPORT_PATH], capture_output=True, logger=logger)
+    #print(result)
     if result is None:
         logger.error("❌ L'import automatique a échoué.")
     else:
         logger.info("✅ Import automatique terminé.")
 
-def import_manuel(clear_after=True, logname = None):
+@with_child_logger
+def import_manuel(clear_after=True, logger = None):
     """
     Importe tous les dossiers listés dans BEETS_MANUAL_LIST, un par un, en mode manuel.
     """
-    logger = getLogger(logname + "." + __name__)
-    logger.info("🚀 Lancement import manuel")
-
     backup = backup_beets_config()
     if not backup:
         logger.warning("⚠️ Sauvegarde config échouée ou ignorée")

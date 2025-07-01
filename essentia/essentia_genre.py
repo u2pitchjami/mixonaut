@@ -1,9 +1,6 @@
 from typing import Optional
 from utils.config import GENRE_FIELDS
 from collections import defaultdict
-from utils.logger import get_logger
-logname = __name__.split(".")[-1]
-
 
 ELECTRO_OVERRIDE_GENRES = {"electronic", "dan"}
 GENRE_PROB_DORTMUND = 0.8
@@ -47,11 +44,9 @@ def get_dominant_genre(track_features: dict) -> str:
     """
     # Vérifie override électro (si les deux modèles pointent vers electro/dan)
     dortmund = track_features.get("genre_dortmund")
-    dortmund_p = track_features.get("genre_dortmund_probability", 0.0)
-    
+    dortmund_p = track_features.get("genre_dortmund_probability", 0.0)    
     rosamerica = track_features.get("genre_rosamerica")
-    rosamerica_p = track_features.get("genre_rosamerica_probability", 0.0)
-    
+    rosamerica_p = track_features.get("genre_rosamerica_probability", 0.0)    
 
     if (
         dortmund in ELECTRO_OVERRIDE_GENRES
@@ -64,8 +59,7 @@ def get_dominant_genre(track_features: dict) -> str:
         electronic_p = track_features.get("genre_electronic_probability", 0.0)
         
         return GENRE_CANONICAL.get(electronic.lower(), electronic)
-        
-
+    
     # Sinon, vote pondéré entre les 3 modèles généraux
     votes = defaultdict(float)
     for model in ["genre_dortmund", "genre_rosamerica", "genre_tzanetakis"]:

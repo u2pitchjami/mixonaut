@@ -2,8 +2,7 @@ from db.access import select_all
 from utils.logger import get_logger
 import statistics
 
-logname = "beat_intensity_stats"
-logger = get_logger(logname)
+logger = get_logger("beat_intensity_stats")
 
 FIELDS = [
     "spectral_flux", "spectral_rms_mean", "average_loudness",
@@ -15,7 +14,7 @@ FIELDS = [
 def fetch_values():
     cols = ", ".join(FIELDS)
     query = f"SELECT {cols} FROM audio_features"
-    return select_all(query, logname=logname)
+    return select_all(query, logger=logger)
 
 
 def compute_stats():

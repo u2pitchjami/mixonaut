@@ -60,6 +60,8 @@ MAX_SAFENAME_LENGTH = 100
 #PATHS
 MUSIC_BASE_PATH = get_required("MUSIC_BASE_PATH")
 HOST_MUSIC = get_required("HOST_MUSIC_PREFIX")
+MUSIC_SOURCE_PATH = get_required("MUSIC_SOURCE_PATH")
+MUSIC_IMPORT_PATH = get_required("MUSIC_IMPORT_PATH")
 BEETS_MUSIC = get_required("BEETS_MUSIC_PREFIX")
 WINDOWS_MUSIC = get_required("WINDOWS_MUSIC")
 MANUAL_LIST = get_str("MANUAL_LIST_PATH", "import_manuel.txt")
@@ -83,6 +85,8 @@ IGNORED_EXTENSIONS = {
     '.jpg', '.jpeg', '.png', '.nfo', '.txt', '.log', '.cue',
     '.pdf', '.db', '.ini', '.url', '.sfv', '.m3u'
 }
+
+TOLERANCE_BPM_PERCENT = get_int("TOLERANCE_BPM_PERCENT", 8)
 
 CAMELOT_ORDER = [
     "1a", "2a", "3a", "4a", "5a", "6a", "7a", "8a", "9a", "10a", "11a", "12a",

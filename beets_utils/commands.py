@@ -1,16 +1,17 @@
 import subprocess
 import os
 from utils.config import LOCK_FILE
-from utils.logger import get_logger
+from utils.logger import get_logger, with_child_logger
 from beets_utils.beets_safe import safe_beets_call, read_lock_pid, get_current_pid
 
+@with_child_logger
 def run_beet_command(
     command: str,
     args: list[str] = None,
     capture_output: bool = True,
     check: bool = False,
     dry_run: bool = False,
-    logname: str = None
+    logger: str = None
 ) -> dict:
     """
     Exécute une commande Beets de façon sûre et loggée.
@@ -24,8 +25,7 @@ def run_beet_command(
     Returns:
         str | None: Résultat stdout si capturé, sinon None.
     """
-    logger = get_logger(logname + "." + __name__)
-    cmd = ["beet", command]
+    cmd = ["beet", "-v", command]
     if args and all(arg is not None for arg in args):
         cmd.extend(args)
        
@@ -34,7 +34,7 @@ def run_beet_command(
         return
     
     try:
-        if safe_beets_call(logname=logname):
+        if safe_beets_call(logger=logger):
             logger.debug(f"🔧 Exécution Beets : {' '.join(cmd)}")
             result = subprocess.run(
                 cmd,
@@ -65,8 +65,8 @@ def run_beet_command(
         else:
             logger.warning("⚠️ Tentative de suppression du verrou non possédé (ignorée).")
 
-def run_beet_action_by_dirs(action, dirs, dry_run=False, logname=None):
-    logger = getLogger(logname + "." + "run_beet_action_by_dirs")
+@with_child_logger
+def run_beet_action_by_dirs(action, dirs, dry_run=False, logger=None):
     if not dirs:
         return
     for album_dir in sorted(dirs):
@@ -75,16 +75,17 @@ def run_beet_action_by_dirs(action, dirs, dry_run=False, logname=None):
         else:
             try:
                 #subprocess.run(["beet", action, album_dir], check=True)
-                run_beet_command(command=action, args=[album_dir], capture_output=False, dry_run=dry_run, logname=logname)
+                run_beet_command(command=action, args=[album_dir], capture_output=False, dry_run=dry_run, logger=logger)
                 logger.info(f"[FIX] {action} appliqué sur : {album_dir}")
             except subprocess.CalledProcessError:
                 logger.warning(f"[ERREUR] {action} échoué sur : {album_dir}")
 
+@with_child_logger
 def get_beet_list(
     query: str = None,
     format_fields: str = "$title|$genre|$rg_track_gain|$initial_key|$bpm|$path",
     output_file: str = None,
-    logname: str = None,
+    logger: str = None,
     album: bool = False,
     format: bool = False
 ) -> list[str]:
@@ -94,12 +95,11 @@ def get_beet_list(
     :param query: Chaîne de requête Beets (ex: 'artist::Daft Punk')
     :param format_fields: Format des champs Beets (ex: '$title|$bpm|$path')
     :param output_file: Si fourni, écrit la sortie dans ce fichier
-    :param logname: Nom du logger à utiliser
+    :param logger: Nom du logger à utiliser
     :param album: Active le mode album (-a) si True
     :param format: Active le format personnalisé (-f) si True
     :return: Liste des lignes retournées
     """
-    logger = get_logger(logname + "." + __name__)
     args = []
 
     if album:
@@ -110,13 +110,10 @@ def get_beet_list(
         args.append(query)
 
     #logger.info(f"Commande Beet : beet list {' '.join(args)}")
-
     try:
-        result = run_beet_command(command="list", args=args, capture_output=True, dry_run=False, logname=logname)
+        result = run_beet_command(command="list", args=args, capture_output=True, dry_run=False, logger=logger)
         stdout = result.get("stdout", "")
         lines = [line.strip() for line in stdout.splitlines() if line.strip()]
-        
-        
         
         if output_file:
             try:

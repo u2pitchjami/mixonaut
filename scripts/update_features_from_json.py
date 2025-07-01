@@ -6,8 +6,7 @@ from db.essentia_queries import get_all_track_ids, insert_or_update_audio_featur
 from utils.config import ESSENTIA_SAV_JSON
 from utils.logger import get_logger
 
-logger = get_logger("update_features")
-
+logger = get_logger("Update_Features_From_JSON")
 
 def build_json_path(base_path, track_id, artist, title):
     subfolder = str((track_id // 1000) * 1000)
@@ -44,10 +43,10 @@ def main(force=False):
         json_path = os.path.join(subdir, json_file)
 
         try:
-            result = parse_essentia_json(json_path, logname="update_features")
+            result = parse_essentia_json(json_path, logger=logger)
             if not result:
                 continue
-            insert_or_update_audio_features(track_id, result, force=force, logname="update_features")
+            insert_or_update_audio_features(track_id, result, force=force, logger=logger)
         except Exception as e:
             logger.error(f"Erreur traitement ID {track_id} : {e}")
 

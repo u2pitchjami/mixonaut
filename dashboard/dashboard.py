@@ -1,10 +1,8 @@
 from pathlib import Path
 import sys
 from db.access import execute_query
-from utils.logger import get_logger
 from utils.config import QUERIES_DIR
 from rich import print
-
 
 def list_queries():
     return {f.stem: f for f in Path(QUERIES_DIR).glob("*.sql")}

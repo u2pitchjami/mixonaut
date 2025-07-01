@@ -1,16 +1,15 @@
 import json
-from typing import List
 from sklearn.decomposition import PCA
 from utils.config import MOOD_KEYS
 from db.access import execute_query
-from utils.logger import get_logger
+from utils.logger import get_logger, with_child_logger
 
-def compute_mood_embeddings(n_components: int = 2, logname: str = "Mix_Assist") -> List[dict]:
+@with_child_logger
+def compute_mood_embeddings(n_components: int = 2, logger: str = None) -> list[dict]:
     """
     Applique une réduction PCA sur les vecteurs mood pour chaque track.
     Retourne une liste de dictionnaires avec id, mood_x, mood_y.
     """
-    logger = get_logger(logname)
     try:
         mood_cols = ", ".join([f"mood_{m}_probability" for m in MOOD_KEYS])
         query = f"SELECT id, {mood_cols} FROM audio_features"

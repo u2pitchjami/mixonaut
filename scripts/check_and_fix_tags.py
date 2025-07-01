@@ -12,8 +12,7 @@ from utils.utils_div import ensure_to_str, convert_path_format
 from utils.logger import get_logger
 import os
 
-logname = "Check_&_fix_tags"
-logger = get_logger(logname)
+logger = get_logger("Check_&_fix_tags")
 
 def get_current_tags(path: str) -> dict:
     tags = {}
@@ -56,7 +55,7 @@ def get_current_tags(path: str) -> dict:
 
 def check_and_fix_tags(track_id: int, path: str, track_features: dict, dry_run: bool = False) -> bool:
     
-    expected_tags = build_sync_fields(track_id, track_features, logname=logname)
+    expected_tags = build_sync_fields(track_id, track_features, logger=logger)
     logger.debug(f"expected_tags : {expected_tags}")
     current_tags = get_current_tags(path)
     logger.debug(f"current_tags : {current_tags}")
@@ -115,7 +114,7 @@ def process_all_tracks(dry_run: bool = False, track_id: int = None, nb_limit: in
         if not features:
             continue
 
-        path = get_item_field_value("path", track_id)
+        path = get_item_field_value("path", track_id, logger=logger)
         path = ensure_to_str(path)
         if not path:
             logger.warning(f"Fichier introuvable pour l'ID {track_id}: {path}")

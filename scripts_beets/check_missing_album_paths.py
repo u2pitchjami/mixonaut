@@ -4,9 +4,9 @@ from pathlib import Path
 from datetime import datetime
 from utils.logger import get_logger
 from beets_utils.commands import get_beet_list
-from utils.config import MUSIC_BASE_PATH, BEETS_IMPORT_PATH, BEETS_MANUAL_LIST
+from utils.config import MUSIC_BASE_PATH, BEETS_MUSIC, BEETS_MANUAL_LIST
 
-logger = get_logger("Check_not_in_Beets")
+logger = get_logger("Check_Album_in_Beets")
 
 def check_missing_album_paths():
     logger.info(f"📅 CHECK PATHS IN BEETS : {datetime.now().strftime('%d-%m-%Y')}")
@@ -19,11 +19,11 @@ def check_missing_album_paths():
     logger.info(f"📁 Albums trouvés sur disque : {len(all_album_paths)}")
 
     expected_paths = {
-        str(Path(BEETS_IMPORT_PATH) / p.relative_to(MUSIC_BASE_PATH))
+        str(Path(BEETS_MUSIC) / p.relative_to(MUSIC_BASE_PATH))
         for p in all_album_paths
     }
-    #beet_output = get_beet_list("list", ["-a", "-f", "$path"], logname = "check_missing_album_paths")
-    beet_output = get_beet_list(album=True, format=True, format_fields="$path", output_file=False, logname="Check_not_in_Beets")
+    #beet_output = get_beet_list("list", ["-a", "-f", "$path"], logger=logger)
+    beet_output = get_beet_list(album=True, format=True, format_fields="$path", output_file=False, logger=logger)
     if beet_output is None:
         logger.error("❌ Impossible de récupérer la liste Beets.")
         return

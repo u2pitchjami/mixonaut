@@ -151,6 +151,16 @@ def create_tables():
         );
         """)
         
+         # Table pour les imports automatiques de fichiers
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS imported_files (
+            id INTEGER PRIMARY KEY,
+            path TEXT UNIQUE,
+            size INTEGER,
+            last_seen TIMESTAMP
+        );
+        """)
+        
         # Table de liens morceaux <-> groupes
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS track_groups (

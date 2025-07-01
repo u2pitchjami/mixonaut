@@ -2,25 +2,14 @@ from utils.config import ESSENTIA_TEMP_AUDIO, PROF_ESSENTIA, ESSENTIA_MAPPING, I
 import subprocess
 from pathlib import Path
 import json
-from utils.logger import get_logger
+from utils.logger import get_logger, with_child_logger
 
-logname = __name__.split(".")[-1]
-
-def run_essentia_extraction(audio_path: Path, json_path: Path, profile_path: Path, logname=logname) -> bool:
+@with_child_logger
+def run_essentia_extraction(audio_path: Path, json_path: Path, profile_path: Path, logger=None) -> bool:
     """Lance l'extraction via le script Bash contenant l'appel à essentia_streaming_extractor_music"""
-    logger = get_logger(logname)
-    
-    #script_path = Path(SCRIPT_PATH_ESSENTIA)
     profile_dir = Path(PROF_ESSENTIA).parent
-
-        
-    # if not Path(script_path).exists():
-    #     logger.error(f"Script Bash introuvable : {script_path}")
-    #     return False
-
     try:
-        logger.debug(f"▶️ Lancement extraction pour : {audio_path.name}")
-        
+        logger.debug(f"▶️ Lancement extraction pour : {audio_path.name}")        
         # Construction de la commande Docker
         docker_cmd = [
             "docker", "run", "--rm",
@@ -32,10 +21,9 @@ def run_essentia_extraction(audio_path: Path, json_path: Path, profile_path: Pat
             str(audio_path),
             str(json_path),
             str(profile_path)
-        ]
-        
+        ]        
         logger.debug(f"▶️ Commande : {' '.join(docker_cmd)}")
-        
+                
         result = subprocess.run(
             docker_cmd,
             stdout=subprocess.PIPE,
@@ -58,9 +46,9 @@ def get_nested(data, path):
     except (KeyError, TypeError):
         raise
 
-def parse_essentia_json(json_path, logname=logname):
+@with_child_logger
+def parse_essentia_json(json_path, logger=None):
     """Parse le JSON généré par Essentia et retourne les champs mappés"""
-    logger = get_logger(logname)
     try:
         with open(json_path, "r") as f:
             data = json.load(f)

@@ -3,6 +3,7 @@ from datetime import datetime
 from beets_utils.commands import run_beet_command
 from beets_utils.extract_paths_from_file import extract_paths_from_file
 from utils.logger import get_logger
+
 logger = get_logger("Beets_batch")
 
 def run_beets_batch_command(
@@ -24,7 +25,7 @@ def run_beets_batch_command(
     """
     logger.info(f"📅 BEETS BATCH : {datetime.now().strftime('%d-%m-%Y')}")
     output_file = "beet_batch_output.txt"
-    extract_paths_from_file(source_file, output_file, mode=extraction_mode, logname="Beets_batch")
+    extract_paths_from_file(source_file, output_file, mode=extraction_mode, logger=logger)
 
     if not os.path.isfile(output_file):
         logger.error(f"Fichier des chemins introuvable après extraction : {output_file}")
@@ -46,7 +47,7 @@ def run_beets_batch_command(
             if dry_run:
                 logger.info(f"[SIMULATION] beet {beet_command} {' '.join(args)}")
             else:
-                output = run_beet_command(command=beet_command, args=args, capture_output=True, dry_run=dry_run, logname="Beets_batch")
+                output = run_beet_command(command=beet_command, args=args, capture_output=True, dry_run=dry_run, logger=logger)
                 logger.info(f"output {output}")
     except Exception as e:
         logger.error(f"Erreur durant le traitement beet en masse : {e}")

@@ -4,14 +4,12 @@ from collections import defaultdict
 from db.access import select_one, select_all
 from db.matching_queries import enrich_matches_with_metadata
 from utils.config import EXPORT_COMPATIBLE_TRACKS, CAMELOT_ORDER
-from utils.logger import get_logger
-
-logname = __name__.split(".")[-1]
-logger = get_logger(logname)
+from utils.logger import get_logger, with_child_logger
 
 #CAMELOT_ORDER = [f"{n}{l}" for n in range(1, 13) for l in ["a", "b"]]
 
-def export_matches_to_markdown(results_by_type: dict[str, list[dict]] | list[dict], output_dir: str = EXPORT_COMPATIBLE_TRACKS):
+@with_child_logger
+def export_matches_to_markdown(results_by_type: dict[str, list[dict]] | list[dict], output_dir: str = EXPORT_COMPATIBLE_TRACKS, logger: str = None) -> str:
     logger.debug(f"output_dir : {output_dir}")
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     os.makedirs(output_dir, exist_ok=True)
@@ -45,7 +43,6 @@ def _write_mix_section(file_handle, mix_type: str, matches: list[dict]):
         )
     file_handle.write("\n\n")
 
-
 def classify_transition_type(ref_key: str, candidate_key: str) -> str:
     if ref_key == candidate_key:
         return "Perfect"
@@ -71,8 +68,9 @@ def classify_transition_type(ref_key: str, candidate_key: str) -> str:
             return "other"
     except:
         return "unknown"
-    
-def group_matches_by_transition_type(matches: list, ref_key: str, max_results: int = 10):
+
+@with_child_logger    
+def group_matches_by_transition_type(matches: list, ref_key: str, max_results: int = 10, logger: str = None) -> dict[str, list]:
     grouped = defaultdict(list)
     logger.debug(f"group_matches_by_transition_type grouped : {grouped}")
     for m in matches:

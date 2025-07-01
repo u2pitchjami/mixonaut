@@ -5,7 +5,7 @@ from utils.config import MUSIC_BASE_PATH, AUDIO_EXTENSIONS, IGNORED_EXTENSIONS
 import shutil
 from utils.logger import get_logger
 
-logger = get_logger("Clean_collection")
+logger = get_logger("Clean_Empty_Music_Dirs")
 
 # --- Fonctions utilitaires ---
 def is_audio_file(filename: str) -> bool:

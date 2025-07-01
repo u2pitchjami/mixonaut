@@ -2,11 +2,9 @@ from pathlib import Path
 import unicodedata
 import re
 import shutil
-from utils.logger import get_logger
+from utils.logger import get_logger, with_child_logger
 from utils.utils_div import ensure_to_path, convert_path_format
 from utils.config import ESSENTIA_TEMP_AUDIO, ESSENTIA_TEMP_JSON, ESSENTIA_SAV_JSON, MAX_SAFENAME_LENGTH
-
-logname = __name__.split(".")[-1]
 
 def generate_mode_text(count=0, missing_features=False, is_edm=False, missing_field=None, path_contains=None):
 # 🔤 Générer un texte explicite du mode actif
@@ -28,8 +26,8 @@ def generate_mode_text(count=0, missing_features=False, is_edm=False, missing_fi
         mode_text = " | ".join(mode_label) if mode_label else "Tous les morceaux"
         return mode_text
 
-def prepare_track_paths(track, logname=logname):
-    logger = get_logger(logname)
+@with_child_logger
+def prepare_track_paths(track, logger=None):
     try:
         track_id, raw_path, artist, album, title = track
         path = Path(convert_path_format(ensure_to_path(raw_path), to_beets=False))
@@ -47,9 +45,9 @@ def prepare_track_paths(track, logname=logname):
     except Exception as e:
         logger.error(f"Erreur préparation chemins : {e}")
         raise
-
-def process_audio_file(original_path, temp_audio, logname=logname):
-    logger = get_logger(logname)
+    
+@with_child_logger
+def process_audio_file(original_path, temp_audio, logger=None):
     try:
         shutil.copy(original_path, temp_audio)
         return True
@@ -66,8 +64,8 @@ def sanitize_filename(name: str) -> str:
     name = re.sub(r"__+", "_", name)
     return name.strip("_").lower()
 
-def clean_temp_files(*paths, logname=logname):
-    logger = get_logger(logname)
+@with_child_logger
+def clean_temp_files(*paths, logger=None):
     for path in paths:
         try:
             if path.exists():
@@ -75,12 +73,11 @@ def clean_temp_files(*paths, logname=logname):
         except Exception as e:
             logger.warning(f"Erreur suppression fichier temporaire : {path} -> {e}")
 
-
-def archive_json_result(track_id: int, safe_name: str, logname=logname):
+@with_child_logger
+def archive_json_result(track_id: int, safe_name: str, logger=None):
     """
     Déplace un JSON de `temp_folder` vers `archive_base/XXXX/` en fonction de track_id
     """
-    logger = get_logger(logname)
     # Dossier de destination
     target_folder = Path(ESSENTIA_SAV_JSON) / f"{(track_id // 1000) * 1000:04d}"
     target_folder.mkdir(parents=True, exist_ok=True)
@@ -92,7 +89,6 @@ def archive_json_result(track_id: int, safe_name: str, logname=logname):
     if not source.exists():
         logger.warning(f"❌ JSON temporaire non trouvé pour track {track_id} : {source}")
         return
-
     try:
         shutil.copy(source, dest)
         logger.debug(f"✅ JSON archivé : {dest}")

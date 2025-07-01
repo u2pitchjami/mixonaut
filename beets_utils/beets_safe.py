@@ -2,11 +2,10 @@ import os
 import subprocess
 import sys
 import time
-from utils.logger import get_logger
+from utils.logger import get_logger, with_child_logger
 from datetime import datetime
 from utils.config import LOCK_FILE
 
-logname = "beets_safe"
 TIMEOUT = 30  # secondes d'attente max
 
 def is_process_alive(pid: int) -> bool:
@@ -31,8 +30,8 @@ def create_lock():
         f.write(f"PID={os.getpid()}\n")
         f.write(f"TIME={datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
 
-def wait_for_unlock(timeout=TIMEOUT, logname=logname):
-    logger = get_logger(logname)
+@with_child_logger
+def wait_for_unlock(timeout=TIMEOUT, logger=None):    
     waited = 0
     while os.path.exists(LOCK_FILE):
         pid, lock_time = read_lock_info()
@@ -60,10 +59,9 @@ def read_lock_pid():
     except Exception:
         return None
 
-def safe_beets_call(logname=logname) -> int:
-    logger = get_logger(logname)
-    if not wait_for_unlock():
+@with_child_logger
+def safe_beets_call(logger=None) -> int:
+    if not wait_for_unlock(logger=logger):
         return False
-
     create_lock()
     return True
