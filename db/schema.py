@@ -153,11 +153,19 @@ def create_tables():
         
          # Table pour les imports automatiques de fichiers
         cursor.execute("""
-        CREATE TABLE IF NOT EXISTS imported_files (
+        CREATE TABLE imported_files (
             id INTEGER PRIMARY KEY,
-            path TEXT UNIQUE,
+            path TEXT, -- devient le chemin local complet une fois synchro faite
+            name TEXT, -- juste le nom de fichier
             size INTEGER,
-            last_seen TIMESTAMP
+            last_seen TIMESTAMP,
+            imported_in_beets_at TEXT,
+            torrent_hash TEXT,
+            torrent_name TEXT,
+            torrent_added_on INTEGER,
+            torrent_completion_on INTEGER,
+            torrent_ratio REAL,
+            auto_cleaned BOOLEAN DEFAULT 0
         );
         """)
         

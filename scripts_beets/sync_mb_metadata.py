@@ -13,10 +13,10 @@ def sync_metadata(target_path=None, dry_run=False):
     scope = target_path if target_path else "toute la base"
     logger.info(f"🎯 Portée : {scope}")
 
-    mbsync = run_beet_command(command="mbsync", args=[target_path], capture_output=True, dry_run=dry_run, logger=logger)
-    print(mbsync)
-    run_beet_command(command="write -f", args=[target_path], capture_output=False, dry_run=dry_run, logger=logger)
-    run_beet_command(command="move", args=[target_path], capture_output=False, dry_run=dry_run, logger=logger)
+    mbsync = run_beet_command(command="mbsync", args=[target_path], interactive=False, dry_run=dry_run, logger=logger)
+    logger.debug(mbsync)
+    run_beet_command(command="write -f", args=[target_path], interactive=True, dry_run=dry_run, logger=logger)
+    run_beet_command(command="move", args=[target_path], interactive=True, dry_run=dry_run, logger=logger)
 
     logger.info(f"🏁 SYNC MUSICBRAINZ : TERMINE !! \n\n")
 

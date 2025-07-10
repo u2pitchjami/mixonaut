@@ -6,7 +6,7 @@ from utils.logger import get_logger, with_child_logger
 from datetime import datetime
 from utils.config import LOCK_FILE
 
-TIMEOUT = 30  # secondes d'attente max
+TIMEOUT = 120  # secondes d'attente max
 
 def is_process_alive(pid: int) -> bool:
     try:

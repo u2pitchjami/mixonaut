@@ -6,7 +6,7 @@ from utils.config import BEETS_MANUAL_LIST, BEETS_IMPORT_PATH
 from utils.logger import get_logger, with_child_logger
 
 @with_child_logger
-def import_auto(logger = None):
+def import_auto(noincremental: bool = False, logger = None):
     """
     Lance un import automatique de /app/imports après avoir :
     - sauvegardé la config Beets
@@ -16,27 +16,33 @@ def import_auto(logger = None):
     if not backup:
         logger.warning("⚠️ Sauvegarde config échouée ou ignorée")
 
-    mode = switch_config_to("auto")
+    mode = switch_config_to(mode_target="auto", logger=logger)
     if mode != "auto":
         logger.warning("⚠️ Le switch en mode auto n’a pas fonctionné")
-
-    result = run_beet_command("import", [BEETS_IMPORT_PATH], capture_output=True, logger=logger)
-    #print(result)
+    if noincremental:
+        logger.info("🔄 Import en mode noincremental activé")
+        result = run_beet_command("import", ["--noincremental", BEETS_IMPORT_PATH], interactive=True, logger=logger)
+    else:
+        logger.info("🔄 Import en mode incrémental activé")
+        result = run_beet_command("import", [BEETS_IMPORT_PATH], interactive=False, logger=logger)
+    
     if result is None:
         logger.error("❌ L'import automatique a échoué.")
     else:
         logger.info("✅ Import automatique terminé.")
 
 @with_child_logger
-def import_manuel(clear_after=True, logger = None):
+def import_manuel(clear_after=False, skip_only=False, logger=None):
     """
     Importe tous les dossiers listés dans BEETS_MANUAL_LIST, un par un, en mode manuel.
+    - clear_after : vide le fichier une fois terminé
+    - skip_only : n'importe que les entrées marquées [skip]
     """
     backup = backup_beets_config()
     if not backup:
         logger.warning("⚠️ Sauvegarde config échouée ou ignorée")
 
-    mode = switch_config_to("manuel")
+    mode = switch_config_to("manuel", logger=logger)
     if mode != "manuel":
         logger.warning("⚠️ Le switch en mode manuel n’a pas fonctionné")
 
@@ -47,17 +53,28 @@ def import_manuel(clear_after=True, logger = None):
     with open(BEETS_MANUAL_LIST, "r", encoding="utf-8") as f:
         lines = [line.strip() for line in f if line.strip()]
 
-    if not lines:
+    cleaned_lines = []
+    for line in lines:
+        if skip_only and not line.startswith("[skip]"):
+            continue
+        if line.startswith("[skip]") or line.startswith("[duplicate]"):
+            path = line.split("]", 1)[1].strip()
+        else:
+            path = line  # fallback si ligne sans tag
+        cleaned_lines.append(path)
+
+    if not cleaned_lines:
         logger.info("✅ Aucun dossier à importer manuellement.")
         return
 
-    for path in lines:
+    for path in cleaned_lines:
         logger.info(f"📦 Import manuel : {path}")
-        result = run_beet_command("import", [path], capture_output=False)
+        result = run_beet_command("import", ["--noincremental", path], interactive=True, logger=logger)
         if result is None:
             logger.error(f"❌ Échec import : {path}")
         else:
             logger.info(f"✅ Import terminé : {path}")
+            logger.info(f"✅ Import terminé : {result}")
 
     if clear_after:
         open(BEETS_MANUAL_LIST, "w", encoding="utf-8").close()

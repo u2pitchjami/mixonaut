@@ -48,7 +48,7 @@ def check_random_albums(n: int = 3) -> None:
         result = run_beet_command(
             command="bad",
             args=[album_dir],
-            capture_output=True,
+            interactive=False,
             check=False,
             logger=logger
         )

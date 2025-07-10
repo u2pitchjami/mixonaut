@@ -1,69 +1,72 @@
 import subprocess
 import os
+import sys
 from utils.config import LOCK_FILE
 from utils.logger import get_logger, with_child_logger
 from beets_utils.beets_safe import safe_beets_call, read_lock_pid, get_current_pid
+
 
 @with_child_logger
 def run_beet_command(
     command: str,
     args: list[str] = None,
-    capture_output: bool = True,
+    interactive: bool = False,
     check: bool = False,
     dry_run: bool = False,
     logger: str = None
 ) -> dict:
     """
     Exécute une commande Beets de façon sûre et loggée.
-
-    Args:
-        command (str): Commande Beets de base (ex: 'list', 'remove', 'update').
-        args (list[str], optional): Liste des arguments (ex: ['-f', '$title', 'artist::Daft Punk']).
-        capture_output (bool): Capture ou non la sortie.
-        check (bool): Lève une exception si code retour ≠ 0.
-
-    Returns:
-        str | None: Résultat stdout si capturé, sinon None.
     """
-    cmd = ["beet", "-v", command]
+    cmd = ["beet", command]
     if args and all(arg is not None for arg in args):
         cmd.extend(args)
-       
+
     if dry_run:
         logger.info(f"[SIMULATION] {' '.join(cmd)}")
         return
-    
+
     try:
         if safe_beets_call(logger=logger):
             logger.debug(f"🔧 Exécution Beets : {' '.join(cmd)}")
-            result = subprocess.run(
-                cmd,
-                text=True,
-                check=check,
-                capture_output=capture_output
-            )
-            if capture_output:
-                return {
-                "stdout": result.stdout.strip(),
-                "stderr": result.stderr.strip(),
-                "returncode": result.returncode
-                }
-                
-            return None
 
+            if interactive:
+                subprocess.run(
+                    cmd,
+                    text=True,
+                    check=check,
+                    stdin=sys.stdin,
+                    stdout=sys.stdout,
+                    stderr=sys.stderr
+                )
+                return None
+            else:
+                result = subprocess.run(
+                    cmd,
+                    text=True,
+                    check=check,
+                    capture_output=True
+                )
+                return {
+                    "stdout": result.stdout.strip(),
+                    "stderr": result.stderr.strip(),
+                    "returncode": result.returncode
+                }
     except Exception as e:
         logger.error(f"Erreur beet : {e}")
         return {
-            "stdout": e.stdout.strip() if e.stdout else "",
-            "stderr": e.stderr.strip() if e.stderr else str(e),
-            "returncode": e.returncode
+            "stdout": getattr(e, "stdout", "").strip() if hasattr(e, "stdout") else "",
+            "stderr": getattr(e, "stderr", str(e)).strip(),
+            "returncode": getattr(e, "returncode", 1)
         }
+
     finally:
         if read_lock_pid() == get_current_pid():
-                os.remove(LOCK_FILE)
-                logger.debug("🔓 Verrou supprimé.")
+            os.remove(LOCK_FILE)
+            logger.debug("🔓 Verrou supprimé.")
         else:
             logger.warning("⚠️ Tentative de suppression du verrou non possédé (ignorée).")
+
 
 @with_child_logger
 def run_beet_action_by_dirs(action, dirs, dry_run=False, logger=None):
@@ -75,7 +78,7 @@ def run_beet_action_by_dirs(action, dirs, dry_run=False, logger=None):
         else:
             try:
                 #subprocess.run(["beet", action, album_dir], check=True)
-                run_beet_command(command=action, args=[album_dir], capture_output=False, dry_run=dry_run, logger=logger)
+                run_beet_command(command=action, args=[album_dir], interactive=False, dry_run=dry_run, logger=logger)
                 logger.info(f"[FIX] {action} appliqué sur : {album_dir}")
             except subprocess.CalledProcessError:
                 logger.warning(f"[ERREUR] {action} échoué sur : {album_dir}")
@@ -111,7 +114,7 @@ def get_beet_list(
 
     #logger.info(f"Commande Beet : beet list {' '.join(args)}")
     try:
-        result = run_beet_command(command="list", args=args, capture_output=True, dry_run=False, logger=logger)
+        result = run_beet_command(command="list", args=args, interactive=False, dry_run=False, logger=logger)
         stdout = result.get("stdout", "")
         lines = [line.strip() for line in stdout.splitlines() if line.strip()]
         

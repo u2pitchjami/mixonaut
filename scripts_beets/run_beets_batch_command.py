@@ -47,7 +47,7 @@ def run_beets_batch_command(
             if dry_run:
                 logger.info(f"[SIMULATION] beet {beet_command} {' '.join(args)}")
             else:
-                output = run_beet_command(command=beet_command, args=args, capture_output=True, dry_run=dry_run, logger=logger)
+                output = run_beet_command(command=beet_command, args=args, interactive=False, dry_run=dry_run, logger=logger)
                 logger.info(f"output {output}")
     except Exception as e:
         logger.error(f"Erreur durant le traitement beet en masse : {e}")

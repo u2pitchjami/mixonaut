@@ -5,7 +5,7 @@ from utils.config import BEETS_DB, LOCK_FILE
 from beets_utils.beets_safe import safe_beets_call, read_lock_pid, get_current_pid
 
 @with_child_logger
-def get_connection(db_path: str = BEETS_DB, retries: int = 5, delay: int = 2, timeout: int = 10, logger=None):
+def get_connection(db_path: str = BEETS_DB, retries: int = 20, delay: int = 5, timeout: int = 30, logger=None):
     for attempt in range(retries):
         try:
             conn = sqlite3.connect(db_path, timeout=timeout)

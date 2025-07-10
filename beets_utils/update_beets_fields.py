@@ -24,7 +24,7 @@ def update_beets_fields(track_path: str, field_values: dict, logger=None, dry_ru
     return run_beet_command(
         command="modify",
         args=args,
-        capture_output=True,
+        interactive=False,
         check=True,
         dry_run=dry_run,
         logger=logger

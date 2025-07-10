@@ -62,6 +62,7 @@ MUSIC_BASE_PATH = get_required("MUSIC_BASE_PATH")
 HOST_MUSIC = get_required("HOST_MUSIC_PREFIX")
 MUSIC_SOURCE_PATH = get_required("MUSIC_SOURCE_PATH")
 MUSIC_IMPORT_PATH = get_required("MUSIC_IMPORT_PATH")
+MUSIC_IMPORT_TEMP_PATH = get_required("MUSIC_IMPORT_TEMP_PATH")
 BEETS_MUSIC = get_required("BEETS_MUSIC_PREFIX")
 WINDOWS_MUSIC = get_required("WINDOWS_MUSIC")
 MANUAL_LIST = get_str("MANUAL_LIST_PATH", "import_manuel.txt")
@@ -78,6 +79,13 @@ QUERIES_DIR = get_str("QUERIES_DIR", "./dashboard")
 IMAGE_BEETS = get_required("IMAGE_BEETS")
 IMAGE_ESSENTIA = get_required("IMAGE_ESSENTIA")
 
+#QBITTORRENT
+QBIT_HOST = get_required("QBIT_HOST")
+QBIT_USER = get_required("QBIT_USER")
+QBIT_PASS = get_required("QBIT_PASS")
+
+
+# --- Constantes et configurations ---
 
 EDM_GENRES = {"techno", "house", "trance", "edm", "dance", "psychedelic", "rave", "space"}
 AUDIO_EXTENSIONS = {'.mp3', '.flac', '.wav', '.ogg', '.m4a', '.aac', '.alac', '.wma'}
