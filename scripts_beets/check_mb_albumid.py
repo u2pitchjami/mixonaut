@@ -3,9 +3,11 @@ from datetime import datetime
 import os
 from beets_utils.check_and_fix_utils import is_missing_mb_albumid
 from beets_utils.commands import get_beet_list
+from utils.safe_runner import safe_main
 from utils.logger import get_logger
 logger = get_logger("Check_Musicbrainz")
 
+@safe_main
 def check_mb_albumid(artist=None):
     logger.info(f"📅 CHECK MB_ALBUMID : {datetime.now().strftime('%d-%m-%Y')}")
     logger.info("--- (vérifie si tous les albums sont reliés à Musicbrainz) ---")

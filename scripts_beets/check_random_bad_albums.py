@@ -3,6 +3,7 @@ import csv
 import random
 import argparse
 from utils.config import REPORT_PATH
+from utils.safe_runner import safe_main
 from datetime import datetime
 from utils.logger import get_logger
 from beets_utils.commands import get_beet_list, run_beet_command
@@ -17,7 +18,8 @@ def append_to_csv_report(rows: list[dict], filename: str = REPORT_PATH):
         if not file_exists:
             writer.writeheader()
         writer.writerows(rows)
-
+        
+@safe_main
 def check_random_albums(n: int = 3) -> None:
     logger = get_logger("Check_Random_Bad_Dirs")
     logger.info(f"📅 CHECK RANDOM BAD DIRS : {datetime.now().strftime('%d-%m-%Y')}")

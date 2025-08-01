@@ -1,6 +1,7 @@
 import os
 import argparse
 import json
+from utils.safe_runner import safe_main
 from essentia.essentia_extractions import parse_essentia_json
 from db.essentia_queries import get_all_track_ids, insert_or_update_audio_features
 from utils.config import ESSENTIA_SAV_JSON
@@ -13,7 +14,7 @@ def build_json_path(base_path, track_id, artist, title):
     filename = f"{track_id}_{artist}_{title}.json".replace(" ", "_").lower()
     return os.path.join(base_path, subfolder, filename)
 
-
+@safe_main
 def main(force=False):
     base_path = ESSENTIA_SAV_JSON
     if not base_path:
@@ -42,13 +43,10 @@ def main(force=False):
 
         json_path = os.path.join(subdir, json_file)
 
-        try:
-            result = parse_essentia_json(json_path, logger=logger)
-            if not result:
-                continue
-            insert_or_update_audio_features(track_id, result, force=force, logger=logger)
-        except Exception as e:
-            logger.error(f"Erreur traitement ID {track_id} : {e}")
+        result = parse_essentia_json(json_path, logger=logger)
+        if not result:
+            continue
+        insert_or_update_audio_features(track_id, result, force=force, logger=logger)
 
 
 if __name__ == "__main__":

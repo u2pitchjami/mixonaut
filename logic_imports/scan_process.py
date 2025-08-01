@@ -50,8 +50,7 @@ def scan_and_process_downloads(source_dir: str = MUSIC_SOURCE_PATH, import_dir: 
                 logger.debug(f"Chemin complet : {path}, Taille : {size} octets")
                 torrent_name = extract_torrent_name(import_path = path, base_path = source_dir, logger=logger)
                 logger.debug(f"Nom du torrent extrait : {torrent_name}")
-
-                if is_already_imported(name=name, torrent_name=torrent_name, logger=logger):
+                if not name.lower().endswith(('.ape', '.wv', '.mp3', '.flac', '.wav', '.ogg', '.m4a', '.aac', '.alac', '.wma', '.aiff', '.jpg', '.png', '.pdf', '.log', '.lrc', '.cue')) or is_already_imported(name=name, torrent_name=torrent_name, logger=logger):
                     logger.info(f"Déjà importé : {name} dans {torrent_name}, passage au suivant.")
                     continue
 
@@ -103,7 +102,7 @@ def scan_and_process_downloads(source_dir: str = MUSIC_SOURCE_PATH, import_dir: 
                         dest = os.path.join(import_dir, rel_path)
 
                     if cue_trigger and name.lower().endswith(('.flac', '.wav', '.ape', '.wv', '.mp3')):
-                        logger.info(f"Éléments copiés : {path} → {dest}")
+                        logger.info(f"Éléments non copié : {name}, car cue_trigger est activé.")
                     else:
                         os.makedirs(os.path.dirname(dest), exist_ok=True)
                         shutil.copy2(path, dest)

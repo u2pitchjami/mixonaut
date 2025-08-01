@@ -23,9 +23,18 @@ def delete_torrents_and_files(torrent_names, qbit_host=QBIT_HOST, qbit_user=QBIT
     if not session:
         return
 
+    #logger.debug(f"torrent_names: '{torrent_names}")
     all_torrents = get_completed_music_torrents(session=session, logger=logger)
+    #logger.debug(f"🔍 all_torrents: {all_torrents}")
 
     for tname in torrent_names:
+        logger.debug(f"tname: '{tname}")
+        for t in all_torrents:
+            if tname.strip() == t["name"].strip():
+                logger.debug(f"MATCH: '{tname}' == '{t['name']}'")
+            else:
+                logger.debug(f"NO MATCH: '{tname}' != '{t['name']}'")
+
         matching = next((t for t in all_torrents if t["name"] == tname), None)
 
         if not matching:

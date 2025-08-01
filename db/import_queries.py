@@ -153,11 +153,12 @@ def get_torrents_ready_for_deletion(min_ratio: float, min_age_days: int, logger=
     query = """
     SELECT DISTINCT torrent_name
     FROM imported_files
-    WHERE auto_cleaned = 0 AND imported_in_beets_at IS NOT NULL
-      AND (
+    WHERE auto_cleaned = 0 
+    AND imported_in_beets_at IS NOT NULL
+    AND (
         torrent_ratio >= ?
-        OR (julianday('now') - julianday(torrent_added_on)) >= ?
-      )
+        OR (julianday('now') - julianday(datetime(torrent_added_on, 'unixepoch'))) >= ?
+    )
     """
 
     rows = select_all(query, (min_ratio, min_age_days), logger=logger)

@@ -1,5 +1,6 @@
 import argparse
 from logic_imports.process_delete import delete_torrents_and_files
+from utils.safe_runner import safe_main
 from logic_imports.process_qbit import import_completed_torrents, update_ratios_from_qbit
 from utils.config import QBIT_HOST, QBIT_USER, QBIT_PASS
 from db.import_queries import get_torrents_ready_for_deletion
@@ -7,7 +8,7 @@ from utils.logger import get_logger, with_child_logger
 from datetime import datetime, timedelta
 
 logger = get_logger("test_qbittorrent_supp")
-
+@safe_main
 @with_child_logger
 def cleanup_completed_torrents(
     qbit_host: str = QBIT_HOST,
@@ -15,7 +16,7 @@ def cleanup_completed_torrents(
     qbit_pass: str = QBIT_PASS,
     min_ratio: float = 2.0,
     min_age_days: int = 30,
-    dry_run: bool = True,
+    dry_run: bool = False,
     logger=None
 ):
     logger.info("\u2728 Vérification des torrents complétés dans qBittorrent")
@@ -25,7 +26,7 @@ def cleanup_completed_torrents(
     logger.info("\u2728 Lancement du nettoyage des torrents complétés")
     torrents = get_torrents_ready_for_deletion(min_ratio=2.0, min_age_days=10, logger=logger)
     logger.info(f"🔍 Torrents prêts à être supprimés : {torrents}")
-    delete_torrents_and_files(torrent_names=torrents, dry_run=True, qbit_host=qbit_host, qbit_user=qbit_user, qbit_pass=qbit_pass, logger=logger)
+    delete_torrents_and_files(torrent_names=torrents, dry_run=False, qbit_host=qbit_host, qbit_user=qbit_user, qbit_pass=qbit_pass, logger=logger)
     logger.info("\u2728 Nettoyage terminé")
 
 if __name__ == "__main__":

@@ -12,9 +12,9 @@ def import_auto(noincremental: bool = False, logger = None):
     - sauvegardé la config Beets
     - activé le mode auto
     """
-    backup = backup_beets_config()
-    if not backup:
-        logger.warning("⚠️ Sauvegarde config échouée ou ignorée")
+    # backup = backup_beets_config()
+    # if not backup:
+    #     logger.warning("⚠️ Sauvegarde config échouée ou ignorée")
 
     mode = switch_config_to(mode_target="auto", logger=logger)
     if mode != "auto":
@@ -38,9 +38,9 @@ def import_manuel(clear_after=False, skip_only=False, logger=None):
     - clear_after : vide le fichier une fois terminé
     - skip_only : n'importe que les entrées marquées [skip]
     """
-    backup = backup_beets_config()
-    if not backup:
-        logger.warning("⚠️ Sauvegarde config échouée ou ignorée")
+    # backup = backup_beets_config()
+    # if not backup:
+    #     logger.warning("⚠️ Sauvegarde config échouée ou ignorée")
 
     mode = switch_config_to("manuel", logger=logger)
     if mode != "manuel":

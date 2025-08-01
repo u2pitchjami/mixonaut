@@ -3,9 +3,11 @@ from datetime import datetime
 from beets_utils.commands import run_beet_command
 from beets_utils.extract_paths_from_file import extract_paths_from_file
 from utils.logger import get_logger
+from utils.safe_runner import safe_main
 
 logger = get_logger("Beets_batch")
 
+@safe_main
 def run_beets_batch_command(
     source_file: str,
     beet_command: str,

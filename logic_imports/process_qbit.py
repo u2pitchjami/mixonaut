@@ -36,8 +36,8 @@ def import_completed_torrents(session=None, qbit_host=QBIT_HOST, qbit_user=QBIT_
             )
 
 USEFUL_EXTENSIONS = (
-    ".flac", ".mp3", ".ogg", ".wav", ".m4a", ".aiff",  # audio
-    ".cue", ".zip", ".rar", ".tar", ".tar.gz", ".tar.bz2", ".rar", ".7z"                      # utiles
+    '.ape', '.wv', ".flac", ".mp3", ".ogg", ".wav", ".m4a", '.aac', '.alac', '.wma', ".aiff",  # audio
+    ".cue", ".zip", ".rar", ".tar", ".tar.gz", ".tar.bz2", ".rar", ".7z", ".jpg", ".png", ".pdf", ".log", ".lrc"                      # utiles
 )
 
 def is_useful_file(name: str) -> bool:

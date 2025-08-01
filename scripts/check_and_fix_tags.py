@@ -10,6 +10,7 @@ from logic.write_tags import write_tags_docker, docker_metaflac_cmd
 from logic.sync_beets_from_essentia import build_sync_fields
 from utils.utils_div import ensure_to_str, convert_path_format
 from utils.logger import get_logger
+from utils.safe_runner import safe_main
 import os
 
 logger = get_logger("Check_&_fix_tags")
@@ -82,6 +83,7 @@ def check_and_fix_tags(track_id: int, path: str, track_features: dict, dry_run: 
 
     return False
 
+@safe_main
 def process_all_tracks(dry_run: bool = False, track_id: int = None, nb_limit: int = 0):
     args_to_log = {k: v for k, v in locals().items() if k != "track_ids"}
 

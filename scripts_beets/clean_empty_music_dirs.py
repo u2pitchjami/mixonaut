@@ -3,6 +3,7 @@ import argparse
 from datetime import datetime
 from utils.config import MUSIC_BASE_PATH, AUDIO_EXTENSIONS, IGNORED_EXTENSIONS
 import shutil
+from utils.safe_runner import safe_main
 from utils.logger import get_logger
 
 logger = get_logger("Clean_Empty_Music_Dirs")
@@ -24,6 +25,7 @@ def should_delete_folder(folder_path: str) -> bool:
     return True
 
 # --- Fonction principale ---
+@safe_main
 def clean_music_collection(base_path: str, delete: bool = False) -> None:
     total_checked = 0
     marked_for_deletion = 0

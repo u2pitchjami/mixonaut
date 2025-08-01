@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from collections import defaultdict
 import argparse
+from utils.safe_runner import safe_main
 import os
 from beets_utils.commands import get_beet_list
 from utils.config import BEETS_RECAP_DIR
@@ -179,13 +180,9 @@ def export_change_log_markdown(album_changes: dict[str, set[str]], output_dir: s
 
     return filepath
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Vérifie que tous les albums Beet aient un mb_albumid")
-    parser.add_argument("--period", choices=["week", "month", "all"], default="all", help="Période à analyser")
-    parser.add_argument("--nosnapshot", action="store_true", help="Pas de Snapshot, juste le comparatif")
-    parser.add_argument("--markdown", action="store_true", help="Génère un fichier markdown")
-    args = parser.parse_args()
-
+@safe_main
+def main(period=all, nosnapshot=False, markdown=False):
+    """Crée un récapitulatif de la"""
     logger.info(f"📅 BEETS RECAP : {datetime.now().strftime('%d-%m-%Y')}")
     if not args.nosnapshot:
         export_beet_snapshot()
@@ -210,3 +207,11 @@ if __name__ == "__main__":
         
     logger.info(f"🏁 BEETS RECAP : TERMINE !! \n\n")
     
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Vérifie que tous les albums Beet aient un mb_albumid")
+    parser.add_argument("--period", choices=["week", "month", "all"], default="all", help="Période à analyser")
+    parser.add_argument("--nosnapshot", action="store_true", help="Pas de Snapshot, juste le comparatif")
+    parser.add_argument("--markdown", action="store_true", help="Génère un fichier markdown")
+    args = parser.parse_args()
+    
+    main(period=args.period, nosnapshot=args.nosnapshot, markdown=args.markdown)

@@ -4,12 +4,14 @@ from datetime import datetime
 from collections import defaultdict
 from datetime import datetime
 from beets_utils.commands import get_beet_list
+from utils.safe_runner import safe_main
 from utils.logger import get_logger
 logger = get_logger("Beets_Check_Duplicates")
 
 def normalize(s):
     return s.strip().lower()
 
+@safe_main
 def detect_beets_album_duplicates():
     logger.info(f"📅 CHECK DUPLICATES : {datetime.now().strftime('%d-%m-%Y')}")
     logger.info("--- (identifie les albums potentiellement en doublons) ---")

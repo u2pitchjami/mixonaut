@@ -1,4 +1,5 @@
 from db.access import select_all
+from utils.safe_runner import safe_main
 from utils.logger import get_logger
 import statistics
 
@@ -16,7 +17,7 @@ def fetch_values():
     query = f"SELECT {cols} FROM audio_features"
     return select_all(query, logger=logger)
 
-
+@safe_main
 def compute_stats():
     rows = fetch_values()
     if not rows:

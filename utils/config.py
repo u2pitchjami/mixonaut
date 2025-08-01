@@ -78,6 +78,7 @@ QUERIES_DIR = get_str("QUERIES_DIR", "./dashboard")
 #IMAGES
 IMAGE_BEETS = get_required("IMAGE_BEETS")
 IMAGE_ESSENTIA = get_required("IMAGE_ESSENTIA")
+IMAGE_CLIENTS_DB = get_required("IMAGE_CLIENTS_DB")
 
 #QBITTORRENT
 QBIT_HOST = get_required("QBIT_HOST")

@@ -5,10 +5,19 @@ from beets_utils.commands import get_beet_list
 from utils.utils_div import convert_path_format
 from utils.logger import get_logger, with_child_logger
 
+# fonction non utilisée
 @with_child_logger
 def get_album_paths_from_beets(logger=None) -> list[str]:
     """
-    Utilise get_beet_list pour récupérer tous les chemins d'albums dans la base Beets.
+    This function retrieves all album paths from Beets database.
+
+    It uses the `get_beet_list` function to query the database and retrieve the paths.
+    The query is set to retrieve only albums (album=True), with the "$path" format field included,
+    which will return the path of each album. The results are then stripped of any leading or trailing whitespace
+    before being returned.
+
+    :param logger: Optional logger instance for logging purposes.
+    :return: A list of album paths as strings.
     """
     lines = get_beet_list(query=None, album=True, format=True, format_fields="$path", logger=logger)
     return [line for line in lines if line.strip()]

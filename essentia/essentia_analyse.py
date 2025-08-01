@@ -22,7 +22,7 @@ def analyse_track(track, force=False, source="Mixonaut", logger=None):
         profile = Path(PROF_ESSENTIA)
         track_features = extract_and_parse_features(temp_audio, temp_json, profile, logger=logger)
         if not track_features:
-            return
+            return logger.warning(f"❌ Erreur traitement track {track_id} : Aucune caractéristique extraite")
 
         track_features = enrich_features(track_features, logger=logger)
 
@@ -47,9 +47,8 @@ def extract_and_parse_features(temp_audio, temp_json, profile, logger=None):
         profile_path=Path(f"/app/profile/{profile.name}"),
         logger=logger
     )
-    if not temp_json.exists():
-        logger.error(f"JSON non généré pour : {temp_audio}")
-        return None
+    if not temp_json.exists():        
+        return logger.error(f"JSON non généré pour : {temp_audio}")
     
     run_replaygain_in_container(audio_path=temp_audio, json_out_path=temp_json, profile_path=profile, logger=logger)
     return parse_essentia_json(temp_json)

@@ -3,11 +3,13 @@ import argparse
 from pathlib import Path
 from datetime import datetime
 from utils.logger import get_logger
+from utils.safe_runner import safe_main
 from beets_utils.commands import get_beet_list
 from utils.config import MUSIC_BASE_PATH, BEETS_MUSIC, BEETS_MANUAL_LIST
 
 logger = get_logger("Check_Album_in_Beets")
 
+@safe_main
 def check_missing_album_paths():
     logger.info(f"📅 CHECK PATHS IN BEETS : {datetime.now().strftime('%d-%m-%Y')}")
     logger.info("--- (vérifie si tous les albums sont biens connus de Beets) ---")

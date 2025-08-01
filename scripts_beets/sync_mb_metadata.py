@@ -3,8 +3,9 @@ import argparse
 from datetime import datetime
 from beets_utils.commands import run_beet_command
 from utils.logger import get_logger
+from utils.safe_runner import safe_main
 
-
+@safe_main
 def sync_metadata(target_path=None, dry_run=False):
     logger = get_logger("Musicbrainz_Sync")
         
