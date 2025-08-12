@@ -1,7 +1,5 @@
-from datetime import datetime
 from db.access import execute_query
-from utils.config import BEETS_DB, EDM_GENRES
-from utils.logger import get_logger, with_child_logger
+from utils.logger import with_child_logger
 
 @with_child_logger
 def fetch_tracks_with_bpm_and_key(logger=None):

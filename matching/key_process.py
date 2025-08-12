@@ -1,8 +1,7 @@
 from utils.config import CAMELOT_ORDER, TOLERANCE_BPM_PERCENT
 from db.matching_queries import get_transpositions
-from collections import defaultdict
 import math
-from utils.logger import get_logger, with_child_logger
+from utils.logger import with_child_logger
 
 BPM_SHIFT_PENALTY = 0.1
 #CAMELOT_ORDER = [f"{n}{l}" for n in range(1, 13) for l in ["a", "b"]]

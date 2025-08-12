@@ -2,7 +2,7 @@ from utils.config import ESSENTIA_TEMP_AUDIO, PROF_ESSENTIA, ESSENTIA_MAPPING, I
 import subprocess
 from pathlib import Path
 import json
-from utils.logger import get_logger, with_child_logger
+from utils.logger import with_child_logger
 
 @with_child_logger
 def run_essentia_extraction(audio_path: Path, json_path: Path, profile_path: Path, logger=None) -> bool:
@@ -32,6 +32,7 @@ def run_essentia_extraction(audio_path: Path, json_path: Path, profile_path: Pat
             text=True
         )
         logger.debug(f"✅ Extraction terminée pour {audio_path.name}")
+        print(f"result : {result}")
         return True
 
     except Exception as e:

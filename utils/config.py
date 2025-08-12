@@ -38,8 +38,6 @@ BEETS_CONFIG_DIR = get_required("BEETS_CONFIG_DIR")
 BEETS_BACKUP_DIR = get_str("BEETS_BACKUP_DIR", "./sav_base")
 BEETS_LOGS = get_required("BEETS_LOGS")
 BEETS_MANUAL_LIST = get_str("BEETS_MANUAL_LIST", "beets_manuel.txt")
-BEETS_CONFIG_MANUEL = get_required("BEETS_CONFIG_MANUEL")
-BEETS_CONFIG_NORMAL = get_required("BEETS_CONFIG_NORMAL")
 BEETS_CONFIG = get_required("BEETS_CONFIG")
 BEETS_RECAP_DIR = get_required("BEETS_RECAP_DIR")
 REPORT_PATH = get_required("REPORT_PATH")
@@ -53,7 +51,6 @@ PROF_ESSENTIA = get_required("PROF_ESSENTIA")
 ESSENTIA_SAV_JSON = get_str("ESSENTIA_SAV_JSON", "data/tsav_json")
 ESSENTIA_TEMP_AUDIO = get_str("ESSENTIA_TEMP_AUDIO", "data/temp_audio")
 ESSENTIA_TEMP_JSON = get_str("ESSENTIA_TEMP_JSON", "data/temp_json")
-SCRIPT_PATH_ESSENTIA = get_required("SCRIPT_PATH_ESSENTIA")
 SCRIPT_PATH_REPLAYGAIN = get_required("SCRIPT_PATH_REPLAYGAIN")
 MAX_SAFENAME_LENGTH = 100
 
@@ -62,12 +59,9 @@ MUSIC_BASE_PATH = get_required("MUSIC_BASE_PATH")
 HOST_MUSIC = get_required("HOST_MUSIC_PREFIX")
 MUSIC_SOURCE_PATH = get_required("MUSIC_SOURCE_PATH")
 MUSIC_IMPORT_PATH = get_required("MUSIC_IMPORT_PATH")
-MUSIC_IMPORT_TEMP_PATH = get_required("MUSIC_IMPORT_TEMP_PATH")
 BEETS_MUSIC = get_required("BEETS_MUSIC_PREFIX")
 WINDOWS_MUSIC = get_required("WINDOWS_MUSIC")
-MANUAL_LIST = get_str("MANUAL_LIST_PATH", "import_manuel.txt")
 BEETS_IMPORT_PATH = get_required("BEETS_IMPORT_PATH")
-SCRIPT_DIR = get_required("SCRIPT_DIR")
 LOCK_FILE = get_str("LOCK_FILE", "beets_db.lock")
 EXPORT_COMPATIBLE_TRACKS = get_str("EXPORT_COMPATIBLE_TRACKS", "./exports")
 
@@ -78,6 +72,7 @@ QUERIES_DIR = get_str("QUERIES_DIR", "./dashboard")
 #IMAGES
 IMAGE_BEETS = get_required("IMAGE_BEETS")
 IMAGE_ESSENTIA = get_required("IMAGE_ESSENTIA")
+IMAGE_FPCALC = get_required("IMAGE_FPCALC")
 IMAGE_CLIENTS_DB = get_required("IMAGE_CLIENTS_DB")
 
 #QBITTORRENT
@@ -85,8 +80,25 @@ QBIT_HOST = get_required("QBIT_HOST")
 QBIT_USER = get_required("QBIT_USER")
 QBIT_PASS = get_required("QBIT_PASS")
 
+#FPCALC
+FPCALC_RUNNER = get_str("FPCALC_RUNNER", "docker")
+FPCALC_MOUNT_CONTAINER = get_str("FPCALC_MOUNT_CONTAINER", "/app/music")
+FPCALC_MAXLEN = get_int("FPCALC_MAXLEN", "120")
+
 
 # --- Constantes et configurations ---
+
+# --- parse logs beets
+DUP_PREFIX = "duplicate-skip "
+SKIP_PREFIX = "skip "
+MOVED_PREFIX = "[MOVED]|||"
+
+# --- useful ext for qbit
+USEFUL_EXTENSIONS = (
+    '.ape', '.wv', ".flac", ".mp3", ".ogg", ".wav", ".m4a", '.aac', '.alac', '.wma', ".aiff",  # audio
+    ".cue", ".zip", ".rar", ".tar", ".tar.gz", ".tar.bz2", ".rar", ".7z", ".jpg", ".png", ".pdf", ".log", ".lrc"                      # utiles
+)
+
 
 EDM_GENRES = {"techno", "house", "trance", "edm", "dance", "psychedelic", "rave", "space"}
 AUDIO_EXTENSIONS = {'.mp3', '.flac', '.wav', '.ogg', '.m4a', '.aac', '.alac', '.wma'}
@@ -240,6 +252,53 @@ CAMELOT_MAP = {
         "F#m":"11A", "Gm": "6A", "G#m":"1A", "Am": "8A", "A#m":"3A", "Bm": "10A"
     }
 
+ENHARMONIC_MAP = {
+    "Db": "C#", "Eb": "D#", "Bb": "A#", "Ab": "G#", "Gb": "F#",
+    "C#": "C#", "D#": "D#", "F#": "F#", "G#": "G#", "A#": "A#"
+}
+
+#Essentia Genre
+ELECTRO_OVERRIDE_GENRES = {"electronic", "dan"}
+GENRE_PROB_DORTMUND = 0.8
+GENRE_PROB_ROSAMERICA = 0.5
+GENRE_PROB_THRESHOLD = 0.5
+GENRE_CANONICAL = {
+    "alternative": "Alternative",
+    "blues": "Blues",
+    "electronic": "Electronic",
+    "folkcountry": "Folk, Country",
+    "funksoulrnb": "Funk, Soul, RnB",
+    "raphiphop": "Rap, HipHop",
+    "jazz": "Jazz",
+    "rock": "Rock",
+    "dan": "Dance",
+    "house": "House",
+    "techno": "Techno",
+    "ambient": "Ambient",
+    "dnb": "DrumAndBass",
+    "trance": "Trance",
+    "jaz": "Jazz",
+    "rhy": "RhythmAndBlues",
+    "roc": "Rock",
+    "spe": "SpokenWord",
+    "hip": "HipHop",
+    "cla": "Classical",
+    "pop": "Pop",
+    "reg": "Reggae",
+    "met": "Metal",
+    "dis": "Disco",
+    "blu": "Blues",
+    "cou": "Country"
+    # etc.
+}
+
+#Essentia Key
+CAMELOT_MAP = {
+    "C":  "8B", "C#": "3B", "D":  "10B", "D#": "5B", "E":  "12B", "F":  "7B",
+    "F#": "2B", "G":  "9B", "G#": "4B", "A":  "11B", "A#": "6B", "B":  "1B",
+    "Cm": "5A", "C#m":"12A", "Dm": "7A", "D#m":"2A", "Em": "9A", "Fm": "4A",
+    "F#m":"11A", "Gm": "6A", "G#m":"1A", "Am": "8A", "A#m":"3A", "Bm": "10A"
+}
 ENHARMONIC_MAP = {
     "Db": "C#", "Eb": "D#", "Bb": "A#", "Ab": "G#", "Gb": "F#",
     "C#": "C#", "D#": "D#", "F#": "F#", "G#": "G#", "A#": "A#"

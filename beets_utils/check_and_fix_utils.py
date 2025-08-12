@@ -1,4 +1,3 @@
-import os
 
 def is_missing_genre(val):
     if not val or val in {"", "unknown", "none", "?"}:

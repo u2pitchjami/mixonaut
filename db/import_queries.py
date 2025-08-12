@@ -1,9 +1,7 @@
 from db.access import select_all, select_one, execute_write, select_scalar
-from utils.config import BEETS_IMPORT_PATH
-from utils.logger import get_logger, with_child_logger
+from utils.logger import with_child_logger
 import os
 import time
-from datetime import datetime
 
 @with_child_logger
 def get_imported_music_files(logger=None):
@@ -111,16 +109,18 @@ def update_imported_in_beets_at(torrent_name: str, logger=None) -> bool:
 
 @with_child_logger
 def insert_or_ignore_imported_file(path, name, size, torrent_hash, torrent_name, added_on, completion_on, ratio, logger=None):
-    existing = select_one("SELECT id FROM imported_files WHERE path = ?", (path,), logger=logger)
+    existing = select_one("SELECT id, imported_in_beets_at FROM imported_files WHERE path = ?", (path,), logger=logger)
     if existing:
+        file_id, imported_in_beets_at = existing
         logger.debug(f"↪️ Déjà présent en base : {path}")
-        return
+        if imported_in_beets_at is not None:
+            logger.info(f"Ce fichier a déjà été importé dans Beets.")
 
     execute_write("""
         INSERT INTO imported_files (
-            path, name, size, last_seen, imported_in_beets_at,
+            path, name, size, last_seen,
             torrent_hash, torrent_name, torrent_added_on, torrent_completion_on, torrent_ratio
-        ) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)
     """, (
         path, name, size,
         torrent_hash, torrent_name,
@@ -141,28 +141,55 @@ def update_ratio_for_torrent(torrent_name: str, ratio: float, logger=None):
     )
 
 
+# db/import_queries.py (nouvelle fonction par hash)
 @with_child_logger
-def get_torrents_ready_for_deletion(min_ratio: float, min_age_days: int, logger=None) -> list[str]:
+def get_hashes_ready_for_deletion(min_ratio: float, min_age_days: int,
+                                  grace_days_soft: int = 14, logger=None) -> list[str]:
     """
-    Récupère les torrent_names éligibles à suppression :
-    - Importés dans beets
-    - ET (ratio OK ou ancienneté OK)
+    Retourne les torrent_hash à supprimer selon la politique:
+      - importés et ratio/âge OK
+      - OU décision (REJECT, DUPLICATE_HARD, REPLACED) et ratio/âge OK
+      - OU décision (NEEDS_MANUAL, DUPLICATE_SOFT) posée il y a >= G jours et ratio/âge OK
     """
-    logger.info(f"🔍 Sélection des torrents supprimables : ratio ≥ {min_ratio} ou age ≥ {min_age_days} jours")
-
     query = """
-    SELECT DISTINCT torrent_name
-    FROM imported_files
-    WHERE auto_cleaned = 0 
-    AND imported_in_beets_at IS NOT NULL
-    AND (
-        torrent_ratio >= ?
-        OR (julianday('now') - julianday(datetime(torrent_added_on, 'unixepoch'))) >= ?
+    WITH base AS (
+      SELECT
+        ifs.torrent_hash,
+        MAX(ifs.imported_in_beets_at) AS imported_at,
+        MAX(ifs.torrent_ratio) AS ratio,
+        MAX(ifs.torrent_added_on) AS added_on
+      FROM imported_files ifs
+      WHERE ifs.auto_cleaned = 0
+      GROUP BY ifs.torrent_hash
+    ),
+    dec AS (
+      SELECT td.torrent_hash, td.decision, td.decided_at
+      FROM torrent_decisions td
     )
+    SELECT DISTINCT b.torrent_hash
+    FROM base b
+    LEFT JOIN dec d ON d.torrent_hash = b.torrent_hash
+    WHERE
+      -- Ratio/âge OK
+      (
+        b.ratio >= ?
+        OR (julianday('now') - julianday(datetime(b.added_on, 'unixepoch'))) >= ?
+      )
+      AND (
+        -- importé
+        b.imported_at IS NOT NULL
+        -- ou décisions fortes
+        OR (d.decision IN ('REJECT','DUPLICATE_HARD','REPLACED'))
+        -- ou décisions "soft" après délai de grâce
+        OR (d.decision IN ('NEEDS_MANUAL','DUPLICATE_SOFT')
+            AND d.decided_at IS NOT NULL
+            AND (julianday('now') - julianday(d.decided_at)) >= ?
+        )
+      )
     """
+    rows = select_all(query, (min_ratio, min_age_days, grace_days_soft), logger=logger) or []
+    return [r[0] for r in rows]
 
-    rows = select_all(query, (min_ratio, min_age_days), logger=logger)
-    return [row[0] for row in rows]
 
 def mark_as_cleaned(torrent_name: str, logger=None):
     execute_write(

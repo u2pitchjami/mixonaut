@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 from collections import defaultdict
 import argparse
 from utils.safe_runner import safe_main
@@ -184,12 +184,12 @@ def export_change_log_markdown(album_changes: dict[str, set[str]], output_dir: s
 def main(period=all, nosnapshot=False, markdown=False):
     """Crée un récapitulatif de la"""
     logger.info(f"📅 BEETS RECAP : {datetime.now().strftime('%d-%m-%Y')}")
-    if not args.nosnapshot:
+    if not nosnapshot:
         export_beet_snapshot()
     
-    if args.period == "week":
+    if period == "week":
         changements = auto_generate_beet_change_log(period="week")
-    elif args.period == "month":
+    elif period == "month":
         changements = auto_generate_beet_change_log(period="month")
     else:
         changements = auto_generate_beet_change_log(period="all")
@@ -201,7 +201,7 @@ def main(period=all, nosnapshot=False, markdown=False):
             resume = ", ".join(sorted(types))
             logger.info(f"📁 {dossier} ➜ {resume}")
     
-    if args.markdown:
+    if markdown:
         markdown_path = export_change_log_markdown(albums, output_dir=BEETS_RECAP_DIR)
         logger.info(f"📝 Récap Markdown exporté : {markdown_path}")
         

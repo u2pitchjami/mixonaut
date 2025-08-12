@@ -2,7 +2,7 @@ from pathlib import Path
 import unicodedata
 import re
 import shutil
-from utils.logger import get_logger, with_child_logger
+from utils.logger import with_child_logger
 from utils.utils_div import ensure_to_path, convert_path_format
 from utils.config import ESSENTIA_TEMP_AUDIO, ESSENTIA_TEMP_JSON, ESSENTIA_SAV_JSON, MAX_SAFENAME_LENGTH
 

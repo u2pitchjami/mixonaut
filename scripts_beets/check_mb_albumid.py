@@ -1,6 +1,5 @@
 import argparse
 from datetime import datetime
-import os
 from beets_utils.check_and_fix_utils import is_missing_mb_albumid
 from beets_utils.commands import get_beet_list
 from utils.safe_runner import safe_main

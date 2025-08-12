@@ -1,8 +1,7 @@
-import json
 from sklearn.decomposition import PCA
 from utils.config import MOOD_KEYS
 from db.access import execute_query
-from utils.logger import get_logger, with_child_logger
+from utils.logger import with_child_logger
 
 @with_child_logger
 def compute_mood_embeddings(n_components: int = 2, logger: str = None) -> list[dict]:

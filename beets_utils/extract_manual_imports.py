@@ -1,7 +1,6 @@
 import os
-from datetime import datetime
 from utils.config import BEETS_LOGS, BEETS_MANUAL_LIST
-from utils.logger import get_logger, with_child_logger
+from utils.logger import with_child_logger
 
 def parse_beets_log(lines):
     """

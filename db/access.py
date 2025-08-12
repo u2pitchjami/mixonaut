@@ -1,6 +1,6 @@
 import sqlite3
 import os
-from utils.logger import get_logger, with_child_logger
+from utils.logger import with_child_logger
 from utils.config import BEETS_DB, LOCK_FILE
 from beets_utils.beets_safe import safe_beets_call, read_lock_pid, get_current_pid
 
@@ -46,13 +46,53 @@ def execute_query(query: str, params: tuple = (), fetch: bool = False,
         else:
             logger.warning("⚠️ Tentative de suppression du verrou non possédé (ignorée).")
 
-def execute_many(query: str, param_list: list[tuple], db: str = BEETS_DB):
-    """Execute plusieurs requêtes en une transaction"""
-    conn = get_connection(db)
-    cursor = conn.cursor()
-    cursor.executemany(query, param_list)
-    conn.commit()
-    conn.close()
+@with_child_logger
+def execute_many(query: str,
+                 param_list: list[tuple],
+                 db: str = BEETS_DB,
+                 logger=None) -> None:
+    """
+    Exécute la même requête SQL pour une liste de paramètres dans UNE transaction.
+    - Respecte le verrou (safe_beets_call)
+    - Journalise les erreurs
+    - Commit/rollback atomique
+    """
+    if not param_list:
+        logger.debug("execute_many: rien à exécuter (param_list vide)")
+        return
+
+    try:
+        conn = None
+        if safe_beets_call(logger=logger):
+            conn = sqlite3.connect(db, timeout=30)
+        else:
+            raise sqlite3.OperationalError("safe_beets_call a refusé l'accès à la DB")
+    except sqlite3.Error as exc:
+        logger.error("❌ [access] Erreur connexion DB → %s", exc)
+        raise
+
+    try:
+        cur = conn.cursor()
+        # Une seule transaction englobante (bien plus rapide)
+        cur.executemany(query, param_list)
+        conn.commit()
+        logger.debug("execute_many: %d lignes écrites", len(param_list))
+    except sqlite3.Error as exc:
+        logger.error("❌ [access] Erreur execute_many → %s", exc)
+        conn.rollback()
+        raise
+    finally:
+        if conn:
+            conn.close()
+        # Gestion du verrou comme dans execute_query
+        if read_lock_pid() == get_current_pid():
+            try:
+                os.remove(LOCK_FILE)
+                logger.debug("🔓 Verrou supprimé.")
+            except OSError:
+                logger.debug("🔓 Verrou déjà absent.")
+        else:
+            logger.warning("⚠️ Tentative de suppression du verrou non possédé (ignorée).")
 
 @with_child_logger
 def select_all(query: str, params: tuple = (), db=BEETS_DB, logger=None):

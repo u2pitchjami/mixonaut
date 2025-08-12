@@ -1,11 +1,8 @@
-from datetime import datetime
-from utils.config import EXPORT_COMPATIBLE_TRACKS
 from db.matching_queries import get_track_features, get_candidate_tracks
 from matching.key_process import get_effective_ref_key
-from matching.scoring import compute_candidate_scores, compute_total_score, get_compatible_candidates
+from matching.scoring import get_compatible_candidates
 from matching.export_markdown import group_matches_by_transition_type
-from utils.logger import get_logger, with_child_logger
-import math
+from utils.logger import with_child_logger
 
 @with_child_logger 
 def find_compatible_tracks(

@@ -1,6 +1,6 @@
 import subprocess
 from utils.config import MUSIC_BASE_PATH, BEETS_MUSIC, IMAGE_BEETS
-from utils.logger import get_logger, with_child_logger
+from utils.logger import with_child_logger
 import os
 
 # Configuration (à adapter)
@@ -35,8 +35,7 @@ def write_tags_docker(path: str, track_features: dict, logger=None) -> None:
                 if value is not None:
                     tag_upper = tag.upper()
                     clean_value = str(value).strip().replace("\n", " ")
-                    docker_path = container_path.replace("/mnt/user/Musiques/Collection/", "/app/data/")
-
+                    
                     # Vérifie si le tag existe déjà
                     try:
                         result = subprocess.run(

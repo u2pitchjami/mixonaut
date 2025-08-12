@@ -4,9 +4,8 @@ from beets_utils.update_beets_fields import update_beets_fields
 from db.db_beets_queries import get_item_field_value
 from utils.utils_div import convert_path_format, ensure_to_str
 from utils.config import RETRO_MIXONAUT_BEETS
-from pathlib import Path
 import re
-from utils.logger import get_logger, with_child_logger
+from utils.logger import with_child_logger
 
 @with_child_logger
 def sync_fields_by_track_id(track_id: int, track_features: dict, logger: str = None):

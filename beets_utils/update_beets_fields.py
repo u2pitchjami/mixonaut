@@ -1,5 +1,4 @@
-import subprocess
-from utils.logger import get_logger, with_child_logger
+from utils.logger import with_child_logger
 from beets_utils.commands import run_beet_command  # ou où tu l’as placée
 
 @with_child_logger

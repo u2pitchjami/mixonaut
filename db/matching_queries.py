@@ -1,5 +1,5 @@
 from db.access import select_one, select_all
-from utils.logger import get_logger, with_child_logger
+from utils.logger import with_child_logger
 
 @with_child_logger
 def get_track_features(track_id: int, logger: str = None) -> tuple | None:

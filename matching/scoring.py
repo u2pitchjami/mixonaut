@@ -1,4 +1,4 @@
-from utils.logger import get_logger, with_child_logger
+from utils.logger import with_child_logger
 from matching.weights import get_weights
 from db.matching_queries import get_transpositions
 from matching.key_process import build_transposition_dict, find_best_transposition_combo

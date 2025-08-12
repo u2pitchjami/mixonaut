@@ -1,54 +1,73 @@
 from logic_imports.qbit_utils import get_torrent_full_info, get_completed_music_torrents, get_qbit_session
-from db.import_queries import insert_or_ignore_imported_file, update_ratio_for_torrent
-from utils.config import QBIT_HOST, QBIT_USER, QBIT_PASS, AUDIO_EXTENSIONS
+from db.torrent_repo import TorrentRepo, TorrentState, QbitFile
+from utils.config import QBIT_HOST, QBIT_USER, QBIT_PASS, USEFUL_EXTENSIONS
 from utils.logger import get_logger, with_child_logger
-from pathlib import Path
 
 logger = get_logger("import_from_qbit")
 
+
 @with_child_logger
 def import_completed_torrents(session=None, qbit_host=QBIT_HOST, qbit_user=QBIT_USER, qbit_pass=QBIT_PASS, logger=None):
+    """
+    Enregistre/complète les torrents complétés depuis qBit en évitant les appels /torrents/files
+    pour les torrents déjà connus (UNKNOWN seulement).
+    """
+    repo = TorrentRepo(logger=logger)
+
     if session is None:
         session = get_qbit_session(qbit_host=qbit_host, qbit_user=qbit_user, qbit_pass=qbit_pass, logger=logger)
 
     torrents = get_completed_music_torrents(session=session, qbit_host=qbit_host, logger=logger)
+    logger.info("Torrents complétés: %d", len(torrents))
 
+    detailed_calls = 0
     for t in torrents:
-        full = get_torrent_full_info(session, torrent=t, qbit_host=qbit_host, logger=logger)
-        if not full or "files" not in full:
+        t_hash = t.get("hash")
+        t_name = t.get("name")
+        state = repo.get_state(t_hash)
+
+        if state is not TorrentState.UNKNOWN:
+            # Pas d'appel /torrents/files ; rafraîchit juste le ratio si dispo
+            if t.get("ratio") is not None:
+                try:
+                    repo.update_ratio_for_hash(t_hash, float(t["ratio"]))
+                except (TypeError, ValueError):
+                    logger.debug("Ratio non numérique pour %s (%s): %s", t_name, t_hash, t.get("ratio"))
+            logger.debug("Skip files pour %s (%s), état=%s", t_name, t_hash, state)
             continue
 
-        for f in full["files"]:
-            path = f["name"]
-            if not is_useful_file(path):
-                continue
+        # UNKNOWN → un seul appel détaillé
+        full = get_torrent_full_info(session, torrent=t, qbit_host=qbit_host, logger=logger)
+        if not full or "files" not in full:
+            logger.warning("Impossible d'obtenir les fichiers pour %s (%s)", t_name, t_hash)
+            continue
+        detailed_calls += 1
+        save_path = full.get("save_path")
 
-            insert_or_ignore_imported_file(
-                path=path,
-                name=Path(path).name,
-                size=f.get("size", 0),
-                torrent_hash=full["hash"],
-                torrent_name=full["name"],
-                added_on=full["added_on"],
-                completion_on=full["completion_on"],
-                ratio=full["ratio"],
-                logger=logger
-            )
+        files = [
+            QbitFile(path=f.get("name"), size=int(f.get("size", 0)))
+            for f in full["files"]
+            if f.get("name") and is_useful_file(f["name"])
+        ]
+        count = repo.bulk_add_useful_files(
+            torrent_hash=t_hash,
+            torrent_name=t_name,
+            files=files,
+            added_on=full.get("added_on"),
+            completion_on=full.get("completion_on"),
+            ratio=full.get("ratio"),
+            save_path=save_path,                            # ← on propage
+        )
+        logger.info("Enregistré %d fichier(s) utiles pour %s", count, t_name)
 
-USEFUL_EXTENSIONS = (
-    '.ape', '.wv', ".flac", ".mp3", ".ogg", ".wav", ".m4a", '.aac', '.alac', '.wma', ".aiff",  # audio
-    ".cue", ".zip", ".rar", ".tar", ".tar.gz", ".tar.bz2", ".rar", ".7z", ".jpg", ".png", ".pdf", ".log", ".lrc"                      # utiles
-)
+    logger.info("Terminé. Appels détaillés qBit (files): %d", detailed_calls)
+
 
 def is_useful_file(name: str) -> bool:
     return name.lower().endswith(USEFUL_EXTENSIONS)
 
 @with_child_logger
 def update_ratios_from_qbit(logger=None):
-    """
-    Met à jour les ratios en base pour chaque torrent musical complété,
-    via le champ 'torrent_name'.
-    """
     session = get_qbit_session(logger=logger)
     if not session:
         logger.error("❌ Session qBit non initialisée, abandon.")
@@ -59,21 +78,16 @@ def update_ratios_from_qbit(logger=None):
         logger.warning("⚠️ Aucun torrent musical récupéré depuis qBit.")
         return
 
+    from db.torrent_repo import TorrentRepo
+    repo = TorrentRepo(logger=logger)
+
     count = 0
-    for torrent in torrents:
-        name = torrent.get("name")
-        ratio = torrent.get("ratio")
-
-        if not name or ratio is None:
-            logger.warning(f"⛔ Torrent mal formé, ignoré : {torrent}")
+    for t in torrents:
+        thash = t.get("hash")
+        ratio = t.get("ratio")
+        if not thash or ratio is None:
             continue
-
-        update_ratio_for_torrent(name, ratio, logger=logger)
-        logger.info(f"🔄 Ratio mis à jour : {name} → {ratio}")
+        repo.update_ratio_for_hash(thash, float(ratio))
         count += 1
 
-    logger.info(f"✅ {count} torrents mis à jour avec leur ratio.")
-
-
-if __name__ == "__main__":
-    import_completed_torrents(logger=logger)
+    logger.info("✅ %d torrents mis à jour avec leur ratio (par hash).", count)

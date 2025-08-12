@@ -1,9 +1,8 @@
-import subprocess
 from pathlib import Path
 from utils.config import AUDIO_EXTENSIONS
 from beets_utils.commands import get_beet_list
 from utils.utils_div import convert_path_format
-from utils.logger import get_logger, with_child_logger
+from utils.logger import with_child_logger
 
 # fonction non utilisée
 @with_child_logger

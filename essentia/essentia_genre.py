@@ -1,42 +1,6 @@
-from typing import Optional
-from utils.config import GENRE_FIELDS
+from utils.config import ELECTRO_OVERRIDE_GENRES, GENRE_PROB_DORTMUND, GENRE_PROB_ROSAMERICA, GENRE_PROB_THRESHOLD, GENRE_CANONICAL
 from collections import defaultdict
 
-ELECTRO_OVERRIDE_GENRES = {"electronic", "dan"}
-GENRE_PROB_DORTMUND = 0.8
-GENRE_PROB_ROSAMERICA = 0.5
-GENRE_PROB_THRESHOLD = 0.5
-
-# TODO: Remplacer par un vrai mapping ou chargement YAML
-GENRE_CANONICAL = {
-    "alternative": "Alternative",
-    "blues": "Blues",
-    "electronic": "Electronic",
-    "folkcountry": "Folk, Country",
-    "funksoulrnb": "Funk, Soul, RnB",
-    "raphiphop": "Rap, HipHop",
-    "jazz": "Jazz",
-    "rock": "Rock",
-    "dan": "Dance",
-    "house": "House",
-    "techno": "Techno",
-    "ambient": "Ambient",
-    "dnb": "DrumAndBass",
-    "trance": "Trance",
-    "jaz": "Jazz",
-    "rhy": "RhythmAndBlues",
-    "roc": "Rock",
-    "spe": "SpokenWord",
-    "hip": "HipHop",
-    "cla": "Classical",
-    "pop": "Pop",
-    "reg": "Reggae",
-    "met": "Metal",
-    "dis": "Disco",
-    "blu": "Blues",
-    "cou": "Country"
-    # etc.
-}
 
 def get_dominant_genre(track_features: dict) -> str:
     """

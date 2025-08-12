@@ -1,66 +1,45 @@
 import os
 import shutil
-import requests
-from pathlib import Path
-from typing import List, Set
-from os.path import splitext
-from utils.logger import with_child_logger, get_logger
-from utils.config import QBIT_HOST, QBIT_USER, QBIT_PASS, AUDIO_EXTENSIONS, MUSIC_SOURCE_PATH
-from db.import_queries import get_imported_music_files
-from logic_imports.qbit_utils import get_qbit_session, get_completed_music_torrents, extract_files_from_torrent, delete_torrent
-from requests.exceptions import RequestException
-from datetime import datetime, timedelta
+from utils.logger import with_child_logger
+from utils.config import QBIT_HOST, QBIT_USER, QBIT_PASS, MUSIC_SOURCE_PATH
+from logic_imports.qbit_utils import get_qbit_session, get_completed_music_torrents, delete_torrent
 
+# logic_imports/process_delete.py (nouveau delete par hash)
 @with_child_logger
-def delete_torrents_and_files(torrent_names, qbit_host=QBIT_HOST, qbit_user=QBIT_USER, qbit_pass=QBIT_PASS, dry_run=True, logger=None):
-    """
-    Supprime les torrents qBit + les fichiers locaux associés à partir des torrent_names.
-    
-    :param torrent_names: liste des noms de torrents à supprimer
-    :param dry_run: n'exécute pas réellement la suppression
-    """
-    session = get_qbit_session(logger=logger)
+def delete_torrents_and_files_by_hashes(torrent_hashes, qbit_host=QBIT_HOST, qbit_user=QBIT_USER,
+                                        qbit_pass=QBIT_PASS, dry_run=True, logger=None):
+    session = get_qbit_session(qbit_host=qbit_host, qbit_user=qbit_user, qbit_pass=qbit_pass, logger=logger)
     if not session:
         return
 
-    #logger.debug(f"torrent_names: '{torrent_names}")
     all_torrents = get_completed_music_torrents(session=session, logger=logger)
-    #logger.debug(f"🔍 all_torrents: {all_torrents}")
+    by_hash = {t["hash"]: t for t in all_torrents}
 
-    for tname in torrent_names:
-        logger.debug(f"tname: '{tname}")
-        for t in all_torrents:
-            if tname.strip() == t["name"].strip():
-                logger.debug(f"MATCH: '{tname}' == '{t['name']}'")
-            else:
-                logger.debug(f"NO MATCH: '{tname}' != '{t['name']}'")
-
-        matching = next((t for t in all_torrents if t["name"] == tname), None)
-
-        if not matching:
-            logger.warning(f"🚫 Aucun torrent qBit trouvé pour : {tname}")
+    for thash in torrent_hashes:
+        t = by_hash.get(thash)
+        if not t:
+            logger.warning("🚫 Aucun torrent qBit trouvé pour hash=%s", thash)
             continue
 
-        hash_id = matching["hash"]
-        logger.info(f"🔍 Torrent trouvé : {tname} | Hash: {hash_id}")
+        tname = t["name"]
+        logger.info("🔍 Suppression: %s | hash=%s", tname, thash)
 
         if dry_run:
-            logger.info(f"👁 DRY RUN: Suppression torrent {tname}")
+            logger.info("👁 DRY RUN: Suppression torrent %s", tname)
         else:
-            delete_torrent(session, qbit_host=qbit_host, hash_id=hash_id, delete_files=True, logger=logger)
-            logger.info(f"✅ Torrent supprimé côté qBit : {tname}")
+            delete_torrent(session, qbit_host=qbit_host, hash_id=thash, delete_files=True, logger=logger)
+            logger.info("✅ Torrent supprimé côté qBit : %s", tname)
 
-        # Suppression du dossier local (Syncthing)
+        # Dossier local syncthing: /downloads/music/<torrent_name>
         local_path = os.path.join(MUSIC_SOURCE_PATH, tname)
         if os.path.exists(local_path):
             if dry_run:
-                logger.info(f"👁 DRY RUN: Dossier local à supprimer : {local_path}")
+                logger.info("👁 DRY RUN: Dossier local à supprimer : %s", local_path)
             else:
                 try:
                     shutil.rmtree(local_path)
-                    logger.info(f"💚 Dossier local supprimé : {local_path}")
+                    logger.info("💚 Dossier local supprimé : %s", local_path)
                 except Exception as e:
-                    logger.error(f"❌ Erreur suppression dossier {local_path} : {e}")
+                    logger.error("❌ Erreur suppression dossier %s : %s", local_path, e)
         else:
-            logger.warning(f"⚠️ Dossier local introuvable : {local_path}")
-
+            logger.debug("Dossier local introuvable : %s", local_path)

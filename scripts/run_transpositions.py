@@ -1,9 +1,7 @@
 import argparse
 from logic.transposition import generate_transpositions
-from utils.utils_div import ensure_to_str, convert_path_format
 from utils.safe_runner import safe_main
 from utils.logger import get_logger
-import os
 
 logger = get_logger("Generate_transposition")
 

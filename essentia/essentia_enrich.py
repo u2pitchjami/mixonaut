@@ -1,10 +1,9 @@
-from utils.logger import get_logger, with_child_logger
+from utils.logger import with_child_logger
 from utils.utils_div import sanitize_value
-from essentia.essentia_calculate import calculate_beat_intensity, compute_energy_level
+from essentia.essentia_calculate import calculate_beat_intensity
 from essentia.essentia_mood import compute_mood_vector, get_dominant_mood
 from essentia.essentia_genre import get_dominant_genre
 from essentia.essentia_key import get_best_key_from_essentia, convert_to_camelot
-from pathlib import Path
 
 @with_child_logger
 def enrich_features(track_features, logger=None):

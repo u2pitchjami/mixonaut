@@ -1,6 +1,5 @@
-import subprocess
 from pathlib import Path
-from utils.logger import get_logger, with_child_logger
+from utils.logger import with_child_logger
 
 @with_child_logger
 def process_beets_batch(file_path: str, logger = None) -> None:

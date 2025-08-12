@@ -1,7 +1,6 @@
-from datetime import datetime
-from db.access import execute_query, select_one, select_scalar, select_all
-from utils.config import BEETS_DB, EDM_GENRES
-from utils.logger import get_logger, with_child_logger
+from db.access import execute_query, select_one, select_all
+from utils.config import EDM_GENRES
+from utils.logger import with_child_logger
 
 @with_child_logger
 def get_all_track_ids(logger=None) -> list[int]:

@@ -3,7 +3,6 @@ import argparse
 import random
 from utils.config import RETRO_MIXONAUT_BEETS, MUSIC_BASE_PATH, BEETS_MUSIC, IMAGE_BEETS
 from utils.utils_div import format_nb, format_percent
-from db.access import select_all, execute_query
 from db.essentia_queries import get_all_track_ids, get_audio_features_by_id
 from db.db_beets_queries import get_item_field_value
 from logic.write_tags import write_tags_docker, docker_metaflac_cmd

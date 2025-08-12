@@ -2,12 +2,13 @@ import argparse
 from utils.logger import get_logger
 from logic.sync_beets_from_essentia import sync_fields_by_track_id
 from utils.safe_runner import safe_main
-from db.essentia_queries import fetch_tracks, nb_query, count_existing_features
+from db.essentia_queries import fetch_tracks, count_existing_features
 from essentia.essentia_analyse import analyse_track
 from logic.sync_beets_from_essentia import sync_fields_by_track_id
 from utils.utils_div import format_nb, format_percent
 from essentia.prep_essentia_analyse import generate_mode_text
 from logic.transposition import generate_transpositions
+from logic.chromaprint_integ import generate_chromaprint
 
 
 logger = get_logger("Analyse_Essentia")
@@ -32,7 +33,7 @@ def main(force=False, count=0, missing_features=False, is_edm=False, missing_fie
     
     for i, track in enumerate(tracks[:count], start=1):
         logger.info(f"▶️  [{format_nb(i, logger=logger)}/{format_nb(count, logger=logger)}] ({format_percent(i, count, logger=logger)}) Analyse : {track[0]} - {track[2]} - {track[3]} - {track[4]}")
-                        
+        fingerprint_track(track_id=track[0], file_path=track[1], logger=logger)               
         track_features = analyse_track(track, force=force, source="Mixonaut", logger=logger)
         if track_features is None:
             logger.warning(f"❌ Analyse échouée pour le morceau : {track[0]}")
@@ -40,6 +41,7 @@ def main(force=False, count=0, missing_features=False, is_edm=False, missing_fie
         logger.info(f"✅ Track mis à jour : {track[0]}")
         sync_fields_by_track_id(track_id=track[0], track_features=track_features, logger=logger)
         generate_transpositions(track_id=track[0], logger=logger)
+        
         
         
     logger.info("🏁 Traitement terminé")    

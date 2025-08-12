@@ -1,5 +1,4 @@
-import os
-from utils.logger import get_logger, with_child_logger
+from utils.logger import with_child_logger
 from utils.config import BEETS_CONFIG
 import yaml
 

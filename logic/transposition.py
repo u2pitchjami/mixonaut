@@ -1,4 +1,4 @@
-from utils.logger import get_logger, with_child_logger
+from utils.logger import with_child_logger
 import random
 from utils.config import CAMELOT_ORDER, SEMITONE_SHIFT_VALUES
 from db.transposition_queries import fetch_tracks_with_bpm_and_key, insert_transpositions

@@ -2,7 +2,7 @@ import os
 import shutil
 from pathlib import Path
 from utils.config import BEETS_IMPORT_PATH
-from utils.logger import get_logger, with_child_logger
+from utils.logger import with_child_logger
 
 @with_child_logger
 def _copy_tree(src_dir, dest_dir, logger=None):

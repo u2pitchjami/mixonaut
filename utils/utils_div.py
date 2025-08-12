@@ -3,8 +3,8 @@ import os
 import shutil
 from pathlib import Path
 from datetime import datetime
-from utils.config import BEETS_MUSIC, HOST_MUSIC, WINDOWS_MUSIC
-from utils.logger import get_logger, with_child_logger
+from utils.config import BEETS_MUSIC, HOST_MUSIC
+from utils.logger import with_child_logger
 
 @with_child_logger
 def format_percent(part: int, total: int, digits: int = 0, logger: str = None) -> str:

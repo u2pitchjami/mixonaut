@@ -1,6 +1,5 @@
 import os
 import argparse
-import json
 from utils.safe_runner import safe_main
 from essentia.essentia_extractions import parse_essentia_json
 from db.essentia_queries import get_all_track_ids, insert_or_update_audio_features

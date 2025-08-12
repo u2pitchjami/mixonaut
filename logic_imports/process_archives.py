@@ -4,7 +4,7 @@ import shutil
 import subprocess
 import os
 from logic_imports.imports_utils import _copy_tree
-from utils.logger import get_logger, with_child_logger
+from utils.logger import with_child_logger
 
 @with_child_logger
 def handle_archive(path: str, import_dir: str, logger=None):

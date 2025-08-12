@@ -2,7 +2,7 @@ import subprocess
 import os
 import sys
 from utils.config import LOCK_FILE
-from utils.logger import get_logger, with_child_logger
+from utils.logger import with_child_logger
 from beets_utils.beets_safe import safe_beets_call, read_lock_pid, get_current_pid
 
 

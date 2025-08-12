@@ -4,6 +4,12 @@ from db.access import execute_query
 from utils.config import QUERIES_DIR
 from rich import print
 
+ALIASES = {
+    "ready_for_deletion": "SELECT * FROM v_ready_for_deletion ORDER BY age_days DESC, ratio DESC;",
+    "needs_manual": "SELECT * FROM v_needs_manual ORDER BY since_decision_days DESC NULLS LAST, age_days DESC, torrent_name;",
+    "rejected": "SELECT * FROM v_rejected ORDER BY age_days DESC, torrent_name;"
+}
+
 def list_queries():
     return {f.stem: f for f in Path(QUERIES_DIR).glob("*.sql")}
 
@@ -26,6 +32,20 @@ def execute_sql_file(path):
 
 def run_query(name):
     queries = list_queries()
+    if name in ALIASES:
+        sql = ALIASES[name]
+        print(f"\n[bold cyan]📄 Alias : {name}[/bold cyan]")
+        try:
+            result = execute_query(sql, fetch=True)
+            if result:
+                for row in result:
+                    print(row)
+            else:
+                print("[yellow]↪️ Aucun résultat[/yellow]")
+        except Exception as e:
+            print(f"[red]❌ Erreur : {e}[/red]")
+        return
+
     if name not in queries:
         print(f"[red]❌ Requête inconnue : {name}[/red]")
         return

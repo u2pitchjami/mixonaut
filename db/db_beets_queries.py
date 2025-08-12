@@ -1,6 +1,5 @@
 from db.access import execute_query, select_all, select_one, execute_write
-from utils.config import BEETS_DB, EDM_GENRES
-from utils.logger import get_logger, with_child_logger
+from utils.logger import with_child_logger
 
 @with_child_logger
 def get_item_field_value(field: str, track_id: int, logger: str = None) -> any:

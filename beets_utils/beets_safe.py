@@ -1,8 +1,6 @@
 import os
-import subprocess
-import sys
 import time
-from utils.logger import get_logger, with_child_logger
+from utils.logger import with_child_logger
 from datetime import datetime
 from utils.config import LOCK_FILE
 

@@ -3,7 +3,7 @@ import subprocess
 import sys
 from pathlib import Path
 from utils.config import IMAGE_ESSENTIA
-from utils.logger import get_logger, with_child_logger
+from utils.logger import with_child_logger
 
 @with_child_logger
 def run_replaygain_in_container(audio_path: str, json_out_path: str, profile_path: str, logger=None):
@@ -18,8 +18,7 @@ def run_replaygain_in_container(audio_path: str, json_out_path: str, profile_pat
 
     # Préparation du montage
     temp_dir = audio.parent.resolve()
-    profile_dir = Path("/home/pipo/data/appdata/mixonaut/essentia").resolve()
-
+    
     # Construction de la commande Docker
     docker_cmd = [
         "docker", "run", "--rm",

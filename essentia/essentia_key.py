@@ -1,17 +1,6 @@
-CAMELOT_MAP = {
-    "C":  "8B", "C#": "3B", "D":  "10B", "D#": "5B", "E":  "12B", "F":  "7B",
-    "F#": "2B", "G":  "9B", "G#": "4B", "A":  "11B", "A#": "6B", "B":  "1B",
-    "Cm": "5A", "C#m":"12A", "Dm": "7A", "D#m":"2A", "Em": "9A", "Fm": "4A",
-    "F#m":"11A", "Gm": "6A", "G#m":"1A", "Am": "8A", "A#m":"3A", "Bm": "10A"
-}
+from utils.config import CAMELOT_MAP, ENHARMONIC_MAP
 
-# Normalize towards the keys used in CAMELOT_MAP (favor sharps)
-ENHARMONIC_MAP = {
-    "Db": "C#", "Eb": "D#", "Bb": "A#", "Ab": "G#", "Gb": "F#",
-    "C#": "C#", "D#": "D#", "F#": "F#", "G#": "G#", "A#": "A#"
-}
-
-def convert_to_camelot(key: str, scale: str, strength=None) -> str:
+def convert_to_camelot(key: str, scale: str) -> str:
     """
     Convert musical key + scale to Camelot notation.
     Examples:

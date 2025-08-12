@@ -1,10 +1,10 @@
 from essentia.prep_essentia_analyse import prepare_track_paths, process_audio_file, clean_temp_files, archive_json_result
-from utils.config import SCRIPT_PATH_ESSENTIA, PROF_ESSENTIA
 from db.essentia_queries import insert_or_update_audio_features
 from essentia.essentia_extractions import run_essentia_extraction, parse_essentia_json
 from essentia.run_replaygain import run_replaygain_in_container
 from essentia.essentia_enrich import enrich_features
-from utils.logger import get_logger, with_child_logger
+from utils.config import PROF_ESSENTIA
+from utils.logger import with_child_logger
 from pathlib import Path
 
 @with_child_logger

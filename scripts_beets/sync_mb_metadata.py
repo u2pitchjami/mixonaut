@@ -1,4 +1,3 @@
-import subprocess
 import argparse
 from datetime import datetime
 from beets_utils.commands import run_beet_command

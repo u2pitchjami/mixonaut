@@ -1,10 +1,11 @@
 import sqlite3
-from pathlib import Path
 from utils.config import BEETS_DB
 
 def create_tables():
     with sqlite3.connect(BEETS_DB) as conn:
         cursor = conn.cursor()
+        
+        cursor.execute("PRAGMA foreign_keys = ON;")
         
         # Table des features analytiques
         cursor.execute("""
@@ -151,22 +152,123 @@ def create_tables():
         );
         """)
         
-         # Table pour les imports automatiques de fichiers
+        # 1) Empreintes par contenu fichier (clé = SHA1 du fichier)
         cursor.execute("""
-        CREATE TABLE imported_files (
+        CREATE TABLE IF NOT EXISTS fp_files (
+            file_sha1            TEXT PRIMARY KEY,                         -- SHA1 hex(40) du binaire (tags compris)
+            fingerprint          TEXT NOT NULL,                             -- empreinte Chromaprint (chaine d'entiers)
+            duration             INTEGER,                                    -- durée rapportée par fpcalc (s)
+            chromaprint_version  INTEGER,                                    -- version libchromaprint si dispo
+            acoustid_id          TEXT,                                       -- UUID AcoustID si lookup (optionnel)
+            confidence           REAL,                                       -- confiance AcoustID (optionnel)
+            created_at           TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at           TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            CHECK (length(file_sha1) = 40)
+        );
+        """)
+
+        # 2) Lien logique item Beets -> fichier (gère réimports et dédupes)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS fp_links (
+            track_id   INTEGER PRIMARY KEY,                                  -- items.id (Beets)
+            file_sha1  TEXT NOT NULL,                                        -- FK vers fp_files
+            status     TEXT CHECK (status IN ('ok','error','missing')) DEFAULT 'ok',
+            last_error TEXT,                                                 -- message d'erreur si échec
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(track_id)  REFERENCES items(id)      ON DELETE CASCADE,
+            FOREIGN KEY(file_sha1) REFERENCES fp_files(file_sha1) ON DELETE CASCADE
+        );
+        """)
+
+        # Index utile quand on cherche tous les items d’un même fichier (doublons / transcodes)
+        cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_fp_links_file_sha1 ON fp_links(file_sha1);
+        """)
+
+        # 3) Vue “à la 1-table” pour lecture simple (équivalent d’une table audio_fingerprints)
+        cursor.execute("""
+        CREATE VIEW IF NOT EXISTS audio_fingerprints_vw AS
+        SELECT
+            l.track_id,
+            f.file_sha1,
+            f.fingerprint,
+            f.duration,
+            l.status,
+            l.last_error,
+            f.chromaprint_version,
+            f.acoustid_id,
+            f.confidence,
+            f.created_at,
+            f.updated_at
+        FROM fp_links AS l
+        JOIN fp_files AS f USING (file_sha1);
+        """)
+
+        # 4) Triggers 'updated_at' (SQLite ne permet pas d'assigner NEW.updated_at directement)
+        cursor.execute("""
+        CREATE TRIGGER IF NOT EXISTS trg_fp_files_touch
+        AFTER UPDATE ON fp_files
+        FOR EACH ROW
+        WHEN NEW.updated_at = OLD.updated_at
+        BEGIN
+            UPDATE fp_files SET updated_at = CURRENT_TIMESTAMP WHERE rowid = NEW.rowid;
+        END;
+        """)
+
+        cursor.execute("""
+        CREATE TRIGGER IF NOT EXISTS trg_fp_links_touch
+        AFTER UPDATE ON fp_links
+        FOR EACH ROW
+        WHEN NEW.updated_at = OLD.updated_at
+        BEGIN
+            UPDATE fp_links SET updated_at = CURRENT_TIMESTAMP WHERE rowid = NEW.rowid;
+        END;
+        """)
+
+        
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS imported_files (
             id INTEGER PRIMARY KEY,
-            path TEXT, -- devient le chemin local complet une fois synchro faite
-            name TEXT, -- juste le nom de fichier
+            path TEXT,                         -- chemin relatif qBit du fichier
+            name TEXT,                         -- nom de fichier
             size INTEGER,
             last_seen TIMESTAMP,
-            imported_in_beets_at TEXT,
+            imported_in_beets_at TEXT,         -- NULL si pas encore importé
             torrent_hash TEXT,
             torrent_name TEXT,
             torrent_added_on INTEGER,
             torrent_completion_on INTEGER,
             torrent_ratio REAL,
-            auto_cleaned BOOLEAN DEFAULT 0
+            auto_cleaned BOOLEAN DEFAULT 0,
+            staged_for_import_at TEXT,         -- date de copie/extraction vers imports
+            staging_error TEXT,                -- message d'erreur en staging
+            torrent_save_path TEXT,            -- chemin source qBit (absolu)
+            album_rel_dir TEXT                 -- dossier relatif de l’album sous imports (parent(path))
         );
+        """)
+
+        cursor.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_imported_files_hash_path_name
+        ON imported_files(torrent_hash, path, name);
+        """)
+        cursor.execute("""
+        CREATE INDEX IF NOT EXISTS ix_imported_files_hash ON imported_files(torrent_hash);
+        """)
+        cursor.execute("""
+        CREATE INDEX IF NOT EXISTS ix_imported_files_imported_at
+        ON imported_files(imported_in_beets_at);
+        """)
+        cursor.execute("""
+        CREATE INDEX IF NOT EXISTS ix_imported_files_album_rel_dir
+        ON imported_files(album_rel_dir);
+        """)
+        cursor.execute("""
+        CREATE INDEX IF NOT EXISTS ix_imported_files_not_imported
+        ON imported_files(imported_in_beets_at) WHERE imported_in_beets_at IS NULL;
+        """)
+        cursor.execute("""
+        CREATE INDEX IF NOT EXISTS ix_imported_files_staged_null
+        ON imported_files(staged_for_import_at) WHERE staged_for_import_at IS NULL;
         """)
         
         # Table de liens morceaux <-> groupes

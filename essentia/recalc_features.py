@@ -1,16 +1,16 @@
 from db.essentia_queries import get_audio_features_by_id, insert_or_update_audio_features
 from db.db_beets_queries import get_item_field_value, retro_inject_features
-from essentia.essentia_calculate import calculate_beat_intensity, compute_energy_level
+from essentia.essentia_calculate import calculate_beat_intensity
 from essentia.essentia_mood import compute_mood_vector, get_dominant_mood
 from essentia.essentia_key import get_best_key_from_essentia, convert_to_camelot
 from essentia.essentia_genre import get_dominant_genre
-from beets_utils.update_beets_fields import update_beets_field
 from logic.transposition import generate_transpositions
 from logic.write_tags import write_tags_docker
 from utils.utils_div import ensure_to_str, sanitize_value, convert_path_format
-from logic.sync_beets_from_essentia import sync_beets_from_essentia, build_sync_fields
-from utils.logger import get_logger, with_child_logger
+from logic.sync_beets_from_essentia import build_sync_fields
+from utils.logger import with_child_logger
 
+#Essentia recalc
 AVAILABLE_CALCS = {
     "beat_intensity": calculate_beat_intensity,
     "mood": lambda f: get_dominant_mood(compute_mood_vector(f)),
@@ -27,7 +27,6 @@ def sync_fields_by_track_id(track_id: int, track_features: dict, items_columns: 
     if not path:
         logger.warning(f"⚠️ Chemin introuvable pour track {track_id}")
         return
-    path_str = ensure_to_str(path)
     sync_fields = build_sync_fields(track_id, track_features, logger=logger)
     logger.debug(f"🔍 sync_fields {sync_fields}")
     retro_inject_features(track_id=track_id, features=sync_fields, items_columns=items_columns, logger=logger)

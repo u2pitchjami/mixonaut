@@ -1,6 +1,5 @@
-from utils.config import MOOD_KEYS, GENRE_FIELDS, CAMELOT_MAP, ENHARMONIC_MAP
-from pathlib import Path
-from utils.logger import get_logger, with_child_logger
+from utils.config import MOOD_KEYS
+from utils.logger import with_child_logger
 
 @with_child_logger
 def compute_mood_vector(features: dict, logger: str = None) -> [dict[str, float]]:

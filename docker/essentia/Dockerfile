@@ -19,6 +19,7 @@ RUN apt-get update && apt-get install -y \
     libavresample-dev \
     libcairo2-dev \
     # for Essentia :
+    libchromaprint-tools \
     && pip3 install numpy==1.19.5 pycairo==1.20.1 essentia\
     && ln -s /usr/bin/python3 /usr/bin/python \
     && rm -rf /var/lib/apt/lists/*

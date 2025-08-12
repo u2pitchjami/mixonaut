@@ -34,9 +34,6 @@ def calculate_duration_similarity(ref_duration: float, candidate_duration: float
     diff = abs(ref_duration - candidate_duration)
     return max(0.0, 1.0 - diff / tolerance)
 
-def calculate_energy_score(energy: int, ref_energy: int, tolerance: int) -> float:
-    return max(0.0, 1 - abs(energy - ref_energy) / tolerance)
-
 def calculate_beat_intensity_score(beat_intensity: int, ref_beat_intensity: int) -> float:
     return max(0.0, 1 - abs(beat_intensity - ref_beat_intensity) / 100)
 

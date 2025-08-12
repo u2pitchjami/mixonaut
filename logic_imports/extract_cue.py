@@ -2,9 +2,7 @@ import os
 import shutil
 import tempfile
 import subprocess
-from beets_utils.imports import import_auto
-from utils.logger import get_logger, with_child_logger
-import re
+from utils.logger import with_child_logger
 from pathlib import Path
 
 @with_child_logger

@@ -1,10 +1,9 @@
 from datetime import datetime
 import os
 from collections import defaultdict
-from db.access import select_one, select_all
 from db.matching_queries import enrich_matches_with_metadata
 from utils.config import EXPORT_COMPATIBLE_TRACKS, CAMELOT_ORDER
-from utils.logger import get_logger, with_child_logger
+from utils.logger import with_child_logger
 
 #CAMELOT_ORDER = [f"{n}{l}" for n in range(1, 13) for l in ["a", "b"]]
 

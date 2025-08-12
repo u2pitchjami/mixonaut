@@ -1,9 +1,5 @@
-import os
-import shutil
-from pathlib import Path
 from utils.config import QBIT_HOST, QBIT_USER, QBIT_PASS
-from datetime import datetime
-from utils.logger import get_logger, with_child_logger
+from utils.logger import with_child_logger
 import requests
 from requests.exceptions import RequestException
 
