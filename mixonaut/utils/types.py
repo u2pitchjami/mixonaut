@@ -6,7 +6,8 @@ from typing import TypedDict
 
 
 class ProcessResult(TypedDict):
-    """Represents the result of a process.
+    """
+    Represents the result of a process.
 
     Attributes:
         stdout (str): The standard output of the process.
