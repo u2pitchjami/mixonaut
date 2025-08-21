@@ -6,7 +6,7 @@
 .pytest_cache
 z_old/
 *__pycache__
-tools/
+tools/fix_imports.py
 
 # Python
 __pycache__/
@@ -48,3 +48,5 @@ dist/
 /tmp/
 cronhub_debug.log
 cronhub_test_shell.log
+tools/fix_imports.py
+tools/fix_imports.py
