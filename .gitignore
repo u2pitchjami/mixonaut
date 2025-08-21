@@ -2,3 +2,48 @@
 .envrc
 */__*
 .coverage
+*.audit-logs
+.pytest_cache
+z_old/
+*__pycache__
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+*.log
+
+# Environnement virtuel
+venv/
+.env
+.env.*
+
+# VSCode / IDE
+.vscode/
+.idea/
+
+# Docker
+docker/volumes/
+*.bak
+
+# Tests / Coverage
+.coverage
+htmlcov/
+.tox/
+pytest_cache/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Jupyter / Dev
+.ipynb_checkpoints/
+*.ipynb
+
+# Custom
+/tmp/
+cronhub_debug.log
+cronhub_test_shell.log
