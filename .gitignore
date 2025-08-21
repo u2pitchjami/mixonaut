@@ -6,7 +6,7 @@
 .pytest_cache
 z_old/
 *__pycache__
-
+tools/
 
 # Python
 __pycache__/
