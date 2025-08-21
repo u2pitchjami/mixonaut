@@ -1,11 +1,17 @@
+"""2025-08-20 - script de lancement d'une commande beets à partir d'un fichier fait de chemins."""
+
 import os
 from datetime import datetime
-from beets_utils.commands.commands import run_beet_command
-from beets_utils.commands.extract_paths_from_file import extract_paths_from_file
-from utils.logger import get_logger
-from utils.safe_runner import safe_main
+
+from mixonaut.beets_utils.commands.commands import run_beet_command
+from mixonaut.beets_utils.commands.extract_paths_from_file import (
+    extract_paths_from_file,
+)
+from mixonaut.utils.logger import get_logger
+from mixonaut.utils.safe_runner import safe_main
 
 logger = get_logger("Beets_batch")
+
 
 @safe_main
 def run_beets_batch_command(
@@ -13,11 +19,11 @@ def run_beets_batch_command(
     beet_command: str,
     args_template: list[str],
     extraction_mode: str = "path_extract",
-    dry_run: bool = False
+    dry_run: bool = False,
 ) -> None:
     """
-    Extrait les chemins depuis un fichier, puis exécute une commande Beets personnalisée sur chacun.
-    Le fichier temporaire utilisé est géré automatiquement.
+    Extrait les chemins depuis un fichier, puis exécute une commande Beets personnalisée sur chacun. Le fichier
+    temporaire utilisé est géré automatiquement.
 
     :param source_file: Fichier d’origine (log ou brut)
     :param beet_command: Commande Beets à exécuter (ex: 'write', 'remove', 'update')
@@ -27,14 +33,18 @@ def run_beets_batch_command(
     """
     logger.info(f"📅 BEETS BATCH : {datetime.now().strftime('%d-%m-%Y')}")
     output_file = "beet_batch_output.txt"
-    extract_paths_from_file(source_file, output_file, mode=extraction_mode, logger=logger)
+    extract_paths_from_file(
+        source_file, output_file, mode=extraction_mode, logger=logger
+    )
 
     if not os.path.isfile(output_file):
-        logger.error(f"Fichier des chemins introuvable après extraction : {output_file}")
+        logger.error(
+            f"Fichier des chemins introuvable après extraction : {output_file}"
+        )
         return
 
     try:
-        with open(output_file, "r", encoding="utf-8") as f:
+        with open(output_file, encoding="utf-8") as f:
             paths = [line.strip() for line in f if line.strip()]
 
         if not paths:
@@ -49,10 +59,17 @@ def run_beets_batch_command(
             if dry_run:
                 logger.info(f"[SIMULATION] beet {beet_command} {' '.join(args)}")
             else:
-                output = run_beet_command(command=beet_command, args=args, interactive=False, dry_run=dry_run, logger=logger)
+                output = run_beet_command(
+                    command=beet_command,
+                    args=args,
+                    interactive=False,
+                    dry_run=dry_run,
+                    logger=logger,
+                )
                 logger.info(f"output {output}")
     except Exception as e:
         logger.error(f"Erreur durant le traitement beet en masse : {e}")
+
 
 if __name__ == "__main__":
     run_beets_batch_command(
@@ -60,5 +77,5 @@ if __name__ == "__main__":
         beet_command="xtractor",
         args_template=["{path}"],
         extraction_mode="path_extract",
-        dry_run=False
+        dry_run=False,
     )

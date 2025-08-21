@@ -1,28 +1,45 @@
+"""
+2025-08-20.
+
+hub analyse essentia.
+"""
+
 from __future__ import annotations
-from essentia.analyse.prep_essentia_analyse import prepare_track_paths, process_audio_file, clean_temp_files, archive_json_result
-from db.analyse.essentia_queries import insert_or_update_audio_features
-from essentia.analyse.essentia_extractions import run_essentia_extraction, parse_essentia_json
-from essentia.features.run_replaygain import run_replaygain_in_container
-from essentia.features.essentia_enrich import enrich_features
-from utils.config import PROF_ESSENTIA
-from utils.logger import with_child_logger
+
 from pathlib import Path
-from typing import Any, Dict, Optional
+
+from mixonaut.db.analyse.essentia_queries import insert_or_update_audio_features
+from mixonaut.essentia.analyse.essentia_extractions import (
+    parse_essentia_json,
+    run_essentia_extraction,
+)
+from mixonaut.essentia.analyse.prep_essentia_analyse import (
+    archive_json_result,
+    clean_temp_files,
+    prepare_track_paths,
+    process_audio_file,
+)
+from mixonaut.essentia.features.essentia_enrich import enrich_features
+from mixonaut.essentia.features.run_replaygain import run_replaygain_in_container
+from mixonaut.utils.config import PROF_ESSENTIA
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+
 
 @with_child_logger
 def analyse_track_wo_essentia(
     json_path: str | Path,
     track_id: int,
     force: bool = False,
-    logger=None
-) -> Optional[Dict[str, Any]]:
+    logger: LoggerProtocol | None = None,
+) -> tuple[dict | None, str | None, str | None]:
     """
-    Charge un JSON Essentia déjà produit, calcule les features dérivées
-    et met à jour la base. Ne lance PAS docker/Essentia.
+    Charge un JSON Essentia déjà produit, calcule les features dérivées et met à jour la base. Ne lance PAS
+    docker/Essentia.
 
     Returns:
         dict des features si OK, sinon None.
     """
+    logger = ensure_logger(logger, __name__)
     try:
         path = Path(json_path)
         if not path.exists():
@@ -37,16 +54,32 @@ def analyse_track_wo_essentia(
         # Enrichissements (BPM arrondi, key/scale normalisés, etc.)
         track_features = enrich_features(track_features, logger=logger)
 
-        insert_or_update_audio_features(track_id, track_features, force=force, logger=logger)
+        insert_or_update_audio_features(
+            track_id, track_features, force=force, logger=logger
+        )
         return track_features, None, None
 
     except Exception as exc:  # pylint: disable=broad-except
         logger.exception(f"❌ Erreur traitement track {track_id}: {exc}")
         return None, "KO_FILE", str(exc)
-    
+
 
 @with_child_logger
-def analyse_track(track, force=False, source="Mixonaut", logger=None):
+def analyse_track(
+    track, force=False, source="Mixonaut", logger: LoggerProtocol | None = None
+):
+    """
+    Analyse un morceau de musique pour extraire des caractéristiques Essentia.
+    Args:
+        track: Chemin du morceau à analyser.
+        force (bool): Vérifie si le traitement doit être répété même si les fichiers temporaires sont présents.
+        source (str): Source du fichier audio (par défaut, "Mixonaut").
+        logger: Objectif pour loguer les messages.
+
+    Returns:
+        dict des features extraitees si OK, sinon None.
+    """
+    logger = ensure_logger(logger, __name__)
     clean_trigger = False
     try:
         result = prepare_track_paths(track, logger=logger)
@@ -58,14 +91,21 @@ def analyse_track(track, force=False, source="Mixonaut", logger=None):
             return None, "KO_FILE", "Erreur préparation fichier audio"
 
         profile = Path(PROF_ESSENTIA)
-        track_features, error_code, error_message = extract_and_parse_features(temp_audio, temp_json, profile, logger=logger)
+        track_features, error_code, error_message = extract_and_parse_features(
+            temp_audio, temp_json, profile, logger=logger
+        )
         if not track_features:
-            logger.warning(f"❌ Erreur traitement track {track_id} : Aucune caractéristique extraite")
+
+            logger.warning(
+                f"❌ Erreur traitement track {track_id} : Aucune caractéristique extraite"
+            )
             return None, "KO_AUDIO", error_message or "JSON vide ou invalide"
 
         track_features = enrich_features(track_features, logger=logger)
 
-        insert_or_update_audio_features(track_id, track_features, force=force, logger=logger)
+        insert_or_update_audio_features(
+            track_id, track_features, force=force, logger=logger
+        )
         archive_json_result(track_id, safe_name, logger=logger)
         clean_trigger = True
         return track_features, None, None
@@ -76,21 +116,35 @@ def analyse_track(track, force=False, source="Mixonaut", logger=None):
 
     finally:
         if clean_trigger:
-            logger.debug(f"Nettoyage des fichiers temporaires pour le morceau {track_id}")
+            logger.debug(
+                f"Nettoyage des fichiers temporaires pour le morceau {track_id}"
+            )
             clean_temp_files(temp_audio, temp_json, logger=logger)
 
-@with_child_logger        
-def extract_and_parse_features(temp_audio, temp_json, profile, logger=None):
+
+@with_child_logger
+def extract_and_parse_features(
+    temp_audio, temp_json, profile, logger: LoggerProtocol | None = None
+):
+    """
+    Lance l'image essentia et parse le json obtenu.
+    """
+    logger = ensure_logger(logger, __name__)
     error_code, error_message = run_essentia_extraction(
         audio_path=Path(f"/app/music/{temp_audio.name}"),
         json_path=Path(f"/app/music/{temp_json.name}"),
         profile_path=Path(f"/app/profile/{profile.name}"),
-        logger=logger
+        logger=logger,
     )
-    if not temp_json.exists() or error_code != "OK":        
+    if not temp_json.exists() or error_code != "OK":
         logger.error(f"JSON non généré pour : {temp_audio}")
         return None, error_code, error_message
-    
-    run_replaygain_in_container(audio_path=temp_audio, json_out_path=temp_json, profile_path=profile, logger=logger)
+
+    run_replaygain_in_container(
+        audio_path=temp_audio,
+        json_out_path=temp_json,
+        profile_path=profile,
+        logger=logger,
+    )
     result = parse_essentia_json(temp_json)
     return result, error_code, error_message

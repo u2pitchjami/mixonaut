@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
-import sys
 import json
 import os
+import sys
 from pathlib import Path
-import essentia
-import essentia.standard as es
+
+import mixonaut.essentia
+import mixonaut.essentia.standard as es
+
 
 def add_replaygain(audio_path: str, json_path: str):
     # Charger l'audio (mono)
@@ -18,7 +20,7 @@ def add_replaygain(audio_path: str, json_path: str):
         print(f"JSON introuvable : {json_path}")
         return
 
-    with open(json_file, "r", encoding="utf-8") as f:
+    with open(json_file, encoding="utf-8") as f:
         data = json.load(f)
 
     # Injecter replaygain dans lowlevel
@@ -38,6 +40,7 @@ def add_replaygain(audio_path: str, json_path: str):
     print(f"✅ Fichier JSON mis à jour : {json_file}")
 
     print(f"ReplayGain ajouté ({replaygain:.2f} dB) dans {json_path}")
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:

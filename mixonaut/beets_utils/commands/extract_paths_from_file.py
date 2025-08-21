@@ -1,20 +1,33 @@
+"""
+2025-08-20 toujours utile ?
+"""
+
 import os
 from datetime import datetime
-from utils.logger import with_child_logger
+
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+
 
 @with_child_logger
-def extract_paths_from_file(source_file: str, output_file: str, mode: str = "path_extract", logger = None) -> None:
+def extract_paths_from_file(
+    source_file: str,
+    output_file: str,
+    mode: str = "path_extract",
+    logger: LoggerProtocol | None = None,
+) -> None:
     """
     Extrait des chemins à partir d'un fichier en fonction du mode :
+
     - mode 'skip' : lignes commençant par 'skip '
     - mode 'path_extract' : cherche des chemins contenant '/app/data/'
-    """    
+    """
+    logger = ensure_logger(logger, __name__)
     if not os.path.isfile(source_file):
         logger.warning(f"Fichier introuvable : {source_file}")
         return
 
     try:
-        with open(source_file, "r", encoding="utf-8") as f:
+        with open(source_file, encoding="utf-8") as f:
             lines = f.readlines()
 
         if mode == "skip":
@@ -34,13 +47,15 @@ def extract_paths_from_file(source_file: str, output_file: str, mode: str = "pat
                 for entry in extracted:
                     f_out.write(entry + "\n")
 
-            logger.info(f"[{datetime.now()}] - {len(extracted)} entrées extraites en mode '{mode}'")
+            logger.info(
+                f"[{datetime.now()}] - {len(extracted)} entrées extraites en mode '{mode}'"
+            )
         else:
             logger.info("Aucune entrée trouvée à extraire.")
 
         # Nettoyage et dédoublonnage
-        with open(output_file, "r", encoding="utf-8") as f:
-            unique_lines = sorted(set(line.strip() for line in f if line.strip()))
+        with open(output_file, encoding="utf-8") as f:
+            unique_lines = sorted({line.strip() for line in f if line.strip()})
 
         with open(output_file, "w", encoding="utf-8") as f:
             for line in unique_lines:

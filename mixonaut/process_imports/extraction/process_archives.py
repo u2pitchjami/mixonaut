@@ -1,10 +1,15 @@
-from pathlib import Path
-import tempfile
-import shutil
-import subprocess
-import os
-from process_imports.imports_utils import _copy_tree
-from utils.logger import with_child_logger
+"""
+2020-08-20 module spécifique archives.
+"""
+
+# import os
+# import shutil
+# import subprocess
+# import tempfile
+# from pathlib import Path
+
+# from mixonaut.process_imports.imports_utils import _copy_tree
+# from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
 
 # @with_child_logger
 # def handle_archive(path: str, import_dir: str, logger=None):
@@ -44,7 +49,7 @@ from utils.logger import with_child_logger
 #     except (shutil.ReadError, subprocess.CalledProcessError, OSError) as e:
 #         logger.error(f"Erreur lors du traitement de l’archive {path} : {e}")
 
-            
+
 # def is_single_folder_inside(path: Path) -> bool:
 #     items = list(path.iterdir())
 #     return len(items) == 1 and items[0].is_dir()

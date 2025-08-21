@@ -1,14 +1,26 @@
+"""
+20250820.
+
+requêtes pour générer les embedding mood
+"""
+
 from sklearn.decomposition import PCA
-from utils.config import MOOD_KEYS
-from db.access import execute_query
-from utils.logger import with_child_logger
+
+from mixonaut.db.access import execute_query
+from mixonaut.utils.config import MOOD_KEYS
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+
 
 @with_child_logger
-def compute_mood_embeddings(n_components: int = 2, logger: str = None) -> list[dict]:
+def compute_mood_embeddings(
+    n_components: int = 2, logger: LoggerProtocol | None = None
+) -> list[dict]:
     """
     Applique une réduction PCA sur les vecteurs mood pour chaque track.
+
     Retourne une liste de dictionnaires avec id, mood_x, mood_y.
     """
+    logger = ensure_logger(logger, __name__)
     try:
         mood_cols = ", ".join([f"mood_{m}_probability" for m in MOOD_KEYS])
         query = f"SELECT id, {mood_cols} FROM audio_features"
@@ -20,12 +32,16 @@ def compute_mood_embeddings(n_components: int = 2, logger: str = None) -> list[d
         for row in rows:
             try:
                 track_id = row[0]
-                vec = [float(row[i + 1]) for i in range(len(MOOD_KEYS))]  # mood values start at index 1
+                vec = [
+                    float(row[i + 1]) for i in range(len(MOOD_KEYS))
+                ]  # mood values start at index 1
                 if all(v is not None for v in vec):
                     ids.append(track_id)
                     vectors.append(vec)
             except Exception as e:
-                logger.warning(f"Track {track_id if 'track_id' in locals() else '?'} ignoré : {e}")
+                logger.warning(
+                    f"Track {track_id if 'track_id' in locals() else '?'} ignoré : {e}"
+                )
 
         if not vectors:
             logger.warning("Aucun vecteur mood valide trouvé.")
@@ -38,9 +54,9 @@ def compute_mood_embeddings(n_components: int = 2, logger: str = None) -> list[d
         for i, track_id in enumerate(ids):
             entry = {"id": track_id}
             for d in range(n_components):
-                entry[f"mood_emb_{d+1}"] = round(float(reduced[i][d]), 4)
+                entry[f"mood_emb_{d + 1}"] = round(float(reduced[i][d]), 4)
             results.append(entry)
-            
+
         logger.info(f"{len(results)} embeddings mood générés.")
         return results
 

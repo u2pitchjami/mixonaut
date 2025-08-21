@@ -1,20 +1,32 @@
-from utils.config import QBIT_HOST, QBIT_USER, QBIT_PASS
-from utils.logger import with_child_logger
+"""
+2020-08-20 module de connection qbit.
+"""
+
 import requests
 
+from mixonaut.utils.config import QBIT_HOST, QBIT_PASS, QBIT_USER
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+
+
 @with_child_logger
-def get_qbit_session(qbit_host: str = QBIT_HOST, qbit_user: str = QBIT_USER, qbit_pass: str = QBIT_PASS, logger=None):
+def get_qbit_session(
+    qbit_host: str = QBIT_HOST,
+    qbit_user: str = QBIT_USER,
+    qbit_pass: str = QBIT_PASS,
+    logger: LoggerProtocol | None = None,
+):
     """
-    Initialise une session authentifiée qBittorrent
+    Initialise une session authentifiée qBittorrent.
 
     :return: session requests ou None si ìhec
     """
+    logger = ensure_logger(logger, __name__)
     session = requests.Session()
 
-    auth = session.post(f"{qbit_host}/api/v2/auth/login", data={
-        "username": qbit_user,
-        "password": qbit_pass
-    })
+    auth = session.post(
+        f"{qbit_host}/api/v2/auth/login",
+        data={"username": qbit_user, "password": qbit_pass},
+    )
 
     if auth.status_code != 200 or auth.text != "Ok.":
         logger.error("\u274c Authentification échouée qBittorrent")
@@ -23,24 +35,27 @@ def get_qbit_session(qbit_host: str = QBIT_HOST, qbit_user: str = QBIT_USER, qbi
     logger.debug("\u2705 Connexion qBit réussie")
     return session
 
+
 @with_child_logger
-def get_completed_music_torrents(session, qbit_host: str = QBIT_HOST, logger=None):
+def get_completed_music_torrents(
+    session, qbit_host: str = QBIT_HOST, logger: LoggerProtocol | None = None
+):
     """
-    Récupère les torrents musicaux complétés (100%) depuis qBittorrent
-    :param session: session authentifiée qBit
-    :param qbit_host: URL de l'interface qBittorrent
-    :return: liste de dictionnaires torrents
+    Récupère les torrents musicaux complétés (100%) depuis qBittorrent :param session: session authentifiée qBit :param
+    qbit_host: URL de l'interface qBittorrent :return: liste de dictionnaires torrents.
     """
+    logger = ensure_logger(logger, __name__)
     try:
-        resp = session.get(f"{qbit_host}/api/v2/torrents/info", params={
-            "filter": "completed",
-            "category": "music"
-        })
+        resp = session.get(
+            f"{qbit_host}/api/v2/torrents/info",
+            params={"filter": "completed", "category": "music"},
+        )
         resp.raise_for_status()
         return resp.json()
     except requests.RequestException as e:
         logger.error(f"\u274c Erreur lors de la récupération des torrents qBit : {e}")
         return []
+
 
 # @with_child_logger
 # def extract_files_from_torrent(session, hash_id: str, qbit_host: str = QBIT_HOST,  logger=None):
@@ -57,32 +72,50 @@ def get_completed_music_torrents(session, qbit_host: str = QBIT_HOST, logger=Non
 #         logger.error(f"\u274c Erreur lors de l'extraction des fichiers du torrent {hash_id} : {e}")
 #         return []
 
+
 @with_child_logger
-def delete_torrent(session, hash_id: str, qbit_host: str = QBIT_HOST, delete_files=True, logger=None):
+def delete_torrent(
+    session,
+    hash_id: str,
+    qbit_host: str = QBIT_HOST,
+    delete_files=True,
+    logger: LoggerProtocol | None = None,
+):
     """
-    Supprime un torrent donné par son hash depuis qBittorrent
+    Supprime un torrent donné par son hash depuis qBittorrent.
     """
+    logger = ensure_logger(logger, __name__)
     try:
-        session.post(f"{qbit_host}/api/v2/torrents/delete", data={
-            "hashes": hash_id,
-            "deleteFiles": delete_files
-        })
+        session.post(
+            f"{qbit_host}/api/v2/torrents/delete",
+            data={"hashes": hash_id, "deleteFiles": delete_files},
+        )
         logger.info(f"\u274c Torrent supprimé : {hash_id}")
     except requests.RequestException as e:
         logger.error(f"\u274c Échec suppression torrent {hash_id} : {e}")
 
+
 @with_child_logger
-def get_torrent_full_info(session, torrent: dict, qbit_host: str = QBIT_HOST, logger=None) -> dict:
+def get_torrent_full_info(
+    session,
+    torrent: dict,
+    qbit_host: str = QBIT_HOST,
+    logger: LoggerProtocol | None = None,
+) -> dict:
     """
     Récupère les infos enrichies d’un torrent : nom, date, ratio, fichiers...
+
     :param session: session qBit déjà authentifiée
     :param torrent: dictionnaire d’un torrent (extrait de /torrents/info)
     :param qbit_host: hôte qBit
     :return: dict enrichi
     """
+    logger = ensure_logger(logger, __name__)
     try:
         torrent_hash = torrent.get("hash")
-        files_resp = session.get(f"{qbit_host}/api/v2/torrents/files", params={"hash": torrent_hash})
+        files_resp = session.get(
+            f"{qbit_host}/api/v2/torrents/files", params={"hash": torrent_hash}
+        )
         files_resp.raise_for_status()
         files_data = files_resp.json()
 
@@ -102,12 +135,14 @@ def get_torrent_full_info(session, torrent: dict, qbit_host: str = QBIT_HOST, lo
                     "name": f.get("name"),
                     "size": f.get("size"),
                     "progress": f.get("progress"),
-                    "is_seed": f.get("is_seed", False)
+                    "is_seed": f.get("is_seed", False),
                 }
                 for f in files_data
-            ]
+            ],
         }
 
     except requests.RequestException as e:
-        logger.error(f"❌ Erreur lors de la récupération des fichiers pour le torrent {torrent.get('name')} : {e}")
+        logger.error(
+            f"❌ Erreur lors de la récupération des fichiers pour le torrent {torrent.get('name')} : {e}"
+        )
         return {}

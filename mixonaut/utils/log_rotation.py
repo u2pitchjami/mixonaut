@@ -1,9 +1,13 @@
+"""2025-08-20 - module rotation de logs."""
+
 import os
 import time
+
 
 def rotate_logs(log_dir, keep_days=30, logf=None):
     """
     Supprime les fichiers de log dans log_dir plus vieux que keep_days.
+
     Écrit les actions dans un fichier de log si logf est fourni.
     """
     now = time.time()

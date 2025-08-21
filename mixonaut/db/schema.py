@@ -1,27 +1,47 @@
+"""
+2025-08-20.
+
+schema d'initialisation de la base sqlite à faire sur la base beets.
+"""
+
 import sqlite3
-from utils.config import BEETS_DB
+
+from mixonaut.utils.config import BEETS_DB
+
 
 def create_tables():
+    """
+    2025-08-20.
+
+    schema d'initialisation de la base sqlite à faire sur la base beets.
+    """
     with sqlite3.connect(BEETS_DB) as conn:
         cursor = conn.cursor()
-        
+
         cursor.execute("PRAGMA foreign_keys = ON;")
-        
-######### ITEMS ####
+
+        # ITEMS ####
         # 1) champs updated_at
-        cursor.execute("ALTER TABLE items ADD COLUMN updated_at TEXT;")        
+        cursor.execute("ALTER TABLE items ADD COLUMN updated_at TEXT;")
         # 2) index
-        cursor.execute("""
+        cursor.execute(
+            """
         CREATE INDEX IF NOT EXISTS idx_items_path ON items(path);
-        """)
-        cursor.execute("""
+        """
+        )
+        cursor.execute(
+            """
         CREATE INDEX IF NOT EXISTS idx_items_artist_album ON items(artist, album);
-        """)
-        cursor.execute("""
+        """
+        )
+        cursor.execute(
+            """
         CREATE INDEX IF NOT EXISTS idx_items_genre ON items(genre);
-        """)        
+        """
+        )
         # 3) Triggers 'updated_at' (SQLite ne permet pas d'assigner NEW.updated_at directement)
-        cursor.execute("""
+        cursor.execute(
+            """
         CREATE TRIGGER IF NOT EXISTS trg_items_touch
         AFTER UPDATE ON items
         FOR EACH ROW
@@ -29,21 +49,24 @@ def create_tables():
         BEGIN
             UPDATE items SET updated_at = CURRENT_TIMESTAMP WHERE rowid = NEW.rowid;
         END;
-        """)
+        """
+        )
         # à l'INSERT : initialise updated_at
-        cursor.execute("""
+        cursor.execute(
+            """
         CREATE TRIGGER IF NOT EXISTS trg_items_insert_touch
         AFTER INSERT ON items
         FOR EACH ROW
         BEGIN
         UPDATE items SET updated_at = CURRENT_TIMESTAMP WHERE rowid = NEW.rowid;
         END;
-        """)
+        """
+        )
 
-
-######### AUDIO_FEATURES ####
-        #1) Table des features analytiques
-        cursor.execute("""
+        # AUDIO_FEATURES ####
+        # 1) Table des features analytiques
+        cursor.execute(
+            """
         CREATE TABLE IF NOT EXISTS audio_features (
             id INTEGER PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE,
             essentia_status TEXT DEFAULT 'PENDING',
@@ -53,7 +76,7 @@ def create_tables():
 
             -- lowlevel
             average_loudness REAL,
-            
+
             -- tonal
             chords_changes_rate REAL,
             chords_key TEXT,
@@ -114,7 +137,7 @@ def create_tables():
             genre_rosamerica_roc REAL,
             genre_rosamerica_rhy REAL,
             genre_rosamerica_spe REAL,
-            -- tzanetakis            
+            -- tzanetakis
             genre_tzanetakis TEXT,
             genre_tzanetakis_probability REAL,
             genre_tzanetakis_blu REAL,
@@ -167,18 +190,18 @@ def create_tables():
             spectral_rms_stdev REAL,
             zerocrossingrate REAL,
             dynamic_complexity REAL,
-            
+
             -- features pour la key
-            key_edma TEXT, 
+            key_edma TEXT,
             scale_edma TEXT,
             strength_edma REAL,
-            key_krumhansl TEXT, 
+            key_krumhansl TEXT,
             scale_krumhansl TEXT,
             strength_krumhansl REAL,
-            key_temperley TEXT, 
+            key_temperley TEXT,
             scale_temperley TEXT,
             strength_temperley REAL,
-            
+
             mood TEXT,
             duration REAL,
             beat_intensity REAL,
@@ -189,18 +212,24 @@ def create_tables():
             genre_emb_1 FLOAT,
             genre_emb_2 FLOAT
         );
-        """)
-        
-        #2) Index
-        cursor.execute("""
+        """
+        )
+
+        # 2) Index
+        cursor.execute(
+            """
         CREATE INDEX IF NOT EXISTS af_status_idx ON audio_features(essentia_status);
-        """)
-        cursor.execute("""
+        """
+        )
+        cursor.execute(
+            """
         CREATE INDEX IF NOT EXISTS af_status_updated_idx ON audio_features(essentia_status, updated_at);
-        """)
-        
-        #3) Trigger
-        cursor.execute("""
+        """
+        )
+
+        # 3) Trigger
+        cursor.execute(
+            """
         CREATE TRIGGER IF NOT EXISTS trg_audio_features_touch
         AFTER UPDATE ON audio_features
         FOR EACH ROW
@@ -210,12 +239,13 @@ def create_tables():
             SET updated_at = CURRENT_TIMESTAMP
             WHERE rowid = NEW.rowid;
         END;
-        """)
-        
-        
-######### AUDIO_HASH ####        
+        """
+        )
+
+        # AUDIO_HASH ####
         # 1) Empreintes par contenu fichier
-        cursor.execute("""
+        cursor.execute(
+            """
         CREATE TABLE IF NOT EXISTS audio_hash (
             id   INTEGER PRIMARY KEY,                                  -- items.id (Beets)
             file_sha1  TEXT NOT NULL,
@@ -230,32 +260,44 @@ def create_tables():
             created_at           TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at           TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
-        """)
+        """
+        )
         # 2) Index
-        cursor.execute("""
+        cursor.execute(
+            """
         CREATE INDEX IF NOT EXISTS idx_audio_hash_file_sha1 ON audio_hash(file_sha1);
-        """)
+        """
+        )
         # Si tu fais des matches via hash audio “fort”
-        cursor.execute("""
+        cursor.execute(
+            """
         CREATE INDEX IF NOT EXISTS idx_audio_hash_sha256 ON audio_hash(audio_hash_sha256);
-        """)
+        """
+        )
         # Si tu relies aussi via fingerprint (Chromaprint)
-        cursor.execute("""
+        cursor.execute(
+            """
         CREATE INDEX IF NOT EXISTS idx_audio_hash_fingerprint ON audio_hash(fingerprint);
-        """)
+        """
+        )
         # Recherches par statut + fraîcheur (file d’attente / reprocessing)
-        cursor.execute("""
+        cursor.execute(
+            """
         CREATE INDEX IF NOT EXISTS idx_audio_hash_status_updated
         ON audio_hash(status, updated_at);
-        """)
+        """
+        )
         # Si tu filtres souvent “erreurs récentes”
-        cursor.execute("""
+        cursor.execute(
+            """
         CREATE INDEX IF NOT EXISTS idx_audio_hash_status_created
         ON audio_hash(status, created_at);
-        """)
+        """
+        )
 
-        # 3) Trigger        
-        cursor.execute("""
+        # 3) Trigger
+        cursor.execute(
+            """
         CREATE TRIGGER IF NOT EXISTS trg_audio_hash_touch
         AFTER UPDATE ON audio_hash
         FOR EACH ROW
@@ -263,13 +305,14 @@ def create_tables():
         BEGIN
             UPDATE audio_hash SET updated_at = CURRENT_TIMESTAMP WHERE rowid = NEW.rowid;
         END;
-        """)
+        """
+        )
 
+        # TRANSPOSITION ###
 
-######### TRANSPOSITION ###        
-        
         # 1) Table des transpositions harmoniques et rythmiques
-        cursor.execute("""
+        cursor.execute(
+            """
         CREATE TABLE IF NOT EXISTS track_transpositions (
         id INTEGER PRIMARY KEY,
         transposition_status TEXT DEFAULT 'PENDING'
@@ -329,10 +372,12 @@ def create_tables():
         bpm_plus_12 REAL,
         FOREIGN KEY(id) REFERENCES tracks(id)
         );
-        """)
+        """
+        )
 
         # 2) Trigger
-        cursor.execute("""
+        cursor.execute(
+            """
         CREATE TRIGGER IF NOT EXISTS trg_track_transpositions_touch
         AFTER UPDATE ON track_transpositions
         FOR EACH ROW
@@ -342,12 +387,13 @@ def create_tables():
             SET updated_at = CURRENT_TIMESTAMP
             WHERE rowid = NEW.rowid;
         END;
-        """)
+        """
+        )
 
+        # IMPORTED_FILES ####
 
-######### IMPORTED_FILES ####
-        
-        cursor.execute("""
+        cursor.execute(
+            """
         CREATE TABLE IF NOT EXISTS imported_files (
             id INTEGER PRIMARY KEY,
             path TEXT,                         -- chemin relatif qBit du fichier
@@ -366,42 +412,57 @@ def create_tables():
             torrent_save_path TEXT,            -- chemin source qBit (absolu)
             album_rel_dir TEXT                 -- dossier relatif de l’album sous imports (parent(path))
         );
-        """)
+        """
+        )
 
         # 2) Index
-        cursor.execute("""
+        cursor.execute(
+            """
         CREATE INDEX IF NOT EXISTS ux_imported_files_hash_path_name
         ON imported_files(torrent_hash, path, name);
-        """)
-        cursor.execute("""
+        """
+        )
+        cursor.execute(
+            """
         CREATE INDEX IF NOT EXISTS ix_imported_files_hash ON imported_files(torrent_hash);
-        """)
-        cursor.execute("""
+        """
+        )
+        cursor.execute(
+            """
         CREATE INDEX IF NOT EXISTS ix_imported_files_imported_at
         ON imported_files(imported_in_beets_at);
-        """)
-        cursor.execute("""
+        """
+        )
+        cursor.execute(
+            """
         CREATE INDEX IF NOT EXISTS ix_imported_files_album_rel_dir
         ON imported_files(album_rel_dir);
-        """)
-        cursor.execute("""
+        """
+        )
+        cursor.execute(
+            """
         CREATE INDEX IF NOT EXISTS ix_imported_files_not_imported
         ON imported_files(imported_in_beets_at) WHERE imported_in_beets_at IS NULL;
-        """)
-        cursor.execute("""
+        """
+        )
+        cursor.execute(
+            """
         CREATE INDEX IF NOT EXISTS ix_imported_files_staged_null
         ON imported_files(staged_for_import_at) WHERE staged_for_import_at IS NULL;
-        """)
-        cursor.execute("""
+        """
+        )
+        cursor.execute(
+            """
         CREATE INDEX IF NOT EXISTS ix_tdec_decision
         ON torrent_decisions(decision);
-        """)
-        
-        
-######### TRACK_GROUPS ####
-        
+        """
+        )
+
+        # TRACK_GROUPS ####
+
         # Table de liens morceaux <-> groupes
-        cursor.execute("""
+        cursor.execute(
+            """
         CREATE TABLE IF NOT EXISTS track_groups (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             track_id INTEGER NOT NULL,
@@ -409,13 +470,14 @@ def create_tables():
             added_at TEXT,
             FOREIGN KEY(track_id) REFERENCES tracks(id)
         );
-        """)
+        """
+        )
 
-
-######### TRACK_MIX ####
+        # TRACK_MIX ####
 
         # Table de liens morceaux <-> mix
-        cursor.execute("""
+        cursor.execute(
+            """
         CREATE TABLE IF NOT EXISTS track_mix (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             track_id INTEGER NOT NULL,
@@ -423,12 +485,13 @@ def create_tables():
             added_at TEXT,
             FOREIGN KEY(track_id) REFERENCES tracks(id)
         );
-        """)
+        """
+        )
 
+        # V_ANALYSE ####
 
-        ######### V_ANALYSE ####
-        
-        cursor.execute("""
+        cursor.execute(
+            """
         DROP VIEW IF EXISTS "main"."v_analyse";
         CREATE VIEW v_analyse AS
         SELECT
@@ -448,21 +511,22 @@ def create_tables():
             a.last_error AS essentia_last_error,
             a.updated_at AS essentia_updated_at,
             f.status AS hash_status,
-            f.last_error AS hash_last_error,    
+            f.last_error AS hash_last_error,
             f.updated_at AS hash_last_updated_at,
             t.transposition_status,
-            t.last_error AS transposition_last_error,    
-            t.updated_at AS transposition_updated_at	
+            t.last_error AS transposition_last_error,
+            t.updated_at AS transposition_updated_at
         FROM items AS i
         JOIN audio_features AS a USING (id)
         JOIN track_transpositions AS t USING (id)
         JOIN audio_hash AS f USING (id)
-        """)
+        """
+        )
 
-                
-        ######### v_needs_manual ####
-        
-        cursor.execute("""
+        # v_needs_manual ####
+
+        cursor.execute(
+            """
         DROP VIEW IF EXISTS "v_needs_manual";
         CREATE VIEW v_needs_manual AS
         SELECT
@@ -477,11 +541,13 @@ def create_tables():
         WHERE ts.imported_at IS NULL
         AND ts.decision IN ('NEEDS_MANUAL','DUPLICATE_SOFT')
         ORDER BY ts.since_decision_days DESC NULLS LAST, ts.age_days DESC, ts.torrent_name
-        """)      
-                
-        ######### v_ready_for_deletion ####
-        
-        cursor.execute("""
+        """
+        )
+
+        # v_ready_for_deletion ####
+
+        cursor.execute(
+            """
         DROP VIEW IF EXISTS "v_ready_for_deletion";
         CREATE VIEW v_ready_for_deletion AS
         SELECT
@@ -503,12 +569,13 @@ def create_tables():
             OR (ts.decision IN ('NEEDS_MANUAL','DUPLICATE_SOFT') AND ts.since_decision_days >= 14)
         )
         ORDER BY ts.completed_on DESC NULLS LAST, ts.torrent_name
-                """)
-        
-        
-        ######### v_rejected ####
-                
-        cursor.execute("""
+                """
+        )
+
+        # v_rejected ####
+
+        cursor.execute(
+            """
         DROP VIEW IF EXISTS "v_rejected";
         CREATE VIEW v_rejected AS
         SELECT
@@ -523,12 +590,13 @@ def create_tables():
         WHERE ts.imported_at IS NULL
         AND ts.decision IN ('REJECT','DUPLICATE_HARD','REPLACED')
         ORDER BY ts.age_days DESC, ts.torrent_name
-        """)
+        """
+        )
 
+        # v_torrent_base ####
 
-        ######### v_torrent_base ####
-                
-        cursor.execute("""
+        cursor.execute(
+            """
         DROP VIEW IF EXISTS "v_torrent_base";
         CREATE VIEW v_torrent_base AS
         SELECT
@@ -541,11 +609,13 @@ def create_tables():
         MAX(ifs.auto_cleaned) AS any_cleaned
         FROM imported_files ifs
         GROUP BY ifs.torrent_hash
-                """)
+                """
+        )
 
-        ######### v_torrent_status ####
-                
-        cursor.execute("""
+        # v_torrent_status ####
+
+        cursor.execute(
+            """
         DROP VIEW IF EXISTS "v_torrent_status";
         CREATE VIEW v_torrent_status AS
         SELECT
@@ -563,11 +633,13 @@ def create_tables():
             THEN (julianday('now') - julianday(d.decided_at)) ELSE NULL END AS since_decision_days
         FROM v_torrent_base b
         LEFT JOIN torrent_decisions d ON d.torrent_hash = b.torrent_hash
-                """)
+                """
+        )
 
-        ######### v_torrents_autoclean ####
-                
-        cursor.execute("""
+        # v_torrents_autoclean ####
+
+        cursor.execute(
+            """
         DROP VIEW IF EXISTS "v_torrents_autoclean";
         CREATE VIEW v_torrents_autoclean AS
         SELECT DISTINCT ifs.torrent_name, ifs.torrent_hash
@@ -575,10 +647,12 @@ def create_tables():
         JOIN torrent_decisions td ON td.torrent_hash = ifs.torrent_hash
         WHERE td.decision IN ('REJECT','DUPLICATE_HARD','REPLACED')
         AND ifs.imported_in_beets_at IS NULL
-                """)        
-         
+                """
+        )
+
         conn.commit()
         print(f"✅ Base initialisée : {BEETS_DB}")
+
 
 if __name__ == "__main__":
     create_tables()

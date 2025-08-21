@@ -1,8 +1,11 @@
+"""2025-08-20 - module config en lien avec env."""
+
 # config.py
-from dotenv import load_dotenv
-from pathlib import Path
 import os
 import sys
+from pathlib import Path
+
+from dotenv import load_dotenv
 
 # Chargement du .env à la racine du projet
 env_path = Path(__file__).resolve().parent.parent / ".env"
@@ -10,29 +13,82 @@ load_dotenv(dotenv_path=env_path, override=True)
 
 # --- Fonctions utilitaires ---
 
+
 def get_required(key: str) -> str:
+    """
+    Récupère la valeur d'une variable env requise.
+
+    Si la variable n'est pas présente ou non définitie,
+    affiche une erreur et quitte le programme avec un code de sortie 1.
+
+    Args:
+        key (str): La clé de la variable env à récupérer.
+
+    Returns:
+        str: La valeur de la variable env.
+    """
     value = os.getenv(key)
     if value is None:
         print(f"[CONFIG ERROR] La variable {key} est requise mais absente.")
         sys.exit(1)
     return value
 
+
 def get_bool(key: str, default: str = "false") -> bool:
+    """
+    Returns the environment variable as a string.
+
+    If the variable is not set or empty, it returns the provided default value.
+
+    Args:
+        key (bool): The name of the environment variable to retrieve.
+        default (bool): The default value to return if the variable is not set. Defaults to an empty string.
+
+    Returns:
+        bool: The value of the environment variable or the default value.
+    """
     return os.getenv(key, default).lower() in ("true", "1", "yes")
 
+
 def get_str(key: str, default: str = "") -> str:
+    """
+    Returns the environment variable as a string.
+
+    If the variable is not set or empty, it returns the provided default value.
+
+    Args:
+        key (str): The name of the environment variable to retrieve.
+        default (str): The default value to return if the variable is not set. Defaults to an empty string.
+
+    Returns:
+        str: The value of the environment variable or the default value.
+    """
     return os.getenv(key, default)
 
+
 def get_int(key: str, default: int = 0) -> int:
+    """
+    Récupère la valeur d'une variable env requise qui doit être un entier.
+
+    Si la variable n'est pas présente ou non définitie,
+    affiche une erreur et quitte le programme avec un code de sortie 1.
+    Args:
+        key (str): La clé de la variable env à récupérer.
+        default (int, optional): Le valeur par défaut si la variable est absente. Defaults to 0.
+
+    Returns:
+        int: La valeur de la variable env, convertie en entier.
+    """
     try:
         return int(os.getenv(key, str(default)))
     except ValueError:
         print(f"[CONFIG ERROR] La variable {key} doit être un entier.")
         sys.exit(1)
 
+
 # --- Variables d'environnement accessibles globalement ---
 
-#BEETS
+# BEETS
 BEETS_DB = get_required("BEETS_DB_PATH")
 BEETS_CONFIG_DIR = get_required("BEETS_CONFIG_DIR")
 BEETS_BACKUP_DIR = get_str("BEETS_BACKUP_DIR", "./sav_base")
@@ -42,49 +98,51 @@ BEETS_CONFIG = get_required("BEETS_CONFIG")
 BEETS_RECAP_DIR = get_required("BEETS_RECAP_DIR")
 REPORT_PATH = get_required("REPORT_PATH")
 
-#LOGS
+# LOGS
 LOG_FILE_PATH = get_str("LOG_FILE_PATH", "logs")
 LOG_ROTATION_DAYS = get_int("LOG_ROTATION_DAYS", 100)
 
-#ESSENTIA
+# ESSENTIA
 PROF_ESSENTIA = get_required("PROF_ESSENTIA")
 ESSENTIA_SAV_JSON = get_str("ESSENTIA_SAV_JSON", "data/tsav_json")
 ESSENTIA_TEMP_AUDIO = get_str("ESSENTIA_TEMP_AUDIO", "data/temp_audio")
 ESSENTIA_TEMP_JSON = get_str("ESSENTIA_TEMP_JSON", "data/temp_json")
 MAX_SAFENAME_LENGTH = 100
 
-#PATHS
-MUSIC_BASE_PATH = get_required("MUSIC_BASE_PATH")
+# PATHS
+MUSIC_BASE_PATH = Path(get_required("MUSIC_BASE_PATH"))
 HOST_MUSIC = get_required("HOST_MUSIC_PREFIX")
-MUSIC_SOURCE_PATH = get_required("MUSIC_SOURCE_PATH")
-MUSIC_IMPORT_PATH = get_required("MUSIC_IMPORT_PATH")
+MUSIC_SOURCE_PATH = Path(get_required("MUSIC_SOURCE_PATH"))
+MUSIC_IMPORT_PATH = Path(get_required("MUSIC_IMPORT_PATH"))
 BEETS_MUSIC = get_required("BEETS_MUSIC_PREFIX")
 WINDOWS_MUSIC = get_required("WINDOWS_MUSIC")
 BEETS_IMPORT_PATH = get_required("BEETS_IMPORT_PATH")
 LOCK_FILE = get_str("LOCK_FILE", "beets_db.lock")
 EXPORT_COMPATIBLE_TRACKS = get_str("EXPORT_COMPATIBLE_TRACKS", "./exports")
 
-#DB
+# DB
 QUERIES_DIR = get_str("QUERIES_DIR", "./dashboard")
 
-#IMAGES
+# IMAGES
 IMAGE_BEETS = get_required("IMAGE_BEETS")
 IMAGE_ESSENTIA = get_required("IMAGE_ESSENTIA")
 IMAGE_FPCALC = get_required("IMAGE_FPCALC")
 IMAGE_CLIENTS_DB = get_required("IMAGE_CLIENTS_DB")
 
-#QBITTORRENT
+# QBITTORRENT
 QBIT_HOST = get_required("QBIT_HOST")
 QBIT_USER = get_required("QBIT_USER")
 QBIT_PASS = get_required("QBIT_PASS")
 
-#FPCALC
+# FPCALC
 FPCALC_RUNNER = get_str("FPCALC_RUNNER", "docker")
 FPCALC_MOUNT_CONTAINER = get_str("FPCALC_MOUNT_CONTAINER", "/app/music")
-FPCALC_MAXLEN = get_int("FPCALC_MAXLEN", "120")
+FPCALC_MAXLEN = get_int("FPCALC_MAXLEN", 120)
 
 
 # --- Constantes et configurations ---
+
+ALLOWED_STEPS = {"fingerprint", "essentia", "transposition"}
 
 # --- parse logs beets
 DUP_PREFIX = "duplicate-skip "
@@ -92,25 +150,49 @@ SKIP_PREFIX = "skip "
 MOVED_PREFIX = "[MOVED]|||"
 
 
-
-
 # --- useful ext for qbit
 USEFUL_EXTENSIONS = (
-    '.ape', '.wv', ".flac", ".mp3", ".ogg", ".wav", ".m4a", '.aac', '.alac', '.wma', ".aiff",  # audio
-    ".cue", ".zip", ".rar", ".tar", ".tar.gz", ".tar.bz2", ".rar", ".7z", ".jpg", ".png", ".pdf", ".log", ".lrc"                      # utiles
+    ".ape",
+    ".wv",
+    ".flac",
+    ".mp3",
+    ".ogg",
+    ".wav",
+    ".m4a",
+    ".aac",
+    ".alac",
+    ".wma",
+    ".aiff",  # audio
+    ".cue",
+    ".zip",
+    ".rar",
+    ".tar",
+    ".tar.gz",
+    ".tar.bz2",
+    ".rar",
+    ".7z",
+    ".jpg",
+    ".png",
+    ".pdf",
+    ".log",
+    ".lrc",  # utiles
 )
-AUDIO_EXTENSIONS = {'.mp3', '.flac', '.wav', '.ogg', '.m4a', '.aac', '.alac', '.wma'}
+AUDIO_EXTENSIONS = {".mp3", ".flac", ".wav", ".ogg", ".m4a", ".aac", ".alac", ".wma"}
 IGNORED_EXTENSIONS = {
-    '.jpg', '.jpeg', '.png', '.nfo', '.txt', '.log', '.cue',
-    '.pdf', '.db', '.ini', '.url', '.sfv', '.m3u'
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".nfo",
+    ".txt",
+    ".log",
+    ".cue",
+    ".pdf",
+    ".db",
+    ".ini",
+    ".url",
+    ".sfv",
+    ".m3u",
 }
-
-
-
-
-
-
-
 
 
 RETRO_MIXONAUT_BEETS = {
@@ -119,28 +201,29 @@ RETRO_MIXONAUT_BEETS = {
     "bpm",
     "rg_track_gain",
     "initial_key",
-    "genre"
+    "genre",
 }
 
-#Transposition
+# Transposition
 SEMITONE_SHIFT_VALUES = list(range(-12, 13))
 
-#BPM MATCH
+# BPM MATCH
 TOLERANCE_BPM_PERCENT = get_int("TOLERANCE_BPM_PERCENT", 8)
 
-#Mood
-MOOD_KEYS = [
-    "acoustic",
-    "aggressive",
-    "electronic",
-    "happy",
-    "party",
-    "relaxed",
-    "sad"
-]
+# Mood
+MOOD_KEYS = ["acoustic", "aggressive", "electronic", "happy", "party", "relaxed", "sad"]
 
-#Essentia Genre
-EDM_GENRES = {"techno", "house", "trance", "edm", "dance", "psychedelic", "rave", "space"}
+# Essentia Genre
+EDM_GENRES = {
+    "techno",
+    "house",
+    "trance",
+    "edm",
+    "dance",
+    "psychedelic",
+    "rave",
+    "space",
+}
 ELECTRO_OVERRIDE_GENRES = {"electronic", "dan"}
 GENRE_PROB_DORTMUND = 0.8
 GENRE_PROB_ROSAMERICA = 0.5
@@ -171,24 +254,74 @@ GENRE_CANONICAL = {
     "met": "Metal",
     "dis": "Disco",
     "blu": "Blues",
-    "cou": "Country"
+    "cou": "Country",
     # etc.
 }
 
-#Essentia Key
+# Essentia Key
 CAMELOT_ORDER = [
-    "1a", "2a", "3a", "4a", "5a", "6a", "7a", "8a", "9a", "10a", "11a", "12a",
-    "1b", "2b", "3b", "4b", "5b", "6b", "7b", "8b", "9b", "10b", "11b", "12b"
+    "1a",
+    "2a",
+    "3a",
+    "4a",
+    "5a",
+    "6a",
+    "7a",
+    "8a",
+    "9a",
+    "10a",
+    "11a",
+    "12a",
+    "1b",
+    "2b",
+    "3b",
+    "4b",
+    "5b",
+    "6b",
+    "7b",
+    "8b",
+    "9b",
+    "10b",
+    "11b",
+    "12b",
 ]
 CAMELOT_MAP = {
-    "C":  "8B", "C#": "3B", "D":  "10B", "D#": "5B", "E":  "12B", "F":  "7B",
-    "F#": "2B", "G":  "9B", "G#": "4B", "A":  "11B", "A#": "6B", "B":  "1B",
-    "Cm": "5A", "C#m":"12A", "Dm": "7A", "D#m":"2A", "Em": "9A", "Fm": "4A",
-    "F#m":"11A", "Gm": "6A", "G#m":"1A", "Am": "8A", "A#m":"3A", "Bm": "10A"
+    "C": "8B",
+    "C#": "3B",
+    "D": "10B",
+    "D#": "5B",
+    "E": "12B",
+    "F": "7B",
+    "F#": "2B",
+    "G": "9B",
+    "G#": "4B",
+    "A": "11B",
+    "A#": "6B",
+    "B": "1B",
+    "Cm": "5A",
+    "C#m": "12A",
+    "Dm": "7A",
+    "D#m": "2A",
+    "Em": "9A",
+    "Fm": "4A",
+    "F#m": "11A",
+    "Gm": "6A",
+    "G#m": "1A",
+    "Am": "8A",
+    "A#m": "3A",
+    "Bm": "10A",
 }
 ENHARMONIC_MAP = {
-    "Db": "C#", "Eb": "D#", "Bb": "A#", "Ab": "G#", "Gb": "F#",
-    "C#": "C#", "D#": "D#", "F#": "F#", "G#": "G#", "A#": "A#"
+    "Db": "C#",
+    "Eb": "D#",
+    "Bb": "A#",
+    "Ab": "G#",
+    "Gb": "F#",
+    "C#": "C#",
+    "D#": "D#",
+    "F#": "F#",
+    "G#": "G#",
+    "A#": "A#",
 }
 
 ESSENTIA_MAPPING = {
@@ -208,7 +341,7 @@ ESSENTIA_MAPPING = {
     "genre_dortmund_blues": ["highlevel", "genre_dortmund", "all", "blues"],
     "genre_dortmund_electronic": ["highlevel", "genre_dortmund", "all", "electronic"],
     "genre_dortmund_folkcountry": ["highlevel", "genre_dortmund", "all", "folkcountry"],
-    "genre_dortmund_funksoulrnb": ["highlevel", "genre_dortmund", "all", "funksoulrnb"],    
+    "genre_dortmund_funksoulrnb": ["highlevel", "genre_dortmund", "all", "funksoulrnb"],
     "genre_dortmund_jazz": ["highlevel", "genre_dortmund", "all", "jazz"],
     "genre_dortmund_pop": ["highlevel", "genre_dortmund", "all", "pop"],
     "genre_dortmund_raphiphop": ["highlevel", "genre_dortmund", "all", "raphiphop"],
@@ -266,7 +399,11 @@ ESSENTIA_MAPPING = {
     "tonal_atonal": ["highlevel", "tonal_atonal", "value"],
     "tonal_atonal_probability": ["highlevel", "tonal_atonal", "probability"],
     "voice_instrumental": ["highlevel", "voice_instrumental", "value"],
-    "voice_instrumental_probability": ["highlevel", "voice_instrumental", "probability"],
+    "voice_instrumental_probability": [
+        "highlevel",
+        "voice_instrumental",
+        "probability",
+    ],
     "bpm": ["rhythm", "bpm"],
     "beats_loudness_mean": ["rhythm", "beats_loudness", "mean"],
     "onset_rate": ["rhythm", "onset_rate"],
@@ -281,20 +418,20 @@ ESSENTIA_MAPPING = {
     "spectral_complexity": ["lowlevel", "spectral_complexity", "mean"],
     "spectral_energy": ["lowlevel", "spectral_energy", "mean"],
     "spectral_rms_mean": ["lowlevel", "spectral_rms", "mean"],
-    "spectral_rms_stdev": ["lowlevel", "spectral_rms", "stdev"],    
+    "spectral_rms_stdev": ["lowlevel", "spectral_rms", "stdev"],
     "zerocrossingrate": ["lowlevel", "zerocrossingrate", "mean"],
     "dynamic_complexity": ["lowlevel", "dynamic_complexity"],
-    "key_edma": ["tonal", "key_edma", "key"], 
+    "key_edma": ["tonal", "key_edma", "key"],
     "scale_edma": ["tonal", "key_edma", "scale"],
     "strength_edma": ["tonal", "key_edma", "strength"],
-    "key_krumhansl": ["tonal", "key_krumhansl", "key"], 
+    "key_krumhansl": ["tonal", "key_krumhansl", "key"],
     "scale_krumhansl": ["tonal", "key_krumhansl", "scale"],
     "strength_krumhansl": ["tonal", "key_krumhansl", "strength"],
-    "key_temperley": ["tonal", "key_temperley", "key"], 
+    "key_temperley": ["tonal", "key_temperley", "key"],
     "scale_temperley": ["tonal", "key_temperley", "scale"],
     "strength_temperley": ["tonal", "key_temperley", "strength"],
     "rg_track_gain": ["lowlevel", "replaygain"],
-    "duration": ["metadata", "audio_properties", "analysis", "length"]
+    "duration": ["metadata", "audio_properties", "analysis", "length"],
 }
 
 # GENRE_FIELDS = [

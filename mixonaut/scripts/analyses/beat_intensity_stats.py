@@ -1,24 +1,45 @@
-from db.access import select_all
-from utils.safe_runner import safe_main
-from utils.logger import get_logger
+"""2025-08-20 - module de génération de stat pour le beat intensity."""
+
 import statistics
+
+from mixonaut.db.access import select_all
+from mixonaut.utils.logger import get_logger
+from mixonaut.utils.safe_runner import safe_main
 
 logger = get_logger("beat_intensity_stats")
 
 FIELDS = [
-    "spectral_flux", "spectral_rms_mean", "average_loudness",
-    "spectral_energy", "dynamic_complexity", "onset_rate",
-    "beats_loudness_mean"
+    "spectral_flux",
+    "spectral_rms_mean",
+    "average_loudness",
+    "spectral_energy",
+    "dynamic_complexity",
+    "onset_rate",
+    "beats_loudness_mean",
 ]
 
 
 def fetch_values():
+    """
+    Fetches the values for beat intensity statistics.
+
+    Returns:
+        list: A list of tuples, each containing a value from one of the fields
+            specified in FIELDS.
+    """
     cols = ", ".join(FIELDS)
     query = f"SELECT {cols} FROM audio_features"
     return select_all(query, logger=logger)
 
+
 @safe_main
 def compute_stats():
+    """
+    Generates statistics for the beat intensity.
+
+    This module computes and prints various statistics about the intensity of beats in an audio signal.
+    The statistics are based on the columns defined in the `FIELDS` list.
+    """
     rows = fetch_values()
     if not rows:
         logger.warning("Aucune donnée trouvée.")
@@ -31,7 +52,10 @@ def compute_stats():
         if not values:
             print(f"{field}: (aucune valeur valide)")
             continue
-        print(f"{field:<20} → min: {min(values):.3f}, max: {max(values):.3f}, mean: {statistics.mean(values):.3f}, stdev: {statistics.stdev(values):.3f}")
+        print(
+            f"{field:<20} → min: {min(values):.3f}, max: {max(values):.3f}, \
+                mean: {statistics.mean(values):.3f}, stdev: {statistics.stdev(values):.3f}"
+        )
 
 
 if __name__ == "__main__":

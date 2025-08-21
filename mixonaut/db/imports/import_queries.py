@@ -1,7 +1,11 @@
-from db.access import select_all, select_one, execute_write, select_scalar
-from utils.logger import with_child_logger
-import os
-import time
+"""
+2025-08-20.
+
+requêtes liée aux torrents et qbit.
+"""
+
+from mixonaut.db.access import select_all
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
 
 # @with_child_logger
 # def get_imported_music_files(logger=None):
@@ -9,7 +13,7 @@ import time
 #     SELECT path, import_date
 #     FROM imported_files
 #     """
-    # return select_all(query, logger=logger)
+# return select_all(query, logger=logger)
 
 # @with_child_logger
 # def update_imported_file(path: str, size: int, logger=None):
@@ -87,7 +91,7 @@ import time
 #     :return: True si au moins un fichier a été mis à jour
 #     """
 #     logger.info(f"🔍 Mise à jour des fichiers pour torrent_name = {torrent_name}")
-    
+
 #     count = select_scalar(
 #         "SELECT COUNT(*) FROM imported_files WHERE torrent_name = ? AND imported_in_beets_at IS NULL",
 #         (torrent_name,),
@@ -108,8 +112,10 @@ import time
 #     return True
 
 # @with_child_logger
-# def insert_or_ignore_imported_file(path, name, size, torrent_hash, torrent_name, added_on, completion_on, ratio, logger=None):
-#     existing = select_one("SELECT id, imported_in_beets_at FROM imported_files WHERE path = ?", (path,), logger=logger)
+# def insert_or_ignore_imported_file(path, name, size, torrent_hash, torrent_name, \
+# added_on, completion_on, ratio, logger=None):
+#     existing = select_one("SELECT id, imported_in_beets_at FROM imported_files WHERE path = ?"\
+# , (path,), logger=logger)
 #     if existing:
 #         file_id, imported_in_beets_at = existing
 #         logger.debug(f"↪️ Déjà présent en base : {path}")
@@ -143,14 +149,20 @@ import time
 
 # db/import_queries.py (nouvelle fonction par hash)
 @with_child_logger
-def get_hashes_ready_for_deletion(min_ratio: float, min_age_days: int,
-                                  grace_days_soft: int = 14, logger=None) -> list[str]:
+def get_hashes_ready_for_deletion(
+    min_ratio: float,
+    min_age_days: int,
+    grace_days_soft: int = 14,
+    logger: LoggerProtocol | None = None,
+) -> list[str]:
     """
     Retourne les torrent_hash à supprimer selon la politique:
-      - importés et ratio/âge OK
-      - OU décision (REJECT, DUPLICATE_HARD, REPLACED) et ratio/âge OK
-      - OU décision (NEEDS_MANUAL, DUPLICATE_SOFT) posée il y a >= G jours et ratio/âge OK
+
+    - importés et ratio/âge OK
+    - OU décision (REJECT, DUPLICATE_HARD, REPLACED) et ratio/âge OK
+    - OU décision (NEEDS_MANUAL, DUPLICATE_SOFT) posée il y a >= G jours et ratio/âge OK
     """
+    logger = ensure_logger(logger, __name__)
     query = """
     WITH base AS (
       SELECT
@@ -187,7 +199,10 @@ def get_hashes_ready_for_deletion(min_ratio: float, min_age_days: int,
         )
       )
     """
-    rows = select_all(query, (min_ratio, min_age_days, grace_days_soft), logger=logger) or []
+    rows = (
+        select_all(query, (min_ratio, min_age_days, grace_days_soft), logger=logger)
+        or []
+    )
     return [r[0] for r in rows]
 
 

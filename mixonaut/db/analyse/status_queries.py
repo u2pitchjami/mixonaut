@@ -1,13 +1,29 @@
+"""
+20250820.
+
+requetes sqlite gère les statuts pour lancer ou non l'analyse.
+"""
+
 from datetime import datetime
-from db.access import execute_write, execute_many, select_all
-from utils.logger import with_child_logger
+
+from mixonaut.db.access import execute_many, execute_write, select_all
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+
 
 @with_child_logger
-def update_table_status(table: str, id_value: int, status: str, last_error: str = None, logger=None) -> None:
+def update_table_status(
+    table: str,
+    id_value: int,
+    status: str,
+    last_error: str | None = None,
+    logger: LoggerProtocol | None = None,
+) -> None:
     """
     Met à jour le statut + last_error.
+
     Horodatage via SQLite: CURRENT_TIMESTAMP (UTC, 'YYYY-MM-DD HH:MM:SS').
     """
+    logger = ensure_logger(logger, __name__)
     status_col = get_status_column(table)
     query = f"""
         UPDATE {table}
@@ -22,6 +38,7 @@ def update_table_status(table: str, id_value: int, status: str, last_error: str 
 def get_status_column(table: str) -> str:
     """
     Retourne le nom exact de la colonne 'status' pour la table donnée.
+
     Permet d'éviter les hardcodes et de gérer audio_features/transpositions différemment.
     """
     if table == "audio_features":
@@ -33,9 +50,22 @@ def get_status_column(table: str) -> str:
     else:
         raise ValueError(f"Table inconnue pour mise à jour de statut : {table}")
 
+
 @with_child_logger
-def sync_pending_tables(logger=None):
-    now = datetime.utcnow().isoformat(timespec='seconds')
+def sync_pending_tables(logger: LoggerProtocol | None = None):
+    """
+    Synchronise les tables pending en ajoutant des enregistrements manquants.
+
+    Ce fonctionnalité est destinée à ajouter des enregistrements dans les tables audio_features,
+    track_transpositions et audio_hash qui ne sont pas encore dans la base de données SQLite.
+
+    Elle utilise les requêtes SQL suivantes :
+
+    - Récupérer les IDs d'items absents de chaque table.
+    - Ajouter ces items à leur tableau correspondant avec statut par défaut 'PENDING'.
+    """
+    logger = ensure_logger(logger, __name__)
+    now = datetime.utcnow().isoformat(timespec="seconds")
 
     # Tables à synchroniser : table, colonne statut, statut par défaut
     tables = [
@@ -51,7 +81,7 @@ def sync_pending_tables(logger=None):
             SELECT id FROM items
             WHERE id NOT IN (SELECT id FROM {table})
             """,
-            logger=logger
+            logger=logger,
         )
 
         if not missing_items:
@@ -76,7 +106,7 @@ def sync_pending_tables(logger=None):
         logger.info(f"✅ {len(param_list)} lignes ajoutées dans {table}.")
 
 
-if __name__ == "__main__":
-    from utils.logger import get_logger  # adapte si besoin
-    logger = get_logger(__name__)
-    sync_pending_tables(logger=logger)
+# if __name__ == "__main__":
+
+#     logger = get_logger(__name__)
+#     sync_pending_tables(logger=logger)

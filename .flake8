@@ -1,0 +1,6 @@
+# .flake8
+
+[flake8]
+max-line-length = 120
+exclude = .git,__pycache__,venv
+ignore = D401, D400, D205, D200, W503, E203

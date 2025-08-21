@@ -1,16 +1,27 @@
+"""
+2020-08-20 module de copie des extractions dans le dossiers d'imports de beets.
+"""
+
 # services/copy_extract_service.py
 from __future__ import annotations
-import shutil
-from pathlib import Path
-import zipfile
-import tarfile
 
-from logic_imports.extraction.extract_cue import split_cue_and_convert_ffmpeg
+import shutil
+import tarfile
+import zipfile
+from pathlib import Path
+
+from mixonaut.process_imports.extraction.extract_cue import split_cue_and_convert_ffmpeg
+
 
 class CopyExtractService:
-    """Copie/extrait les fichiers listés par la DB vers le dossier imports (idempotent)."""
+    """
+    Copie/extrait les fichiers listés par la DB vers le dossier imports (idempotent).
+    """
 
     def __init__(self, default_source_root: Path, imports_root: Path, repo, logger):
+        """
+        Copie/extrait les fichiers listés par la DB vers le dossier imports (idempotent).
+        """
         self.default_source_root = Path(default_source_root)
         self.imports_root = Path(imports_root)
         self.repo = repo
@@ -49,7 +60,9 @@ class CopyExtractService:
     def _copy_cue_outputs(self, cue_path: Path, rel_root: Path) -> None:
         converted_dir = split_cue_and_convert_ffmpeg(str(cue_path), logger=self.logger)
         if not converted_dir:
-            raise RuntimeError("Conversion CUE a échoué (répertoire de sortie introuvable)")
+            raise RuntimeError(
+                "Conversion CUE a échoué (répertoire de sortie introuvable)"
+            )
         converted_dir = Path(converted_dir)
         # copie vers imports/{rel_root}/
         for src_file in converted_dir.rglob("*"):
@@ -59,6 +72,19 @@ class CopyExtractService:
                 shutil.copy2(src_file, dest)
 
     def process_batch(self, nb_limit: int) -> int:
+        """
+        Process a batch of files to stage based on the provided repository and logger.
+
+        This method iterates through the specified number of rows in the database,
+        extracting, copying, or staging each file according to its type. The results
+        are logged accordingly.
+
+        Args:
+            nb_limit (int): The maximum number of items to process in this batch.
+
+        Returns:
+            int: The total number of files staged successfully.
+        """
         rows = self.repo.list_files_to_stage(nb_limit)
         done = 0
         for r in rows:

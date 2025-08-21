@@ -1,19 +1,30 @@
+"""
+2020-08-20 module qui scanne et envoie vers le process_delete si ok.
+"""
+
 from __future__ import annotations
-from pathlib import Path
+
 import shutil
-from db.imports.torrent_repo import TorrentRepo
-from db.access import select_all
-from utils.logger import with_child_logger
-from utils.config import MUSIC_IMPORT_PATH
-from process_imports.beets.path_resolve import resolve_album_path_and_rel
+from pathlib import Path
+
+from mixonaut.db.access import select_all
+from mixonaut.db.imports.torrent_repo import TorrentRepo
+from mixonaut.process_imports.beets.path_resolve import resolve_album_path_and_rel
+from mixonaut.utils.config import MUSIC_IMPORT_PATH
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+
 
 @with_child_logger
-def process_successful_imports(moved_paths: list[str], logger=None):
+def process_successful_imports(
+    moved_paths: list[str], logger: LoggerProtocol | None = None
+):
     """
     Marque les fichiers importés (par hash via album_rel_dir) et supprime le dossier d'import host.
+
     - Tolérant aux chemins Beets (/app/imports/...) et host (/mnt/.../imports/...)
     - Jamais d'exception sur relative_to
     """
+    logger = ensure_logger(logger, __name__)
     repo = TorrentRepo(logger=logger)
     base_imports = Path(MUSIC_IMPORT_PATH)
 
@@ -27,13 +38,19 @@ def process_successful_imports(moved_paths: list[str], logger=None):
         host_path, rel_dir = resolved
 
         # 1) Marquer importés par hash (album_rel_dir exact, indexé)
-        rows = select_all(
-            "SELECT DISTINCT torrent_hash FROM imported_files WHERE album_rel_dir = ?",
-            (rel_dir,), logger=logger
-        ) or []
+        rows = (
+            select_all(
+                "SELECT DISTINCT torrent_hash FROM imported_files WHERE album_rel_dir = ?",
+                (rel_dir,),
+                logger=logger,
+            )
+            or []
+        )
         hashes = [r[0] for r in rows]
         if not hashes:
-            logger.warning("Aucun hash pour album_rel_dir=%s (path=%s)", rel_dir, host_path)
+            logger.warning(
+                "Aucun hash pour album_rel_dir=%s (path=%s)", rel_dir, host_path
+            )
             continue
 
         updated_total = 0

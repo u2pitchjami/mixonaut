@@ -1,14 +1,29 @@
+"""
+Requêtes de contrôles de valeurs dans beets.
+"""
 
 # def is_missing_genre(val):
 #     if not val or val in {"", "unknown", "none", "?"}:
 #         return False
 #     return True
 
+
 def is_missing_mb_albumid(val):
+    """
+    Returns `True` if the provided value is missing (i.e., an empty string, "unknown", "none", or "?"), and `False`
+    otherwise.
+
+    Args:
+        val: The value to check for being missing.
+
+    Returns:
+        bool: Whether the value is missing.
+    """
     if not val or val in {"", "unknown", "none", "?"}:
         return False
     return True
-  
+
+
 # def is_missing_gain(val):
 #     return not val or val.strip() in {"0", "unknown", "none"}
 

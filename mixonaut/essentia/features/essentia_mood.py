@@ -1,8 +1,17 @@
-from utils.config import MOOD_KEYS
-from utils.logger import with_child_logger
+"""
+2025-08-20.
+
+modules de traitement du mood.
+"""
+
+from mixonaut.utils.config import MOOD_KEYS
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+
 
 @with_child_logger
-def compute_mood_vector(features: dict, logger: str = None) -> [dict[str, float]]:
+def compute_mood_vector(
+    features: dict, logger: LoggerProtocol | None = None
+) -> dict[str, float]:
     """
     Extrait un vecteur de mood à partir des features audio (probas Essentia).
 
@@ -10,6 +19,7 @@ def compute_mood_vector(features: dict, logger: str = None) -> [dict[str, float]
     :param logger: Nom du logger
     :return: Dictionnaire {mood: proba} ou None si échec
     """
+    logger = ensure_logger(logger, __name__)
     try:
         vector = {}
         for mood in MOOD_KEYS:
@@ -27,7 +37,8 @@ def compute_mood_vector(features: dict, logger: str = None) -> [dict[str, float]
         logger.warning(f"[ERROR] Échec extraction mood_vector: {e}")
         raise
 
-def get_dominant_mood(mood_vector: dict[str, float]) -> [str]:
+
+def get_dominant_mood(mood_vector: dict[str, float]) -> str | None:
     """
     Extrait le mood dominant à partir d'un mood_vector.
 

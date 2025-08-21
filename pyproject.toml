@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mixonaut"
+version = "0.1.0"
+description = "Outils pour audio (Beets, Essentia, etc.)"
+requires-python = ">=3.9"
+
+[tool.setuptools]
+packages = ["mixonaut"]
+
+[tool.isort]
+profile = "black"
+line_length = 120         # aligne-toi avec Black (par défaut 88)
+src_paths = ["mixonaut"] # ton package
+known_first_party = ["mixonaut"]

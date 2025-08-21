@@ -1,28 +1,41 @@
+"""2025-08-20 - script de backup de la base beets."""
+
+import os
+import subprocess
 import tarfile
 from datetime import datetime
 from pathlib import Path
-import os
-import subprocess
-from utils.config import BEETS_CONFIG_DIR, BEETS_BACKUP_DIR, BEETS_DB, IMAGE_CLIENTS_DB
-from utils.safe_runner import safe_main
-from utils.logger import get_logger
+
+from mixonaut.utils.config import (
+    BEETS_BACKUP_DIR,
+    BEETS_CONFIG_DIR,
+    BEETS_DB,
+    IMAGE_CLIENTS_DB,
+)
+from mixonaut.utils.logger import get_logger
+from mixonaut.utils.safe_runner import safe_main
+
 
 def sqlite_safe_backup(db_path: str, backup_dir: str) -> str:
     """
-    Crée une copie atomique de la base SQLite via sqlite3 .backup
-    en utilisant le conteneur clients_db.
+    Crée une copie atomique de la base SQLite via sqlite3 .backup en utilisant le conteneur clients_db.
     """
     timestamp = datetime.now().strftime("%Y%m%d_%H%M")
     safe_db_copy = os.path.join(backup_dir, f"beets_db_{timestamp}.sqlite")
 
     cmd = [
-        "docker", "run", "--rm",
-        "-v", f"{os.path.abspath(os.path.dirname(db_path))}:/data",
-        "-v", f"{os.path.abspath(backup_dir)}:/backups",
-        "--entrypoint", "sqlite3",
+        "docker",
+        "run",
+        "--rm",
+        "-v",
+        f"{os.path.abspath(os.path.dirname(db_path))}:/data",
+        "-v",
+        f"{os.path.abspath(backup_dir)}:/backups",
+        "--entrypoint",
+        "sqlite3",
         IMAGE_CLIENTS_DB,
         f"/data/{os.path.basename(db_path)}",
-        f".backup '/backups/{os.path.basename(safe_db_copy)}'"
+        f".backup '/backups/{os.path.basename(safe_db_copy)}'",
     ]
 
     try:
@@ -30,6 +43,7 @@ def sqlite_safe_backup(db_path: str, backup_dir: str) -> str:
         return safe_db_copy
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"Erreur lors du backup SQLite : {e}")
+
 
 @safe_main
 def backup_beets_config():
@@ -54,7 +68,7 @@ def backup_beets_config():
     with tarfile.open(archive_path, "w:gz") as tar:
         tar.add(BEETS_CONFIG_DIR, arcname=os.path.basename(BEETS_CONFIG_DIR))
         tar.add(safe_db_copy, arcname=os.path.basename(safe_db_copy))
-        
+
     # Étape 2bis : suppression de la copie SQLite temporaire
     try:
         os.remove(safe_db_copy)
@@ -64,6 +78,7 @@ def backup_beets_config():
 
         logger.info(f"✅ Backup complet créé : {archive_path}")
         return archive_path
+
 
 if __name__ == "__main__":
     backup_beets_config()

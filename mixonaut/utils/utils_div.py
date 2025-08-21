@@ -1,17 +1,22 @@
+"""2025-08-20 - fonctions diverses."""
+
 import re
-import os
-import shutil
 from pathlib import Path
-from datetime import datetime
-from utils.config import BEETS_MUSIC, HOST_MUSIC, WINDOWS_MUSIC
-from utils.logger import with_child_logger
+
+from mixonaut.utils.config import BEETS_MUSIC, HOST_MUSIC, WINDOWS_MUSIC
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+
 
 @with_child_logger
-def format_percent(part: int, total: int, digits: int = 0, logger: str = None) -> str:
+def format_percent(
+    part: int, total: int, digits: int = 0, logger: LoggerProtocol | None = None
+) -> str:
     """
     Calcule un pourcentage (part/total) en gérant la division par zéro.
+
     Retourne une chaîne formatée avec '%' (arrondi à `digits` décimales).
     """
+    logger = ensure_logger(logger, __name__)
     try:
         if total == 0:
             return "N/A"
@@ -21,17 +26,23 @@ def format_percent(part: int, total: int, digits: int = 0, logger: str = None) -
         logger.warning(f"Erreur de calcul pourcentage : {e}")
         return "ERR%"
 
+
 @with_child_logger
-def format_nb(nb: int, insécable: bool = False, logger: str = None) -> str:
+def format_nb(
+    nb: int, insécable: bool = False, logger: LoggerProtocol | None = None
+) -> str:
     """
     Formate un entier avec des séparateurs de milliers.
+
     Par défaut : espace normal. Si insécable=True, utilise l'espace fine insécable (U+202F).
     """
+    logger = ensure_logger(logger, __name__)
     try:
         return f"{nb:,}".replace(",", " " if insécable else " ")
     except Exception as e:
         logger.warning(f"Erreur de formatage du nombre : {e}")
         return str(nb)
+
 
 def ensure_to_str(path) -> str:
     """
@@ -41,16 +52,19 @@ def ensure_to_str(path) -> str:
         path = path.decode("utf-8")
     return str(Path(path))
 
+
 def ensure_to_path(path):
     """
     Garantit qu'un chemin est une chaîne ou un Path valide.
+
     Convertit les objets bytes → str, et renvoie un Path.
     """
     if isinstance(path, bytes):
-        path = path.decode('utf-8')  # ou 'latin-1' selon ton encodage Beets
+        path = path.decode("utf-8")  # ou 'latin-1' selon ton encodage Beets
     return Path(path)
 
-def convert_path_format(path: Path, to_beets: bool = False) -> Path:
+
+def convert_path_format(path: Path | str, to_beets: bool = False) -> Path:
     """
     Convertit un chemin entre formats :
     - beets ↔ normal
@@ -70,7 +84,9 @@ def convert_path_format(path: Path, to_beets: bool = False) -> Path:
             return Path(BEETS_MUSIC) / relative
         elif str(path).startswith(WINDOWS_MUSIC) or str(path).startswith("W:/"):
             # Conversion chemin Windows vers chemin Beets
-            windows_relative = Path(str(path).replace(WINDOWS_MUSIC, "").replace("\\", "/"))
+            windows_relative = Path(
+                str(path).replace(WINDOWS_MUSIC, "").replace("\\", "/")
+            )
             return Path(BEETS_MUSIC) / windows_relative
     else:
         if str(path).startswith(str(BEETS_MUSIC)):
@@ -78,6 +94,7 @@ def convert_path_format(path: Path, to_beets: bool = False) -> Path:
             return Path(HOST_MUSIC) / relative
 
     raise ValueError(f"Chemin non reconnu ou non convertible : {path}")
+
 
 # def get_current_timestamp():
 #     """Retourne l’horodatage actuel au format ISO 8601 (secondes)"""
@@ -90,8 +107,15 @@ def convert_path_format(path: Path, to_beets: bool = False) -> Path:
 #     field_values["updated_at"] = get_current_timestamp()
 #     return field_values
 
+
 @with_child_logger
-def sanitize_value(value, format_type: str, logger: str = None):
+def sanitize_value(value, format_type: str, logger: LoggerProtocol | None = None):
+    """
+    Sanitise une valeur d'entrée en fonction de son type.
+
+    Retourne la valeur sanitiée s'il est possible ; sinon retourne None.
+    """
+    logger = ensure_logger(logger, __name__)
     if value is None:
         return None
     try:
@@ -123,6 +147,7 @@ def sanitize_value(value, format_type: str, logger: str = None):
     except Exception as e:
         logger.warning(f"❌ Erreur sur {format_type} : {value} ({e})")
         return None
+
 
 # @with_child_logger
 # def clear_folder(folder_path, logger=None):

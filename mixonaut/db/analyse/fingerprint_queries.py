@@ -1,16 +1,19 @@
 # db/fingerprint_queries.py
-from typing import Optional, Sequence, Tuple
+"""
+20250821.requêtes pour générer les hash.
+"""
+from collections.abc import Sequence
 
-from utils.logger import with_child_logger
-from db.access import select_one, select_all, execute_write
-
+from mixonaut.db.access import execute_write, select_all
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
 
 # ────────────────────────────────────────────────────────────────────────────────
 # SQL – fp_files (données dédupliquées par contenu)
 # ────────────────────────────────────────────────────────────────────────────────
 
 SQL_UPSERT_HASH = """
-INSERT INTO audio_hash (id, file_sha1, audio_hash_sha256, fingerprint, duration, chromaprint_version, acoustid_id, confidence, status, last_error)
+INSERT INTO audio_hash (id, file_sha1, audio_hash_sha256, fingerprint, \
+    duration, chromaprint_version, acoustid_id, confidence, status, last_error)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(id) DO UPDATE SET
   audio_hash_sha256    = excluded.audio_hash_sha256,
@@ -99,21 +102,36 @@ WHERE l.id IS NULL OR l.status != 'ok';
 # Helpers fins (utilisent db.access.*) – safe à appeler depuis tes services
 # ────────────────────────────────────────────────────────────────────────────────
 
+
 @with_child_logger
 def upsert_fp_success(
     *,
     track_id: int,
-    file_sha1: str,
-    file_sha256_pcm: str,
-    fingerprint: str,
-    duration: Optional[int],
-    chromaprint_version: Optional[int],
-    logger=None
+    file_sha1: str | None,
+    file_sha256_pcm: str | None,
+    fingerprint: str | None,
+    duration: int | None,
+    chromaprint_version: int | None,
+    logger: LoggerProtocol | None = None,
 ) -> None:
-    """Ecrit/maj l’empreinte et le lien en statut OK."""
+    """
+    Ecrit/maj l’empreinte et le lien en statut OK.
+    """
+    logger = ensure_logger(logger, __name__)
     execute_write(
         SQL_UPSERT_HASH,
-        (track_id, file_sha1, file_sha256_pcm, fingerprint, duration, chromaprint_version, None, None, 'OK', None),
+        (
+            track_id,
+            file_sha1,
+            file_sha256_pcm,
+            fingerprint,
+            duration,
+            chromaprint_version,
+            None,
+            None,
+            "OK",
+            None,
+        ),
         logger=logger,
     )
     # execute_write(
@@ -123,13 +141,24 @@ def upsert_fp_success(
     # )
     logger.debug(f"✅ FP upsert OK track={track_id} sha1={file_sha1} dur={duration}")
 
+
 @with_child_logger
-def mark_fp_error(*, track_id: int, file_sha1: str, message: str, logger=None) -> None:
-    """Marque un lien en erreur (crée une coquille fp_files si nécessaire)."""
+def mark_fp_error(
+    *,
+    track_id: int,
+    file_sha1: str | None,
+    message: str,
+    logger: LoggerProtocol | None = None,
+) -> None:
+    """
+    Marque un lien en erreur (crée une coquille fp_files si nécessaire).
+    """
     # Assure la FK (empreinte vide autorisée)
-    #execute_write(SQL_INSERT_EMPTY_FILE_IF_NEEDED, (file_sha1,), logger=logger)
-    #execute_write(SQL_MARK_LINK_ERROR, (track_id, file_sha1, message), logger=logger)
+    # execute_write(SQL_INSERT_EMPTY_FILE_IF_NEEDED, (file_sha1,), logger=logger)
+    # execute_write(SQL_MARK_LINK_ERROR, (track_id, file_sha1, message), logger=logger)
+    logger = ensure_logger(logger, __name__)
     logger.warning(f"⚠️ FP erreur track={track_id} sha1={file_sha1} → {message}")
+
 
 # @with_child_logger
 # def update_acoustid(*, file_sha1: str, acoustid_id: str, confidence: Optional[float], logger=None) -> None:
@@ -151,9 +180,19 @@ def mark_fp_error(*, track_id: int, file_sha1: str, message: str, logger=None) -
 # def list_duplicates(logger=None) -> Sequence[Tuple[str, int]]:
 #     return select_all(SQL_DUPLICATE_GROUPS, logger=logger)
 
+
 @with_child_logger
-def list_missing_or_bad(logger=None) -> Sequence[Tuple[int, str]]:
+def list_missing_or_bad(
+    logger: LoggerProtocol | None = None,
+) -> Sequence[tuple[int, str]]:
+    """
+    Liste les pistes avec une empreinte mal enregistrée (pas de lien ou avec un statut KO).
+
+    Retourne une liste d'identifiants de piste et de SHA1 associés.
+    """
+    logger = ensure_logger(logger, __name__)
     return select_all(SQL_TRACKS_WITHOUT_OK, logger=logger)
+
 
 # @with_child_logger
 # def delete_link(track_id: int, logger=None) -> None:

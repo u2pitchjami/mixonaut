@@ -1,8 +1,20 @@
-from utils.logger import with_child_logger
-from beets_utils.commands.commands import run_beet_command  # ou où tu l’as placée
+"""
+2025-08-19 modify pour beets.
+"""
+
+from mixonaut.beets_utils.commands.commands import (
+    run_beet_command,
+)
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+
 
 @with_child_logger
-def update_beets_fields(track_path: str, field_values: dict, logger=None, dry_run=False):
+def update_beets_fields(
+    track_path: str,
+    field_values: dict,
+    logger: LoggerProtocol | None = None,
+    dry_run=False,
+):
     """
     Construit et exécute une commande `beet modify` pour mettre à jour plusieurs champs.
 
@@ -12,8 +24,11 @@ def update_beets_fields(track_path: str, field_values: dict, logger=None, dry_ru
         logger (str): Pour la journalisation
         dry_run (bool): Simulation sans exécution réelle
     """
-    track_path = track_path.decode("utf-8") if isinstance(track_path, bytes) else track_path
-    
+    logger = ensure_logger(logger, __name__)
+    track_path = (
+        track_path.decode("utf-8") if isinstance(track_path, bytes) else track_path
+    )
+
     # Transforme les champs en liste de type "key=value"
     args = ["-y"]  # Ajout ici pour forcer la modification sans confirmation
     args += [f"{key}={value}" for key, value in field_values.items()]
@@ -26,8 +41,9 @@ def update_beets_fields(track_path: str, field_values: dict, logger=None, dry_ru
         interactive=False,
         check=True,
         dry_run=dry_run,
-        logger=logger
+        logger=logger,
     )
+
 
 # def update_beets_field(track_path: str, field: str, value: str, **kwargs):
 #     return update_beets_fields(track_path, {field: value}, **kwargs)

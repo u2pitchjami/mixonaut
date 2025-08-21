@@ -1,35 +1,49 @@
+"""
+2020-08-20 module de gestion des chemins entre le host et le conteneur.
+"""
+
 # process_imports/path_resolve.py
 from __future__ import annotations
-from pathlib import Path, PurePosixPath
-from typing import Optional, Tuple
-from utils.config import BEETS_IMPORT_PATH, MUSIC_IMPORT_PATH
-from utils.utils_div import convert_path_format  # ta fonction existante
 
-def _safe_relative_to(p: Path, base: Path) -> Optional[str]:
+from pathlib import Path, PurePosixPath
+
+from mixonaut.utils.config import BEETS_IMPORT_PATH, MUSIC_IMPORT_PATH
+from mixonaut.utils.utils_div import convert_path_format  # ta fonction existante
+
+
+def _safe_relative_to(p: Path, base: Path) -> str | None:
     try:
         return str(p.resolve().relative_to(base.resolve()))
     except Exception:
         return None
 
+
 def _beets_to_host_via_prefix(p: Path) -> Path:
-    """Remplace juste le préfixe /app/imports → /mnt/.../imports (rapide)."""
+    """
+    Remplace juste le préfixe /app/imports → /mnt/.../imports (rapide).
+    """
     beets_base = Path(BEETS_IMPORT_PATH).as_posix().rstrip("/")
     s = p.as_posix().strip()
     if s.startswith(beets_base):
-        suffix = s[len(beets_base):].lstrip("/")
+        suffix = s[len(beets_base) :].lstrip("/")
         return Path(MUSIC_IMPORT_PATH) / suffix
     return p
 
+
 def _beets_to_host_via_converter(p: Path) -> Path:
-    """Essaye avec ta utilité convert_path_format (gère Windows, etc.)."""
+    """
+    Essaye avec ta utilité convert_path_format (gère Windows, etc.).
+    """
     try:
         return convert_path_format(p, to_beets=False)  # vers host
     except Exception:
         return p  # on retombe sur p si non convertible
 
-def resolve_album_path_and_rel(path_str: str) -> Optional[Tuple[Path, str]]:
+
+def resolve_album_path_and_rel(path_str: str) -> tuple[Path, str] | None:
     """
     Accepte un chemin Beets (conteneur) ou host et renvoie (host_path, rel_dir_sous_imports).
+
     Renvoie None si le chemin ne pointe pas vers /imports/ (host ou conteneur).
     """
     raw = Path(path_str)
@@ -40,7 +54,9 @@ def resolve_album_path_and_rel(path_str: str) -> Optional[Tuple[Path, str]]:
         return raw, rel
 
     # 2) Si ça ressemble à un chemin Beets (/app/imports/...), tente prefix + convert_path_format
-    if BEETS_IMPORT_PATH and raw.as_posix().startswith(Path(BEETS_IMPORT_PATH).as_posix().rstrip("/")):
+    if BEETS_IMPORT_PATH and raw.as_posix().startswith(
+        Path(BEETS_IMPORT_PATH).as_posix().rstrip("/")
+    ):
         # d’abord simple remplacement de préfixe
         host_guess = _beets_to_host_via_prefix(raw)
         rel = _safe_relative_to(host_guess, Path(MUSIC_IMPORT_PATH))
@@ -56,7 +72,7 @@ def resolve_album_path_and_rel(path_str: str) -> Optional[Tuple[Path, str]]:
     parts = PurePosixPath(raw.as_posix()).parts
     if "imports" in parts:
         idx = parts.index("imports")
-        suffix = "/".join(parts[idx + 1:])  # Artist/Album[/CD1]
+        suffix = "/".join(parts[idx + 1 :])  # Artist/Album[/CD1]
         rebuilt = Path(MUSIC_IMPORT_PATH) / suffix
         return rebuilt, suffix
 

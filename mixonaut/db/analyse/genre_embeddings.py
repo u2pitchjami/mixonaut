@@ -1,19 +1,45 @@
+"""
+20250820.
+
+requêtes pour générer les embedding genres
+"""
+
 from sklearn.decomposition import PCA
-from utils.logger import with_child_logger
-from db.access import select_all
+
+from mixonaut.db.access import select_all
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
 
 # Configuration
 GENRE_COLUMNS = [
     # Dortmund (10 genres)
-    "genre_dortmund_alternative", "genre_dortmund_blues", "genre_dortmund_electronic",
-    "genre_dortmund_folkcountry", "genre_dortmund_funksoulrnb", "genre_dortmund_jazz",
-    "genre_dortmund_pop", "genre_dortmund_raphiphop", "genre_dortmund_rock",
+    "genre_dortmund_alternative",
+    "genre_dortmund_blues",
+    "genre_dortmund_electronic",
+    "genre_dortmund_folkcountry",
+    "genre_dortmund_funksoulrnb",
+    "genre_dortmund_jazz",
+    "genre_dortmund_pop",
+    "genre_dortmund_raphiphop",
+    "genre_dortmund_rock",
     # Electronic (5 genres)
-    "genre_electronic_ambient", "genre_electronic_dnb", "genre_electronic_house",
-    "genre_electronic_techno", "genre_electronic_trance"
+    "genre_electronic_ambient",
+    "genre_electronic_dnb",
+    "genre_electronic_house",
+    "genre_electronic_techno",
+    "genre_electronic_trance",
 ]
+
+
 @with_child_logger
-def compute_genre_embeddings(n_components: int = 2, logger: str = None):
+def compute_genre_embeddings(
+    n_components: int = 2, logger: LoggerProtocol | None = None
+):
+    """
+    Applique une réduction PCA sur les vecteurs genre pour chaque track.
+
+    Retourne une liste de dictionnaires avec id, genre_x,genre_y.
+    """
+    logger = ensure_logger(logger, __name__)
     try:
         cols = ", ".join(["id"] + GENRE_COLUMNS)
         query = f"SELECT {cols} FROM audio_features"
@@ -42,7 +68,7 @@ def compute_genre_embeddings(n_components: int = 2, logger: str = None):
         for i, track_id in enumerate(ids):
             entry = {"id": track_id}
             for d in range(n_components):
-                entry[f"genre_emb_{d+1}"] = round(float(reduced[i][d]), 4)
+                entry[f"genre_emb_{d + 1}"] = round(float(reduced[i][d]), 4)
             results.append(entry)
 
         logger.info(f"{len(results)} embeddings genre générés.")

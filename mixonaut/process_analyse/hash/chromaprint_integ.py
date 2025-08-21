@@ -1,85 +1,137 @@
 # chromaprint_integ.py
+"""
+2020-08-20 module de traitemments des hashs.
+"""
 from __future__ import annotations
+
 import hashlib
+import json
 import os
 import shlex
+import shutil
 import subprocess
 from dataclasses import dataclass
-import json
-import shutil
-from typing import Optional, Tuple
-from utils.utils_div import convert_path_format
-from utils.logger import with_child_logger
-from db.analyse.fingerprint_queries import (
-    upsert_fp_success,
-    mark_fp_error,
-)
-from utils.config import (
+from functools import partial
+from pathlib import Path
+from typing import IO
+
+from mixonaut.db.analyse.fingerprint_queries import mark_fp_error, upsert_fp_success
+from mixonaut.utils.config import (
+    FPCALC_MOUNT_CONTAINER,
     FPCALC_RUNNER,
     IMAGE_FPCALC,
-    FPCALC_MOUNT_CONTAINER,
-    MUSIC_BASE_PATH
+    MUSIC_BASE_PATH,
 )
-from pathlib import Path
-import os
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.utils_div import convert_path_format
 
 # ────────────────────────────────────────────────────────────────────────────────
 # Data model
 # ────────────────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class FPResult:
+    """
+    Stores the result of a chromaprint fingerprint calculation.
+
+    Attributes:
+        fingerprint (str): The computed fingerprint.
+        duration (int | None): The time it took to calculate the fingerprint in seconds. None if not available.
+        chromaprint_version (int | None): The version of chromaprint used for calculation. None if not available.
+    """
+
     fingerprint: str
     duration: int | None
     chromaprint_version: int | None = None
+
 
 # ────────────────────────────────────────────────────────────────────────────────
 # Low-level helpers
 # ────────────────────────────────────────────────────────────────────────────────
 
-def _sha1_file(path: str, block_size: int = 1024 * 1024) -> str:
-    """SHA1 du contenu (inclut tags)."""
+
+def _sha1_file(path: str, block_size: int = 1024 * 1024) -> str | None:
+    """
+    SHA1 du contenu (inclut tags).
+    """
     h = hashlib.sha1()
     host_path = convert_path_format(path=path)
-    st = os.stat(host_path)
+    # st = os.stat(host_path)
     with open(host_path, "rb") as f:
         for chunk in iter(lambda: f.read(block_size), b""):
             h.update(chunk)
     return h.hexdigest()
 
+
 @with_child_logger
-def sha256_pcm(path: Path, host_music_root: Path = MUSIC_BASE_PATH, ar: int = 11025, ac: int = 1, timeout_sec: int = 120, logger=None) -> str:
-    """Decode audio to raw PCM via ffmpeg and hash the stream (stable vs tags)."""
-    
+def sha256_pcm(
+    path: str,
+    host_music_root: Path = MUSIC_BASE_PATH,
+    ar: int = 11025,
+    ac: int = 1,
+    timeout_sec: int = 120,
+    logger: LoggerProtocol | None = None,
+) -> str | None:
+    """
+    Decode audio to raw PCM via ffmpeg and hash the stream (stable vs tags).
+    """
+    logger = ensure_logger(logger, __name__)
     cmd = [
-        "docker", "run", "--rm",
-        "-v", f"{str(host_music_root)}:{FPCALC_MOUNT_CONTAINER}:ro",
-        IMAGE_FPCALC, "ffmpeg", "-nostdin", "-v", "error", "-i", str(path),
-        "-map", "a:0", "-f", "s16le", "-ac", str(ac), "-ar", str(ar), "-"
+        "docker",
+        "run",
+        "--rm",
+        "-v",
+        f"{str(host_music_root)}:{FPCALC_MOUNT_CONTAINER}:ro",
+        IMAGE_FPCALC,
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-i",
+        str(path),
+        "-map",
+        "a:0",
+        "-f",
+        "s16le",
+        "-ac",
+        str(ac),
+        "-ar",
+        str(ar),
+        "-",
     ]
     hasher = hashlib.sha256()
     try:
-        with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as proc:
-            assert proc.stdout is not None
-            for chunk in iter(lambda: proc.stdout.read(1024 * 1024), b""):
+        with subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        ) as proc:
+            stdout = proc.stdout  # type: IO[bytes] | None
+            if stdout is None:
+                raise RuntimeError("Failed to open ffmpeg stdout pipe.")
+            for chunk in iter(partial(stdout.read, 1024 * 1024), b""):
                 if not chunk:
                     break
                 hasher.update(chunk)
             _, stderr = proc.communicate(timeout=timeout_sec)
             if proc.returncode != 0:
-                logger.error("ffmpeg failed for %s: %s", path, stderr.decode("utf-8", errors="ignore"))
+                logger.error(
+                    "ffmpeg failed for %s: %s",
+                    path,
+                    stderr.decode("utf-8", errors="ignore"),
+                )
                 raise RuntimeError("ffmpeg decode failed")
     except FileNotFoundError as exc:
-        LOG.error("ffmpeg not found. Please install ffmpeg.")
+        logger.error("ffmpeg not found. Please install ffmpeg.")
         raise exc
     return hasher.hexdigest()
+
 
 def _parse_fpcalc_json(stdout: str) -> FPResult:
     s = stdout.strip()
     try:
         start = s.rfind("{")
         end = s.rfind("}")
-        payload = s[start:end+1] if start != -1 and end != -1 else s
+        payload = s[start : end + 1] if start != -1 and end != -1 else s
         obj = json.loads(payload)
     except Exception as exc:
         raise ValueError(f"JSON fpcalc illisible: {exc}\nRAW={stdout[:300]}...")
@@ -104,6 +156,7 @@ def _parse_fpcalc_json(stdout: str) -> FPResult:
         ver = None
 
     return FPResult(fingerprint=fp, duration=dur, chromaprint_version=ver)
+
 
 def _parse_fpcalc_text(stdout: str) -> FPResult:
     """
@@ -136,6 +189,7 @@ def _parse_fpcalc_text(stdout: str) -> FPResult:
         raise ValueError("fpcalc texte: FINGERPRINT manquant.")
     return FPResult(fingerprint=fp, duration=dur, chromaprint_version=ver)
 
+
 def _parse_fpcalc_output(stdout: str) -> FPResult:
     s = stdout.strip()
     if s.startswith("{"):
@@ -144,7 +198,9 @@ def _parse_fpcalc_output(stdout: str) -> FPResult:
 
 
 def _to_container_path(host_path: str, host_music_root: str) -> str:
-    """Mappe un chemin host vers le chemin conteneur selon le bind-mount."""
+    """
+    Mappe un chemin host vers le chemin conteneur selon le bind-mount.
+    """
     if FPCALC_RUNNER != "docker":
         return host_path
     host_root = str(host_music_root).rstrip("/")
@@ -154,26 +210,34 @@ def _to_container_path(host_path: str, host_music_root: str) -> str:
     # pas de mapping → on renvoie tel quel (au pire fpcalc échouera)
     return host_path
 
+
 @with_child_logger
-def _run_fpcalc(path: str,
-                max_length: Optional[int] = None,
-                timeout: int = 60,
-                prefer_json: bool = False,
-                host_music_root: Path = MUSIC_BASE_PATH,
-                logger=None) -> FPResult:
+def _run_fpcalc(
+    path: str,
+    max_length: int | None = None,
+    timeout: int = 60,
+    prefer_json: bool = False,
+    host_music_root: Path = MUSIC_BASE_PATH,
+    logger: LoggerProtocol | None = None,
+) -> FPResult:
+    logger = ensure_logger(logger, __name__)
     host_path = convert_path_format(path=path)
     if not os.path.isfile(host_path):
-       raise FileNotFoundError(f"Fichier introuvable: {host_path}")
+        raise FileNotFoundError(f"Fichier introuvable: {host_path}")
 
     # Préfixe selon runner
     if FPCALC_RUNNER == "docker":
-        target_path = _to_container_path(path, host_music_root)
-        
-        prefix = ["docker", "run", "--rm",
-        "-v", f"{str(host_music_root)}:{FPCALC_MOUNT_CONTAINER}:ro",
-        IMAGE_FPCALC,
+        target_path = _to_container_path(path, str(host_music_root))
+
+        prefix = [
+            "docker",
+            "run",
+            "--rm",
+            "-v",
+            f"{str(host_music_root)}:{FPCALC_MOUNT_CONTAINER}:ro",
+            IMAGE_FPCALC,
         ]
-        
+
     else:
         # Mode local → s’assurer que fpcalc est dispo
         if shutil.which("fpcalc") is None:
@@ -194,40 +258,59 @@ def _run_fpcalc(path: str,
 
     # 1) tentative JSON
     if prefer_json:
-        cmd = base_cmd + ["-json", str(target_path),]
+        cmd = base_cmd + [
+            "-json",
+            str(target_path),
+        ]
         try:
             logger.debug("fpcalc (json) → %s", shlex.join(cmd))
-            cp = subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=timeout)
+            cp = subprocess.run(
+                cmd, check=True, capture_output=True, text=True, timeout=timeout
+            )
             return _parse_fpcalc_json(cp.stdout.strip())
         except Exception as e:
             logger.debug("fpcalc -json indisponible/échoué (%s), fallback texte.", e)
 
     # 2) fallback texte
-    cmd = base_cmd + [str(target_path),]    
+    cmd = base_cmd + [
+        str(target_path),
+    ]
     logger.debug("fpcalc → %s", shlex.join(cmd))
-    p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True, timeout=timeout)
-    #logger.debug("p = %s", p)
+    p = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=timeout,
+    )
+    # logger.debug("p = %s", p)
     if p.stderr:
         logger.debug("fpcalc stderr: %s", p.stderr.strip()[:400])
     return _parse_fpcalc_output(p.stdout)
+
 
 # ────────────────────────────────────────────────────────────────────────────────
 # Public API
 # ────────────────────────────────────────────────────────────────────────────────
 
+
 @with_child_logger
-def fingerprint_track(track_id: int,
-                      file_path: str,
-                      *,
-                      max_length: Optional[int] = None,
-                      timeout: int = 60,
-                      prefer_json: bool = False,
-                      logger=None) -> Tuple[bool, Optional[str]]:
+def fingerprint_track(
+    track_id: int,
+    file_path: str,
+    *,
+    max_length: int | None = None,
+    timeout: int = 60,
+    prefer_json: bool = False,
+    logger: LoggerProtocol | None = None,
+) -> tuple[str, str | None]:
     """
     Calcule l’empreinte d’un fichier et écrit en base (fp_files + fp_links).
+
     Retourne (ok, message_d’erreur_éventuel).
     """
-    try:        
+    logger = ensure_logger(logger, __name__)
+    try:
         abspath = os.path.abspath(os.path.expanduser(file_path))
         host_path = convert_path_format(path=file_path)
         if not os.path.isfile(host_path):
@@ -237,14 +320,20 @@ def fingerprint_track(track_id: int,
         # SHA1 en premier (même si fpcalc échoue, on garde une trace par contenu)
         file_sha1 = _sha1_file(abspath)
         logger.debug("SHA1(%s) = %s", abspath, file_sha1)
-        
+
         # SHA256
         file_sha256_pcm = sha256_pcm(path=abspath, logger=logger)
         logger.debug("SHA256_PCM(%s) = %s", abspath, file_sha256_pcm)
 
         # fpcalc
-        fp = _run_fpcalc(abspath, max_length=max_length, timeout=timeout, prefer_json=prefer_json, logger=logger)
-        #logger.debug("fp = %s", fp)
+        fp = _run_fpcalc(
+            abspath,
+            max_length=max_length,
+            timeout=timeout,
+            prefer_json=prefer_json,
+            logger=logger,
+        )
+        # logger.debug("fp = %s", fp)
         # upsert OK (écrit fp_files + fp_links)
         upsert_fp_success(
             track_id=track_id,
@@ -260,28 +349,40 @@ def fingerprint_track(track_id: int,
     except subprocess.CalledProcessError as e:
         msg = f"fpcalc échec (code={e.returncode})"
         try:
-            file_sha1 = _sha1_file(file_path) if os.path.exists(file_path) else "unknown"
+            file_sha1 = (
+                _sha1_file(file_path) if os.path.exists(file_path) else "unknown"
+            )
         except Exception:
             file_sha1 = "unknown"
-        mark_fp_error(track_id=track_id, file_sha1=file_sha1, message=msg, logger=logger)
+        mark_fp_error(
+            track_id=track_id, file_sha1=file_sha1, message=msg, logger=logger
+        )
         return "KO", msg
 
     except subprocess.TimeoutExpired:
         msg = f"fpcalc timeout (> {timeout}s)"
         try:
-            file_sha1 = _sha1_file(file_path) if os.path.exists(file_path) else "unknown"
+            file_sha1 = (
+                _sha1_file(file_path) if os.path.exists(file_path) else "unknown"
+            )
         except Exception:
             file_sha1 = "unknown"
-        mark_fp_error(track_id=track_id, file_sha1=file_sha1, message=msg, logger=logger)
+        mark_fp_error(
+            track_id=track_id, file_sha1=file_sha1, message=msg, logger=logger
+        )
         return "KO", msg
 
     except Exception as e:
         msg = f"Erreur: {e}"
         try:
-            file_sha1 = _sha1_file(file_path) if os.path.exists(file_path) else "unknown"
+            file_sha1 = (
+                _sha1_file(file_path) if os.path.exists(file_path) else "unknown"
+            )
         except Exception:
             file_sha1 = "unknown"
-        mark_fp_error(track_id=track_id, file_sha1=file_sha1, message=msg, logger=logger)
+        mark_fp_error(
+            track_id=track_id, file_sha1=file_sha1, message=msg, logger=logger
+        )
         return "KO", msg
 
 
