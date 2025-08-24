@@ -201,7 +201,7 @@ def get_logger(script_name: str) -> LoggerProtocol:
         rotate_logs(LOG_FILE_PATH, LOG_ROTATION_DAYS, logf=script_log_file)
     except Exception as exc:  # noqa: BLE001
         base_fallback = logging.getLogger(script_name)
-        base_fallback.setLevel(logging.INFO)
+        base_fallback.setLevel(logging.DEBUG)
         _ensure_handlers(base_fallback, global_log_file, script_log_file)
         MixonautLogger(base_fallback).warning(f"Rotation des logs échouée: {exc}")
 

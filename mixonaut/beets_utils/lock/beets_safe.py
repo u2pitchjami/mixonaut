@@ -4,7 +4,10 @@
 module qui gère le lock de la base car sqlite ne supporte qu'une seule connection.
 """
 
+from __future__ import annotations
+
 import os
+import re
 import time
 from datetime import datetime
 
@@ -30,7 +33,7 @@ def is_process_alive(pid: int) -> bool:
         return False
 
 
-def read_lock_info():
+def read_lock_info() -> tuple[int | None, str | None]:
     """
     Lecture des informations de lock.
 
@@ -47,7 +50,7 @@ def read_lock_info():
         return None, None
 
 
-def create_lock():
+def create_lock() -> bool:
     """
     Crée un lock en écrivant les informations de processus et timestamp dans le fichier LOCK_FILE.
 
@@ -64,7 +67,9 @@ def create_lock():
 
 
 @with_child_logger
-def wait_for_unlock(timeout=TIMEOUT, logger: LoggerProtocol | None = None):
+def wait_for_unlock(
+    timeout: int = TIMEOUT, logger: LoggerProtocol | None = None
+) -> bool:
     """
     Attend que le verrou soit libéré pour la base.
 
@@ -101,7 +106,7 @@ def wait_for_unlock(timeout=TIMEOUT, logger: LoggerProtocol | None = None):
     return True
 
 
-def get_current_pid():
+def get_current_pid() -> int:
     """
     Renvoie le PID actuel du processus.
 
@@ -110,23 +115,36 @@ def get_current_pid():
     return os.getpid()
 
 
-def read_lock_pid():
+def read_lock_pid(
+    lock_file: os.PathLike[str] | str = LOCK_FILE,
+    logger: LoggerProtocol | None = None,
+) -> int | None:
     """
-    Vérifie si un fichier de verrou est présent et récupère son contenu.
+    Lit un fichier de verrou et renvoie le PID s'il est présent sous forme 'PID=1234'.
 
-    Si le fichier n'est pas présent ou que son contenu ne peut être lue, retourne None.
+    Retourne None si le fichier est absent, si le format n'est pas reconnu, ou si la valeur n'est pas un entier valide.
     """
+    log = ensure_logger(logger, __name__)
+    path = os.fspath(lock_file)
+
     try:
-        with open(LOCK_FILE) as f:
-            for line in f.readlines():
-                if line.startswith("PID="):
-                    return int(line.strip().split("=")[1])
-    except Exception:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                m = re.match(r"\s*PID\s*=\s*(\d+)\s*$", line)
+                if m:
+                    return int(m.group(1))
+        # Si on a lu tout le fichier sans trouver PID=...
+        return None
+
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        log.error("Erreur lecture lock file %s: %s", path, exc)
         return None
 
 
 @with_child_logger
-def safe_beets_call(logger: LoggerProtocol | None = None) -> int:
+def safe_beets_call(logger: LoggerProtocol | None = None) -> bool:
     """
     Effectue une appel sécurisé à Beets après avoir vérifié que le verrou est libéré.
 

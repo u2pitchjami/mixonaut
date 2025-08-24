@@ -20,7 +20,7 @@ ALIASES = {
 }
 
 
-def list_queries():
+def list_queries() -> dict[str, Path]:
     """
     Returns a dictionary mapping query filenames to their corresponding SQL queries.
 
@@ -29,7 +29,7 @@ def list_queries():
     return {f.stem: f for f in Path(QUERIES_DIR).glob("*.sql")}
 
 
-def execute_sql_file(path):
+def execute_sql_file(path: Path) -> None:
     """
     Découpe et exécute toutes les requêtes d’un fichier .sql.
     """
@@ -49,7 +49,7 @@ def execute_sql_file(path):
             print(f"[red]❌ Erreur : {e}[/red]")
 
 
-def run_query(name):
+def run_query(name: str) -> None:
     """
     Execute a query based on the provided name.
 
@@ -80,7 +80,7 @@ def run_query(name):
     execute_sql_file(queries[name])
 
 
-def run_all_queries():
+def run_all_queries() -> None:
     """
     Execute all SQL files in the `QUERIES_DIR` directory.
 

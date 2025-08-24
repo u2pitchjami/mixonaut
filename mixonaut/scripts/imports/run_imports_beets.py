@@ -3,6 +3,7 @@
 import argparse
 import threading
 import time
+from pathlib import Path
 
 from mixonaut.beets_utils.commands.imports import import_auto, import_manuel
 from mixonaut.process_imports.beets.beets_manual_extract import (
@@ -20,7 +21,7 @@ from mixonaut.utils.safe_runner import safe_main
 logger = get_logger("Run_Imports_Beets")
 
 
-def heartbeat():
+def heartbeat() -> None:
     """
     Periodically logs a message to the logger indicating that the script is still running.
 
@@ -33,13 +34,13 @@ def heartbeat():
 
 @safe_main
 def main(
-    source_dir=MUSIC_SOURCE_PATH,
-    import_dir=MUSIC_IMPORT_PATH,
-    nb_limit="0",
-    manuel=False,
-    noincremental=False,
-    noscan=False,
-):
+    source_dir: Path = MUSIC_SOURCE_PATH,
+    import_dir: Path = MUSIC_IMPORT_PATH,
+    nb_limit: int | None = None,
+    manuel: bool = False,
+    noincremental: bool = False,
+    noscan: bool = False,
+) -> None:
     """
     Main function to handle the Beets imports.
 
@@ -63,14 +64,12 @@ def main(
         import_completed_torrents(logger=logger)
         logger.debug("test retour run")
         scan_and_process_downloads(
-            nb_limit=nb_limit,
+            nb_limit=nb_limit if nb_limit else None,
             source_root=source_dir,
             imports_root=import_dir,
             logger=logger,
         )
-    # Disabled: scan_and_process_downloads(source_dir=MUSIC_IMPORT_TEMP_PATH, logger=logger)
-    # Disabled: clear_folder(MUSIC_IMPORT_TEMP_PATH, logger=logger)
-    # (This line is kept for reference; use if you want to scan a specific directory instead of the default.)
+
     if manuel:
         logger.info("🔍 Fin du Scan - Démarrage de l'import Beets manuel")
         import_manuel(logger=logger)
@@ -112,7 +111,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--nb-limit",
         type=int,
-        default=0,
+        default=None,
         help="Nombre d'éléments à traiter (défaut: 0)",
     )
     args = parser.parse_args()

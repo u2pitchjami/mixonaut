@@ -12,7 +12,7 @@ logger = get_logger("Check_Musicbrainz")
 
 
 @safe_main
-def check_mb_albumid(artist=None):
+def check_mb_albumid(artist: str | None = None) -> None:
     """
     Check if all albums in the specified artist have a MusicBrainz ID.
 

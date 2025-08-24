@@ -9,7 +9,7 @@ from mixonaut.utils.safe_runner import safe_main
 
 
 @safe_main
-def sync_metadata(target_path=None, dry_run=False):
+def sync_metadata(target_path: str | None = None, dry_run: bool = False) -> None:
     """
     Synchronise les données de Musicbrainz avec Beets.
 
@@ -29,24 +29,23 @@ def sync_metadata(target_path=None, dry_run=False):
     scope = target_path if target_path else "toute la base"
     logger.info(f"🎯 Portée : {scope}")
 
-    mbsync = run_beet_command(
+    run_beet_command(
         command="mbsync",
-        args=[target_path],
+        args=[target_path] if target_path else None,
         interactive=False,
         dry_run=dry_run,
         logger=logger,
     )
-    logger.debug(mbsync)
     run_beet_command(
         command="write -f",
-        args=[target_path],
+        args=[target_path] if target_path else None,
         interactive=True,
         dry_run=dry_run,
         logger=logger,
     )
     run_beet_command(
         command="move",
-        args=[target_path],
+        args=[target_path] if target_path else None,
         interactive=True,
         dry_run=dry_run,
         logger=logger,

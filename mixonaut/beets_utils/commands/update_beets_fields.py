@@ -2,6 +2,8 @@
 2025-08-19 modify pour beets.
 """
 
+from typing import Any
+
 from mixonaut.beets_utils.commands.commands import (
     run_beet_command,
 )
@@ -11,10 +13,10 @@ from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logg
 @with_child_logger
 def update_beets_fields(
     track_path: str,
-    field_values: dict,
+    field_values: dict[str, Any],
     logger: LoggerProtocol | None = None,
-    dry_run=False,
-):
+    dry_run: bool = False,
+) -> None:
     """
     Construit et exécute une commande `beet modify` pour mettre à jour plusieurs champs.
 
@@ -35,7 +37,7 @@ def update_beets_fields(
     args += ["--nomove"]
     args.append(track_path)
 
-    return run_beet_command(
+    run_beet_command(
         command="modify",
         args=args,
         interactive=False,

@@ -7,6 +7,7 @@ hub analyse essentia.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from mixonaut.db.analyse.essentia_queries import insert_or_update_audio_features
 from mixonaut.essentia.analyse.essentia_extractions import (
@@ -31,7 +32,7 @@ def analyse_track_wo_essentia(
     track_id: int,
     force: bool = False,
     logger: LoggerProtocol | None = None,
-) -> tuple[dict | None, str | None, str | None]:
+) -> tuple[dict[str, Any] | None, str | None, str | None]:
     """
     Charge un JSON Essentia déjà produit, calcule les features dérivées et met à jour la base. Ne lance PAS
     docker/Essentia.
@@ -66,14 +67,15 @@ def analyse_track_wo_essentia(
 
 @with_child_logger
 def analyse_track(
-    track, force=False, source="Mixonaut", logger: LoggerProtocol | None = None
-):
+    track: tuple[int, str, str, str, str],
+    force: bool = False,
+    logger: LoggerProtocol | None = None,
+) -> tuple[dict[str, Any] | None, str | None, str | None]:
     """
     Analyse un morceau de musique pour extraire des caractéristiques Essentia.
     Args:
         track: Chemin du morceau à analyser.
         force (bool): Vérifie si le traitement doit être répété même si les fichiers temporaires sont présents.
-        source (str): Source du fichier audio (par défaut, "Mixonaut").
         logger: Objectif pour loguer les messages.
 
     Returns:
@@ -124,8 +126,11 @@ def analyse_track(
 
 @with_child_logger
 def extract_and_parse_features(
-    temp_audio, temp_json, profile, logger: LoggerProtocol | None = None
-):
+    temp_audio: Path,
+    temp_json: Path,
+    profile: Path,
+    logger: LoggerProtocol | None = None,
+) -> tuple[dict[str, Any] | None, str, str | None]:
     """
     Lance l'image essentia et parse le json obtenu.
     """

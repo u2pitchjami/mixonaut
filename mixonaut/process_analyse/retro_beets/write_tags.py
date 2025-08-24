@@ -4,6 +4,7 @@
 
 import os
 import subprocess
+from typing import Any
 
 from mixonaut.utils.config import BEETS_MUSIC, IMAGE_BEETS, MUSIC_BASE_PATH
 from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
@@ -16,7 +17,7 @@ CONTAINER_MUSIC_DIR = BEETS_MUSIC
 
 @with_child_logger
 def write_tags_docker(
-    path: str, track_features: dict, logger: LoggerProtocol | None = None
+    path: str, track_features: dict[str, Any], logger: LoggerProtocol | None = None
 ) -> None:
     """
     This function writes tags to a music file using Docker.
@@ -124,7 +125,7 @@ def write_tags_docker(
         logger.error(f"Erreur lors de l'écriture des tags dans {path} : {e}")
 
 
-def docker_metaflac_cmd(flac_path, operation):
+def docker_metaflac_cmd(flac_path: str, operation: list[str] | str) -> list[str]:
     """
     Construct a Docker command to interact with MetaFLAC.
 

@@ -14,11 +14,11 @@ from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logg
 
 @with_child_logger
 def run_replaygain_in_container(
-    audio_path: str,
-    json_out_path: str,
-    profile_path: str,
+    audio_path: Path,
+    json_out_path: Path,
+    profile_path: Path,
     logger: LoggerProtocol | None = None,
-):
+) -> None:
     """
     Launches the replaygain process in a Docker container.
 

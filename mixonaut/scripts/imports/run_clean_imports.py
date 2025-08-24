@@ -20,15 +20,14 @@ logger = get_logger("test_qbittorrent_supp")
 @safe_main
 @with_child_logger
 def cleanup_completed_torrents(
-    qbit_host,
-    qbit_user,
-    qbit_pass,
-    min_ratio=2.0,
-    min_age_days=30,
-    grace_days_soft=14,
-    dry_run=False,
-    logger=None,
-):
+    qbit_host: str,
+    qbit_user: str,
+    qbit_pass: str,
+    min_ratio: int | float = 2.0,
+    min_age_days: int = 30,
+    grace_days_soft: int = 14,
+    dry_run: bool = False,
+) -> None:
     """Cleanup completed torrents and update QBit ratios.
     Args:
         qbit_host (str): QBit host URL.
@@ -63,7 +62,7 @@ def cleanup_completed_torrents(
     )
     logger.info("🧹 Hashes à supprimer: %s", hashes)
 
-    delete_torrents_and_files_by_hashes(
+    summary = delete_torrents_and_files_by_hashes(
         hashes,
         qbit_host=qbit_host,
         qbit_user=qbit_user,
@@ -71,7 +70,7 @@ def cleanup_completed_torrents(
         dry_run=dry_run,
         logger=logger,
     )
-    logger.info("✅ Cleanup terminé.")
+    logger.info("✅ Cleanup terminé. Résumé: %s", summary)
 
 
 if __name__ == "__main__":

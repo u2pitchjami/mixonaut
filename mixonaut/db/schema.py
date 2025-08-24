@@ -9,7 +9,7 @@ import sqlite3
 from mixonaut.utils.config import BEETS_DB
 
 
-def create_tables():
+def create_tables() -> None:
     """
     2025-08-20.
 

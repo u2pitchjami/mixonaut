@@ -2,7 +2,16 @@
 2020-08-20 module hub de scoring pour le matching.
 """
 
+from __future__ import annotations
+
 from mixonaut.db.matching.matching_queries import get_transpositions
+from mixonaut.process_matching.models.models import (
+    BestCandidate,
+    CandidateTrack,
+    TrackFeatures,
+    TrackMatch,
+    TranspoCombo,
+)
 from mixonaut.process_matching.param.weights import get_weights
 from mixonaut.process_matching.process.key_process import (
     build_transposition_dict,
@@ -21,80 +30,88 @@ from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logg
 def compute_candidate_scores(
     ref_bpm: float,
     ref_duration: float,
-    ref_beat_intensity: int,
+    ref_beat_intensity: float,
     ref_mood_emb1: float,
     ref_mood_emb2: float,
     ref_genre_emb1: float,
     ref_genre_emb2: float,
-    candidate: dict,
-    best_combo: dict,
-) -> dict:
+    candidate: TrackFeatures,  # dict typé
+    best_combo: TranspoCombo,  # alias de BestCandidate
+) -> dict[str, float]:
     """
-    Compute the score of a candidate in comparison to a reference.
+    Calcule les sous-scores normalisés ∈ [0,1] pour chaque dimension.
 
-    Args:
-        ref_bpm (float): The BPM of the reference audio.
-        ref_duration (float): The duration of the reference audio.
-        ref_beat_intensity (int): The beat intensity of the reference audio.
-        ref_mood_emb1 (float): The mood embedding 1 of the reference audio.
-        ref_mood_emb2 (float): The mood embedding 2 of the reference audio.
-        ref_genre_emb1 (float): The genre embedding 1 of the reference audio.
-        ref_genre_emb2 (float): The genre embedding 2 of the reference audio.
-        candidate (dict): The dictionary containing the candidate's metadata.
-            Should include bpm, duration, beat_intensity, mood_emb1, mood_emb2,
-            and genre_emb1.
-        best_combo (dict): The dictionary containing the best combination of
-            transpositions.
-    Returns:
-        dict: A dictionary containing the key, BPM similarity, genre similarity,
-            duration similarity, beat intensity score, and mood similarity score.
+    Les clés retournées DOIVENT être : 'bpm', 'key', 'beat', 'mood', 'genre', 'duration'.
     """
     return {
-        "key": best_combo["score"],
-        "bpm_sim": calculate_bpm_similarity(
-            ref_bpm=ref_bpm, candidate_bpm=candidate["bpm"]
+        "key": float(best_combo["score"]),
+        "bpm": float(
+            calculate_bpm_similarity(ref_bpm=ref_bpm, candidate_bpm=candidate["bpm"])
         ),
-        "genre_sim": calculate_genre_sim_score(
-            ref_emb1=ref_genre_emb1,
-            ref_emb2=ref_genre_emb2,
-            emb1=candidate["genre_emb1"],
-            emb2=candidate["genre_emb2"],
+        "genre": float(
+            calculate_genre_sim_score(
+                ref_emb1=ref_genre_emb1,
+                ref_emb2=ref_genre_emb2,
+                emb1=candidate["genre_emb1"],
+                emb2=candidate["genre_emb2"],
+            )
         ),
-        "duration_sim": calculate_duration_similarity(
-            ref_duration=ref_duration, candidate_duration=candidate["duration"]
+        "duration": float(
+            calculate_duration_similarity(
+                ref_duration=ref_duration, candidate_duration=candidate["duration"]
+            )
         ),
-        "beat_intensity": calculate_beat_intensity_score(
-            candidate["beat_intensity"], ref_beat_intensity
+        "beat": float(
+            calculate_beat_intensity_score(
+                candidate["beat_intensity"], ref_beat_intensity
+            )
         ),
-        "mood_sim": calculate_mood_sim_score(
-            ref_emb1=ref_mood_emb1,
-            ref_emb2=ref_mood_emb2,
-            emb1=candidate["mood_emb1"],
-            emb2=candidate["mood_emb2"],
+        "mood": float(
+            calculate_mood_sim_score(
+                ref_emb1=ref_mood_emb1,
+                ref_emb2=ref_mood_emb2,
+                emb1=candidate["mood_emb1"],
+                emb2=candidate["mood_emb2"],
+            )
         ),
     }
 
 
-def compute_total_score(scores: dict, weights: dict) -> float:
-    """
-    Compute the total score by multiplying each score with its corresponding weight and summing them up.
+# def compute_total_score(scores: dict[str, Any], weights: dict[str, int]) -> float:
+#     """
+#     Compute the total score by multiplying each score with its corresponding weight and summing them up.
 
-    Args:
-        scores (dict): A dictionary containing the scores for different parameters.
-        weights (dict): A dictionary containing the weights for different parameters.
+#     Args:
+#         scores (dict): A dictionary containing the scores for different parameters.
+#         weights (dict): A dictionary containing the weights for different parameters.
 
-    Returns:
-        float: The total score.
+#     Returns:
+#         float: The total score.
+#     """
+#     return sum(scores[k] * weights[k] for k in scores if k in weights)
+
+
+def compute_total_score(
+    scores: dict[str, float],
+    weights: dict[str, float],
+) -> float:
     """
-    return sum(scores[k] * weights[k] for k in scores if k in weights)
+    Calcule la somme pondérée.
+
+    Les clés attendues: 'bpm','key','beat','mood','genre','duration'. Les clés manquantes sont traitées comme 0.
+    """
+    total = 0.0
+    for k, w in weights.items():
+        total += w * scores.get(k, 0.0)
+    return float(total)
 
 
 @with_child_logger
 def get_compatible_candidates(
-    candidates: list[tuple],
+    candidates: list[CandidateTrack],
     ref_bpm: float,
     ref_duration: float,
-    ref_beat_intensity: int,
+    ref_beat_intensity: float,
     ref_mood_emb1: float,
     ref_mood_emb2: float,
     ref_genre_emb1: float,
@@ -103,95 +120,106 @@ def get_compatible_candidates(
     target_bpm: float,
     weights_type: str,
     logger: LoggerProtocol | None = None,
-) -> list[dict]:
+) -> list[TrackMatch]:
     """
-    Computes the scores of all candidates by matching them with a reference track.
+    Calcule les scores de compatibilité pour chaque candidat vs.
 
-    Parameters:
-    candidates (list[tuple]): List of tuples containing candidate track information.
-    ref_bpm (float): Reference BPM.
-    ref_duration (float): Reference duration.
-    ref_beat_intensity (int): Reference beat intensity.
-    ref_mood_emb1 (float): First embedding of reference mood.
-    ref_mood_emb2 (float): Second embedding of reference mood.
-    ref_genre_emb1 (float): First embedding of reference genre.
-    ref_genre_emb2 (float): Second embedding of reference genre.
-    effective_ref_key (str): Effective key of the reference track.
-    target_bpm (float): Target BPM.
-    weights_type (str): Type of weights to use.
-    logger (LoggerProtocol | None): Logger instance. Defaults to None.
-
-    Returns:
-    list[dict]: List of dictionaries containing compatible candidate information.
+    la référence. Retourne une liste triable de TrackMatch.
     """
     logger = ensure_logger(logger, __name__)
-    weights = get_weights(weights_type)
-    compatibles = []
+    weights = get_weights(weights_type)  # dict[str, float] attendu
+    compatibles: list[TrackMatch] = []
 
-    for row in candidates:
-        (
-            cid,
-            bpm,
-            key,
-            beat_intensity,
-            mood_emb1,
-            mood_emb2,
-            genre_emb1,
-            genre_emb2,
-            duration,
-        ) = row
-        transpo_row = get_transpositions(cid, logger=logger)
+    for cand in candidates:
+        try:
+            cid = cand["id"]
+            bpm = cand["bpm"]
+            key = cand["key"]
 
-        best_combo = {
-            "score": 0.0,
-            "key": key,
-            "semitone": 0,
-            "transposed_bpm": bpm,
-            "pitch_shift": 0.0,
-        }
+            # 1) Transposition : récupérer la ligne de transpo (si disponible)
+            transpo_row = get_transpositions(cid, logger=logger)
+            if transpo_row:
+                transpo_dict = build_transposition_dict(
+                    transpo_row
+                )  # dict[str, str | float]
+                best_combo: TranspoCombo = find_best_transposition_combo(
+                    ref_key=effective_ref_key,
+                    target_bpm=target_bpm,
+                    transpo_dict=transpo_dict,
+                    logger=logger,
+                )
+            else:
+                best_combo = BestCandidate(
+                    score=0.0,
+                    key=key,
+                    semitone=0,
+                    transposed_bpm=bpm,
+                    pitch_shift=0.0,
+                )
 
-        if transpo_row:
-            transpo_dict = build_transposition_dict(transpo_row)
-            best_combo = find_best_transposition_combo(
-                effective_ref_key, target_bpm, transpo_dict, logger=logger
+                # Si la transpo n’apporte rien d’utilisable, on passe
+            if best_combo["score"] <= 0.0 or best_combo["key"] is None:
+                continue
+
+            # 2) Features du candidat pour le scoring global (avec key retenue)
+            candidate_data: TrackFeatures = {
+                "bpm": bpm,
+                "key": best_combo["key"],  # key transposée retenue
+                "beat_intensity": cand["beat_intensity"],
+                "mood_emb1": cand["mood_emb1"],
+                "mood_emb2": cand["mood_emb2"],
+                "genre_emb1": cand["genre_emb1"],
+                "genre_emb2": cand["genre_emb2"],
+                "duration": cand["duration"],
+            }
+
+            # 3) Scores partiels
+            scores = compute_candidate_scores(
+                ref_bpm=ref_bpm,
+                ref_duration=ref_duration,
+                ref_beat_intensity=ref_beat_intensity,
+                ref_mood_emb1=ref_mood_emb1,
+                ref_mood_emb2=ref_mood_emb2,
+                ref_genre_emb1=ref_genre_emb1,
+                ref_genre_emb2=ref_genre_emb2,
+                candidate=candidate_data,
+                best_combo=best_combo,  # <- OK grâce à l’alias
             )
 
-        if best_combo["score"] == 0:
-            continue
+            total_score = compute_total_score(scores, weights)  # <- plus d’erreur mypy
 
-        candidate_data = {
-            "bpm": bpm,
-            "beat_intensity": beat_intensity,
-            "mood_emb1": mood_emb1,
-            "mood_emb2": mood_emb2,
-            "genre_emb1": genre_emb1,
-            "genre_emb2": genre_emb2,
-            "duration": duration,
-        }
+            # 4) Diagnostic + construction du match
+            reason = ", ".join(f"{k}_score={v:.2f}" for k, v in scores.items())
 
-        scores = compute_candidate_scores(
-            ref_bpm,
-            ref_duration,
-            ref_beat_intensity,
-            ref_mood_emb1,
-            ref_mood_emb2,
-            ref_genre_emb1,
-            ref_genre_emb2,
-            candidate_data,
-            best_combo,
-        )
-        total_score = compute_total_score(scores, weights)
+            compatibles.append(
+                {
+                    "id": cid,
+                    "score": float(round(total_score, 3)),
+                    "key": candidate_data["key"],  # la key transposée choisie
+                    "reason": reason,
+                    "features": {
+                        "id": cid,
+                        "bpm": bpm,
+                        "key": key,  # key originale du candidat (utile debug/export)
+                        "beat_intensity": cand["beat_intensity"],
+                        "mood_emb1": cand["mood_emb1"],
+                        "mood_emb2": cand["mood_emb2"],
+                        "genre_emb1": cand["genre_emb1"],
+                        "genre_emb2": cand["genre_emb2"],
+                        "duration": cand["duration"],
+                    },
+                }
+            )
 
-        compatibles.append(
-            {
-                "track_id": cid,
-                "bpm": bpm,
-                "key": best_combo["key"],
-                "mood": row[4],  # mood = mood_emb1 (?)
-                "beat_intensity": beat_intensity,
-                "score": round(total_score, 3),
-                "diagnostic": ", ".join([f"{k}_score={scores[k]:.2f}" for k in scores]),
-            }
-        )
+        except KeyError as exc:  # pylint: disable=broad-except
+            logger.error(
+                "Clé manquante pour le candidat %s: %s", cand.get("id", "?"), exc
+            )
+        except Exception as exc:  # pylint: disable=broad-except
+            logger.exception(
+                "Erreur pendant l'évaluation du candidat %s: %s",
+                cand.get("id", "?"),
+                exc,
+            )
 
     return compatibles

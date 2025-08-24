@@ -12,7 +12,7 @@ from mixonaut.utils.safe_runner import safe_main
 logger = get_logger("Beets_Check_Duplicates")
 
 
-def normalize(s):
+def normalize(s: str) -> str:
     """
     Normalize a string by stripping leading/trailing whitespace and converting to lowercase.
 
@@ -26,7 +26,7 @@ def normalize(s):
 
 
 @safe_main
-def detect_beets_album_duplicates():
+def detect_beets_album_duplicates() -> None:
     """
     Detects duplicate albums in the Beets database.
 
@@ -41,7 +41,7 @@ def detect_beets_album_duplicates():
             album=True,
             format=True,
             format_fields="$album|$albumartist|$year",
-            output_file=False,
+            output_file=None,
             logger=logger,
         )
 

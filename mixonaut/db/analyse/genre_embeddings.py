@@ -4,10 +4,20 @@
 requêtes pour générer les embedding genres
 """
 
+import sqlite3
+from typing import TypedDict
+
 from sklearn.decomposition import PCA
 
 from mixonaut.db.access import select_all
 from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+
+
+class GenreEmbedding2D(TypedDict):
+    id: int
+    genre_emb_1: float
+    genre_emb_2: float
+
 
 # Configuration
 GENRE_COLUMNS = [
@@ -32,48 +42,55 @@ GENRE_COLUMNS = [
 
 @with_child_logger
 def compute_genre_embeddings(
-    n_components: int = 2, logger: LoggerProtocol | None = None
-):
+    n_components: int = 2, logger: "LoggerProtocol | None" = None
+) -> list[GenreEmbedding2D]:
     """
-    Applique une réduction PCA sur les vecteurs genre pour chaque track.
-
-    Retourne une liste de dictionnaires avec id, genre_x,genre_y.
+    Applique une PCA (2D) sur les vecteurs genre et retourne une liste
+    de dicts: {"id": int, "genre_emb_1": float, "genre_emb_2": float}.
     """
     logger = ensure_logger(logger, __name__)
+    if n_components != 2:
+        logger.warning("n_components != 2 : la sortie attendue est 2D; forçage à 2.")
+        n_components = 2
+
     try:
         cols = ", ".join(["id"] + GENRE_COLUMNS)
         query = f"SELECT {cols} FROM audio_features"
-        rows = select_all(query, logger=logger)
+        rows: list[sqlite3.Row] | None = select_all(query, logger=logger)
 
-        ids = []
-        vectors = []
+        ids: list[int] = []
+        vectors: list[list[float]] = []
+        if rows:
+            for row in rows:
+                track_id = int(row[0])
+                vec = row[1:]
+                if None not in vec:
+                    ids.append(track_id)
+                    # conversion stricte en float
+                    vectors.append([float(x) for x in vec])
+                else:
+                    logger.warning("Track %s ignoré : vecteur incomplet", track_id)
 
-        for row in rows:
-            track_id = row[0]
-            vec = row[1:]
-            if None not in vec:
-                ids.append(track_id)
-                vectors.append(list(vec))
-            else:
-                logger.warning(f"Track {track_id} ignoré : vecteur incomplet")
+            if not vectors:
+                logger.warning("Aucun vecteur genre valide trouvé.")
+                return []
 
-        if not vectors:
-            logger.warning("Aucun vecteur genre valide trouvé.")
-            return []
+            pca = PCA(n_components=n_components)
+            reduced = pca.fit_transform(vectors)
 
-        pca = PCA(n_components=n_components)
-        reduced = pca.fit_transform(vectors)
+            results: list[GenreEmbedding2D] = []
+            for i, track_id in enumerate(ids):
+                results.append(
+                    {
+                        "id": track_id,
+                        "genre_emb_1": round(float(reduced[i][0]), 4),
+                        "genre_emb_2": round(float(reduced[i][1]), 4),
+                    }
+                )
 
-        results = []
-        for i, track_id in enumerate(ids):
-            entry = {"id": track_id}
-            for d in range(n_components):
-                entry[f"genre_emb_{d + 1}"] = round(float(reduced[i][d]), 4)
-            results.append(entry)
-
-        logger.info(f"{len(results)} embeddings genre générés.")
-        return results
-
-    except Exception as e:
-        logger.error(f"Erreur PCA genre embedding : {e}")
+            logger.info("%s embeddings genre (2D) générés.", len(results))
+            return results
+        return []
+    except Exception as exc:  # pylint: disable=broad-except
+        logger.error("Erreur PCA genre embedding : %s", exc)
         return []

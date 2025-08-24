@@ -4,13 +4,15 @@
 modules de traitement du mood.
 """
 
+from typing import Any
+
 from mixonaut.utils.config import MOOD_KEYS
 from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
 
 
 @with_child_logger
 def compute_mood_vector(
-    features: dict, logger: LoggerProtocol | None = None
+    features: dict[str, Any], logger: LoggerProtocol | None = None
 ) -> dict[str, float]:
     """
     Extrait un vecteur de mood à partir des features audio (probas Essentia).
@@ -47,4 +49,5 @@ def get_dominant_mood(mood_vector: dict[str, float]) -> str | None:
     """
     if not mood_vector:
         return None
-    return max(mood_vector, key=mood_vector.get)
+    # Utilise __getitem__ plutôt que .get pour que mypy comprenne bien : str -> float
+    return max(mood_vector, key=mood_vector.__getitem__)

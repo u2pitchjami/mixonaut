@@ -1,13 +1,20 @@
 #!/usr/bin/env python3
 """2025-08-20 - scripts de managements des torrents."""
+
 from __future__ import annotations
 
 import argparse
+from typing import Any, Literal, Protocol, cast
 
 from mixonaut.db.access import execute_write, select_all
 from mixonaut.db.imports.torrent_repo import TorrentRepo
 from mixonaut.process_imports.beets.path_resolve import resolve_album_path_and_rel
-from mixonaut.utils.logger import get_logger, with_child_logger
+from mixonaut.utils.logger import (
+    LoggerProtocol,
+    ensure_logger,
+    get_logger,
+    with_child_logger,
+)
 
 LOG = get_logger("manage_decisions")
 
@@ -22,7 +29,39 @@ ALLOWED = {
 }
 
 
-def _find_hashes_by_name(torrent_name: str, logger) -> list[str]:
+# ——— Types structuraux (mypy) ———
+class _BaseArgs(Protocol):
+    cmd: Literal["show", "mark", "unset"]
+
+
+class ShowArgs(_BaseArgs, Protocol):
+    cmd: Literal["show"]
+    limit: int
+    only: str | None
+
+
+class HashArgs(Protocol):
+    hash: list[str] | None
+    name: list[str] | None
+    path: list[str] | None
+
+
+class MarkArgs(_BaseArgs, HashArgs, Protocol):
+    cmd: Literal["mark"]
+    decision: str
+    reason: str
+    decided_by: str
+
+
+class UnsetArgs(_BaseArgs, HashArgs, Protocol):
+    cmd: Literal["unset"]
+
+
+@with_child_logger
+def _find_hashes_by_name(
+    torrent_name: str, logger: LoggerProtocol | None = None
+) -> list[str]:
+    logger = ensure_logger(logger, __name__)
     rows = (
         select_all(
             "SELECT DISTINCT torrent_hash FROM imported_files WHERE torrent_name = ?",
@@ -34,7 +73,11 @@ def _find_hashes_by_name(torrent_name: str, logger) -> list[str]:
     return [r[0] for (r,) in rows]
 
 
-def _find_hashes_by_album_path(path: str, logger) -> list[str]:
+@with_child_logger
+def _find_hashes_by_album_path(
+    path: str, logger: LoggerProtocol | None = None
+) -> list[str]:
+    logger = ensure_logger(logger, __name__)
     resolved = resolve_album_path_and_rel(path)
     if not resolved:
         logger.warning("Chemin non résolvable (hors /imports/): %s", path)
@@ -53,7 +96,11 @@ def _find_hashes_by_album_path(path: str, logger) -> list[str]:
 
 @with_child_logger
 def cmd_mark(
-    decision: str, reason: str, hashes: list[str], decided_by: str = "user", logger=None
+    decision: str,
+    reason: str,
+    hashes: list[str],
+    decided_by: str = "user",
+    logger: LoggerProtocol | None = None,
 ) -> None:
     """
     Marks decisions on one or more hashes.
@@ -76,6 +123,7 @@ def cmd_mark(
     Returns:
         None
     """
+    logger = ensure_logger(logger, __name__)
     repo = TorrentRepo(logger=logger)
     for h in hashes:
         repo.set_decision(h, decision=decision, reason=reason, decided_by=decided_by)
@@ -85,7 +133,7 @@ def cmd_mark(
 
 
 @with_child_logger
-def cmd_unset(hashes: list[str], logger=None) -> None:
+def cmd_unset(hashes: list[str], logger: LoggerProtocol | None = None) -> None:
     """
     Unset decisions for a list of hashes.
 
@@ -102,6 +150,7 @@ def cmd_unset(hashes: list[str], logger=None) -> None:
     -------
     None
     """
+    logger = ensure_logger(logger, __name__)
     for h in hashes:
         execute_write(
             "DELETE FROM torrent_decisions WHERE torrent_hash = ?", (h,), logger=logger
@@ -110,7 +159,9 @@ def cmd_unset(hashes: list[str], logger=None) -> None:
 
 
 @with_child_logger
-def cmd_show(limit: int, only: str | None, logger=None) -> None:
+def cmd_show(
+    limit: int, only: str | None, logger: LoggerProtocol | None = None
+) -> None:
     """
     Displays information about the decisions made on torrents.
 
@@ -124,20 +175,21 @@ def cmd_show(limit: int, only: str | None, logger=None) -> None:
     Returns:
         None
     """
+    logger = ensure_logger(logger, __name__)
     where = ""
-    params: tuple = (limit,)
+    params: tuple[Any, ...] = (limit,)
     if only:
         where = "WHERE ts.decision = ?"
         params = (only, limit)
     rows = (
         select_all(
             f"""
-        SELECT ts.torrent_hash, ts.torrent_name, ts.decision, ts.decided_at, ts.ratio, ts.age_days
-        FROM v_torrent_status ts
-        {where}
-        ORDER BY ts.decided_at DESC NULLS LAST, ts.torrent_name
-        LIMIT ?
-        """,
+            SELECT ts.torrent_hash, ts.torrent_name, ts.decision, ts.decided_at, ts.ratio, ts.age_days
+            FROM v_torrent_status ts
+            {where}
+            ORDER BY (ts.decided_at IS NULL) ASC, ts.decided_at DESC, ts.torrent_name
+            LIMIT ?
+            """,
             params,
             logger=logger,
         )
@@ -158,10 +210,12 @@ def cmd_show(limit: int, only: str | None, logger=None) -> None:
         )
 
 
-def _collect_hashes(args, logger) -> list[str]:
+@with_child_logger
+def _collect_hashes(args: HashArgs, logger: LoggerProtocol | None = None) -> list[str]:
     """
     Résout la cible en liste de hashes selon les options fournies.
     """
+    logger = ensure_logger(logger, __name__)
     hashes: list[str] = []
     if args.hash:
         hashes.extend(args.hash)
@@ -177,70 +231,86 @@ def _collect_hashes(args, logger) -> list[str]:
 
 def main() -> None:
     """
-    The main entry point of the script.
-
-    This function parses the command line arguments and performs the corresponding action.
+    CLI pour marquer/afficher/retirer des décisions sur des torrents (hash/name/path).
     """
     parser = argparse.ArgumentParser(
         description="Marquer des décisions sur des torrents (hash/name/path)."
     )
     sub = parser.add_subparsers(dest="cmd", required=True)
 
+    # show
+    p_show = sub.add_parser("show", help="Afficher l'état/les décisions")
+    p_show.add_argument(
+        "--limit", type=int, default=50, help="Nb max de lignes (défaut: 50)"
+    )
+    p_show.add_argument(
+        "--only",
+        type=str,
+        choices=sorted(ALLOWED),
+        help=f"Filtrer par décision ({', '.join(sorted(ALLOWED))})",
+    )
+
     # mark
-    p_mark = sub.add_parser("mark", help="Poser une décision")
+    p_mark = sub.add_parser("mark", help="Poser une décision sur des torrents")
     p_mark.add_argument(
-        "--decision", required=True, choices=sorted(ALLOWED), help="Décision à poser"
+        "--decision",
+        type=str,
+        required=True,
+        choices=sorted(ALLOWED),
+        help=f"Décision ({', '.join(sorted(ALLOWED))})",
     )
-    p_mark.add_argument("--reason", default="", help="Raison (texte libre)")
     p_mark.add_argument(
-        "--by", dest="decided_by", default="user", help="Auteur de la décision"
+        "--reason", type=str, default="", help="Raison/mémo (optionnel)"
     )
-    p_mark.add_argument("--hash", nargs="*", help="Un ou plusieurs torrent_hash")
-    p_mark.add_argument("--name", nargs="*", help="Un ou plusieurs torrent_name qBit")
     p_mark.add_argument(
-        "--path",
-        nargs="*",
-        help="Un ou plusieurs chemins album (host ou /app/imports/...)",
+        "--decided-by",
+        dest="decided_by",
+        type=str,
+        default="user",
+        help="Auteur (défaut: user)",
+    )
+    p_mark.add_argument("--hash", nargs="+", help="Un ou plusieurs hash")
+    p_mark.add_argument(
+        "--name", nargs="+", help="Un ou plusieurs noms de torrent (résolus en hash)"
+    )
+    p_mark.add_argument(
+        "--path", nargs="+", help="Un ou plusieurs chemins (résolus en hash)"
     )
 
     # unset
-    p_unset = sub.add_parser("unset", help="Effacer la décision (revenir à PENDING)")
-    p_unset.add_argument("--hash", nargs="*", help="Un ou plusieurs torrent_hash")
-    p_unset.add_argument("--name", nargs="*", help="Un ou plusieurs torrent_name qBit")
+    p_unset = sub.add_parser("unset", help="Effacer la décision pour des torrents")
+    p_unset.add_argument("--hash", nargs="+", help="Un ou plusieurs hash")
     p_unset.add_argument(
-        "--path",
-        nargs="*",
-        help="Un ou plusieurs chemins album (host ou /app/imports/...)",
+        "--name", nargs="+", help="Un ou plusieurs noms de torrent (résolus en hash)"
     )
-
-    # show
-    p_show = sub.add_parser("show", help="Lister les décisions récentes")
-    p_show.add_argument("--limit", type=int, default=50)
-    p_show.add_argument(
-        "--only", choices=sorted(ALLOWED), help="Filtrer par décision spécifique"
+    p_unset.add_argument(
+        "--path", nargs="+", help="Un ou plusieurs chemins (résolus en hash)"
     )
 
     args = parser.parse_args()
 
     if args.cmd == "show":
-        cmd_show(limit=args.limit, only=args.only, logger=LOG)
+        a = cast(ShowArgs, args)
+        cmd_show(limit=a.limit, only=a.only, logger=LOG)
         return
 
-    # mark / unset → collecter les hashes
-    hashes = _collect_hashes(args, logger=LOG)
+    # mark / unset → collecter les hashes (au moins une cible)
+    h = cast(HashArgs, args)
+    hashes = _collect_hashes(h, logger=LOG)
     if not hashes:
         LOG.error("Aucun hash résolu depuis --hash/--name/--path.")
         return
 
     if args.cmd == "mark":
+        m = cast(MarkArgs, args)
         cmd_mark(
-            decision=args.decision,
-            reason=args.reason,
+            decision=m.decision,
+            reason=m.reason,
             hashes=hashes,
-            decided_by=args.decided_by,
+            decided_by=m.decided_by,
             logger=LOG,
         )
-    elif args.cmd == "unset":
+    else:  # "unset"
         cmd_unset(hashes=hashes, logger=LOG)
 
 

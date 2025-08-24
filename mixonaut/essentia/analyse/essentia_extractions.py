@@ -7,6 +7,7 @@ modules de run modules de run essentia + parsing du json .
 import json
 import subprocess
 from pathlib import Path
+from typing import Any
 
 from mixonaut.utils.config import (
     BEETS_CONFIG_DIR,
@@ -76,7 +77,7 @@ def run_essentia_extraction(
         raise
 
 
-def get_nested(data, path):
+def get_nested(data: dict[str, Any], path: Any) -> dict[str, Any]:
     """
     Recursively retrieves nested data from a dictionary.
     Args:
@@ -99,7 +100,9 @@ def get_nested(data, path):
 
 
 @with_child_logger
-def parse_essentia_json(json_path, logger: LoggerProtocol | None = None):
+def parse_essentia_json(
+    json_path: Path, logger: LoggerProtocol | None = None
+) -> dict[str, Any]:
     """
     Parse le JSON généré par Essentia et retourne les champs mappés.
     """

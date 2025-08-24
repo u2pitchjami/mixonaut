@@ -4,6 +4,8 @@
 module hub de traitement des features.
 """
 
+from typing import Any
+
 from mixonaut.essentia.features.essentia_calculate import calculate_beat_intensity
 from mixonaut.essentia.features.essentia_genre import get_dominant_genre
 from mixonaut.essentia.features.essentia_key import (
@@ -19,7 +21,9 @@ from mixonaut.utils.utils_div import sanitize_value
 
 
 @with_child_logger
-def enrich_features(track_features, logger: LoggerProtocol | None = None):
+def enrich_features(
+    track_features: dict[str, Any], logger: LoggerProtocol | None = None
+) -> dict[str, Any]:
     """
     Enriches the features of a track by calculating various metrics such as beat intensity,
     mood, genre, and key.
@@ -57,13 +61,16 @@ def enrich_features(track_features, logger: LoggerProtocol | None = None):
         logger.debug(f"get_dominant_genre : {track_features['genre']}")
 
         best_key_data = get_best_key_from_essentia(track_features)
-        if best_key_data:
+        if (
+            best_key_data
+            and best_key_data["key"] is not None
+            and best_key_data["scale"] is not None
+        ):
             camelot = convert_to_camelot(best_key_data["key"], best_key_data["scale"])
             track_features["initial_key"] = sanitize_value(
                 camelot, "key", logger=logger
             )
-            logger.debug(f"initial_key : {track_features['initial_key']}")
-
+            logger.debug("initial_key : %s", track_features["initial_key"])
         return track_features
     except Exception as e:
         logger.error(f"Erreur enrichissement features : {e}")

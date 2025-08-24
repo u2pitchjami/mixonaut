@@ -38,15 +38,15 @@ repos:
     hooks:
       - id: flake8
         args: [--max-line-length=120]
+        exclude: ^(docker|z_old)/
         additional_dependencies: []  # ajoute ici bugbear/comprehensions si tu veux
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.17.1
     hooks:
-      - id: mypy
-        # Si ton projet n'a pas encore un mypy.ini/pyproject, on peut assouplir un peu :
-        args:
-          - --python-version=3.11
-          - --pretty
-          - --show-error-codes
-        additional_dependencies: []  # ex: ["types-requests"]
+    - id: mypy
+      args: [--config-file=pyproject.toml]
+      exclude: ^(docker|z_old)/
+      additional_dependencies:
+        - types-requests
+        - types-PyYAML

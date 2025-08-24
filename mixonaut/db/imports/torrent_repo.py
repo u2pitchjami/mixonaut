@@ -8,6 +8,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+from typing import Any
 
 from mixonaut.db.access import (
     execute_many,
@@ -16,6 +17,8 @@ from mixonaut.db.access import (
     select_one,
     select_scalar,
 )
+from mixonaut.utils.config import MUSIC_SOURCE_PATH
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 
 
 class TorrentState(str, Enum):
@@ -48,24 +51,41 @@ class TorrentRepo:
     Couche d'accès/écriture sur imported_files via db.access.
     """
 
-    def __init__(self, logger):
+    def __init__(self, logger: LoggerProtocol | None = None):
         """
         Couche d'accès/écriture sur imported_files via db.access.
         """
+        logger = ensure_logger(logger, __name__)
         self.logger = logger
 
     # ---------- State ----------
     def get_state(self, torrent_hash: str) -> TorrentState:
         """
-        Retourne l'état du torrent en DB sans requêter qBit.
+        Retourne l'état du torrent en DB sans requêter qBit (1 seule requête agrégée).
         """
-        total = int(
-            select_scalar(
-                "SELECT COUNT(*) FROM imported_files WHERE torrent_hash = ?",
-                (torrent_hash,),
-                logger=self.logger,
-            )
-            or 0
+        row = select_one(
+            """
+            SELECT
+            COUNT(*)                              AS total,
+            SUM(CASE WHEN imported_in_beets_at IS NULL THEN 1 ELSE 0 END) AS remaining,
+            SUM(CASE WHEN auto_cleaned = 1 THEN 1 ELSE 0 END)             AS cleaned
+            FROM imported_files
+            WHERE torrent_hash = ?
+            """,
+            (torrent_hash,),
+            logger=self.logger,
+        )
+
+        if not row:  # Aucun enregistrement trouvé
+            state = TorrentState.UNKNOWN
+            self.logger.debug("State %s → %s (no row)", torrent_hash, state)
+            return state
+
+        # sqlite3.Row se comporte comme un tuple indexable
+        total, remaining, cleaned = (
+            int(row[0] or 0),
+            int(row[1] or 0),
+            int(row[2] or 0),
         )
 
         if total == 0:
@@ -73,30 +93,12 @@ class TorrentRepo:
             self.logger.debug("State %s → %s (total=0)", torrent_hash, state)
             return state
 
-        remaining = int(
-            select_scalar(
-                "SELECT COUNT(*) FROM imported_files WHERE torrent_hash = ? AND imported_in_beets_at IS NULL",
-                (torrent_hash,),
-                logger=self.logger,
-            )
-            or 0
-        )
-
         if remaining > 0:
             state = TorrentState.KNOWN_NOT_IMPORTED
             self.logger.debug(
                 "State %s → %s (remaining=%d)", torrent_hash, state, remaining
             )
             return state
-
-        cleaned = int(
-            select_scalar(
-                "SELECT COUNT(*) FROM imported_files WHERE torrent_hash = ? AND auto_cleaned = 1",
-                (torrent_hash,),
-                logger=self.logger,
-            )
-            or 0
-        )
 
         state = (
             TorrentState.IMPORTED_AND_DELETED if cleaned > 0 else TorrentState.IMPORTED
@@ -157,7 +159,6 @@ class TorrentRepo:
         added_on: int | None,
         completion_on: int | None,
         ratio: float | None,
-        save_path: str | None,  # ← NOUVEAU
     ) -> int:
         """
         Ajoute plusieurs fichiers en un seul requête.
@@ -167,6 +168,7 @@ class TorrentRepo:
         """
         values = []
         for fobj in files:
+            full_path = Path(MUSIC_SOURCE_PATH) / fobj.path
             fname = fobj.path.rsplit("/", 1)[-1]
             album_rel_dir = str(Path(fobj.path).parent).replace(
                 "\\", "/"
@@ -181,7 +183,7 @@ class TorrentRepo:
                     added_on,
                     completion_on,
                     ratio,
-                    save_path,
+                    str(full_path),
                     album_rel_dir,
                 )
             )
@@ -209,26 +211,23 @@ class TorrentRepo:
         return len(values)
 
     # Sélection des fichiers à *stager* (non importés & non déjà stagés)
-    def list_files_to_stage(self, limit: int) -> list[dict]:
+    def list_files_to_stage(self, limit: int | None = None) -> list[dict[str, Any]]:
         """
-        Renvoie une liste de dictionnaires contenant les informations sur les fichiers qui doivent être stagers. Les
-        fichiers sont triés par ordre croissant de leur date de fin de conversion (le plus récent en haut).
-
-        :param limit: Nombre maximum de lignes à renvoyer.
-        :return: Liste de dictionnaires contenant les informations sur les fichiers à stager.
+        Fichiers à stager (non importés & non déjà stagés), plus récents d'abord.
         """
-        rows = select_all(
-            """
+        sql = """
             SELECT id, torrent_hash, torrent_name, path, name, size, torrent_save_path
             FROM imported_files
             WHERE imported_in_beets_at IS NULL
-              AND staged_for_import_at IS NULL
+            AND staged_for_import_at IS NULL
             ORDER BY torrent_completion_on DESC, id ASC
-            LIMIT ?
-            """,
-            (limit,),
-            logger=self.logger,
-        )
+        """
+        params: tuple[()] | tuple[int] = ()
+        if limit is not None and limit > 0:
+            sql += " LIMIT ?"
+            params = (limit,)
+
+        rows = select_all(sql, params, logger=self.logger)
         return [
             {
                 "id": r[0],
@@ -237,7 +236,7 @@ class TorrentRepo:
                 "relpath": r[3],
                 "name": r[4],
                 "size": r[5],
-                "save_path": r[6],  # peut être None si ancien enregistrement (on gère)
+                "save_path": r[6],
             }
             for r in rows or []
         ]
@@ -312,7 +311,7 @@ class TorrentRepo:
     # ---------- Queries utiles ----------
     def list_distinct_torrent_names_ready_for_deletion(
         self, min_ratio: float, min_age_days: int
-    ) -> list[str]:
+    ) -> Any | None:
         """
         Retourne une liste de nom de torrents pour lesquels un rapport de téléchargement minimum a été atteint et l'âge
         minimum depuis la mise à jour du torrent est dépassé.
@@ -332,7 +331,7 @@ class TorrentRepo:
             logger=self.logger,
         )
         if not rows or not rows[0]:
-            return []
+            return None
         return rows[0].split(",")
 
     def mark_cleaned_by_name(self, torrent_name: str) -> None:

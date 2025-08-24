@@ -2,9 +2,18 @@
 2020-08-20 module de matching pour la key et la transposition.
 """
 
+from __future__ import annotations
+
 import math
+import sqlite3
+from collections.abc import Mapping
+from typing import Final
 
 from mixonaut.db.matching.matching_queries import get_transpositions
+from mixonaut.process_matching.models.models import (
+    BestCandidate,
+    TranspositionDict,
+)
 from mixonaut.utils.config import CAMELOT_ORDER, TOLERANCE_BPM_PERCENT
 from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
 
@@ -62,7 +71,7 @@ def get_key_score(
             if diff == dist:
                 return score
         return 0.0
-    except:
+    except Exception:
         logger.error(
             f"Erreur dans get_key_score: ref_key={ref_key}, cand_key={candidate_key} "
         )
@@ -71,13 +80,13 @@ def get_key_score(
 
 @with_child_logger
 def calculate_key_score(
-    effective_ref_key,
-    bpm_original,
-    bpm_transposed,
-    transposed_key,
-    bpm_penalty_factor,
+    effective_ref_key: str,
+    bpm_original: float,
+    bpm_transposed: float,
+    transposed_key: str,
+    bpm_penalty_factor: float,
     logger: LoggerProtocol | None = None,
-) -> tuple:
+) -> tuple[float, float, float]:
     """
     Calculate the score of a key transition from a reference key to a candidate key.
 
@@ -114,96 +123,105 @@ def calculate_key_score(
 @with_child_logger
 def find_best_transposition_combo(
     ref_key: str,
-    ref_bpm: float,
-    transpo_dict: dict,
+    target_bpm: float,  # anciennement ref_bpm
+    transpo_dict: TranspositionDict,
     logger: LoggerProtocol | None = None,
-) -> dict:
+) -> BestCandidate:
     """
-    Find the best transposition combination for a given reference key.
-
-    This function iterates over all possible transpositions and calculates the score
-    of each one using the calculate_key_score function. The best transposition is then
-    selected based on its score.
-    Args:
-        ref_key (str): The reference key.
-        ref_bpm (float): The reference BPM.
-        transpo_dict (dict): A dictionary containing all possible transpositions and their
-            corresponding BPMs.
-        logger (LoggerProtocol | None): A logger instance, or None if no logging is desired.
-
-    Returns:
-        dict: A dictionary containing the best transposition combination, including its score,
-            semitone shift, transposed BPM, pitch shift, and penalty.
+    Explore les transpositions possibles et choisit la meilleure combo selon 'calculate_key_score', sous contrainte de
+    fenêtre de BPM autour de 'target_bpm'.
     """
     logger = ensure_logger(logger, __name__)
-    best = {
+    best: BestCandidate = {
         "score": 0.0,
         "key": None,
         "semitone": 0,
         "transposed_bpm": None,
         "pitch_shift": 0.0,
     }
-    bpm_min = ref_bpm * (1 - TOLERANCE_BPM_PERCENT / 100)
-    bpm_max = ref_bpm * (1 + TOLERANCE_BPM_PERCENT / 100)
+
+    bpm_min = target_bpm * (1 - TOLERANCE_BPM_PERCENT / 100)
+    bpm_max = target_bpm * (1 + TOLERANCE_BPM_PERCENT / 100)
+
     for i in range(-12, 13):
-        k_col = (
-            f"key_{'plus' if i > 0 else 'minus' if i < 0 else '0'}_{abs(i)}"
-            if i != 0
-            else "key_0"
-        )
-        b_col = (
-            f"bpm_{'plus' if i > 0 else 'minus' if i < 0 else '0'}_{abs(i)}"
-            if i != 0
-            else "bpm_0"
-        )
+        k_col = _build_key_col(i)  # ex: key_plus_3 / key_minus_2 / key_0
+        b_col = _build_bpm_col(i)  # ex: bpm_plus_3 / bpm_minus_2 / bpm_0
+
         k = transpo_dict.get(k_col)
         b = transpo_dict.get(b_col)
 
-        if k is not None and b is not None and bpm_min <= b <= bpm_max:
-            key_score, pitch_shift, penalty = calculate_key_score(
-                ref_key, ref_bpm, b, k, BPM_SHIFT_PENALTY, logger=logger
-            )
-            if key_score > best["score"]:
-                best.update(
-                    {
-                        "score": key_score,
-                        "key": k,
-                        "semitone": i,
-                        "transposed_bpm": b,
-                        "pitch_shift": pitch_shift,
-                    }
+        if isinstance(k, str) and isinstance(b, (int, float)):
+            b_float = float(b)
+            if bpm_min <= b_float <= bpm_max:
+                key_score, pitch_shift, penalty = calculate_key_score(
+                    ref_key, target_bpm, b_float, k, BPM_SHIFT_PENALTY, logger=logger
                 )
+                if key_score > best["score"]:
+                    best.update(
+                        {
+                            "score": key_score,
+                            "key": k,
+                            "semitone": i,
+                            "transposed_bpm": b_float,
+                            "pitch_shift": pitch_shift,
+                        }
+                    )
+
     return best
 
 
-def build_transposition_dict(row: tuple) -> dict:
+def build_transposition_dict(
+    row: sqlite3.Row | Mapping[str, object],
+) -> TranspositionDict:
     """
-    Convert a row of data into a dictionary for transpositions.
-
-    Args:
-        row (tuple): A tuple containing keys and values for the transposition data.
-
-    Returns:
-        dict: A dictionary where each key is in the format "key_+X" or "bpm_-X"
-            where X is an integer between 1 and 12, inclusive.
+    Construit un dict des transpositions depuis une ligne de DB, avec des clés normalisées: key_{plus|minus|0}_N et
+    bpm_{plus|minus|0}_N pour N ∈ [0..12].
     """
-    key_cols = [
-        (
-            f"key_{'plus' if i > 0 else 'minus' if i < 0 else '0'}_{abs(i)}"
-            if i != 0
-            else "key_0"
-        )
-        for i in range(-12, 13)
-    ]
-    bpm_cols = [
-        (
-            f"bpm_{'plus' if i > 0 else 'minus' if i < 0 else '0'}_{abs(i)}"
-            if i != 0
-            else "bpm_0"
-        )
-        for i in range(-12, 13)
-    ]
-    return dict(zip(key_cols + bpm_cols, row[1:]))
+
+    # Accès 'row[col]' aussi bien pour sqlite3.Row que pour Mapping
+    def _get(col: str) -> object | None:
+        try:
+            return row[col]
+        except Exception:
+            return None
+
+    def _col(prefix: str, i: int) -> str:
+        if i == 0:
+            return f"{prefix}_0"
+        return f"{prefix}_{'plus' if i > 0 else 'minus'}_{abs(i)}"
+
+    result: TranspositionDict = {}
+
+    for i in range(-12, 13):
+        k_col = _col("key", i)
+        b_col = _col("bpm", i)
+
+        k_val = _get(k_col)
+        b_val = _get(b_col)
+
+        # On ne met dans le dict que ce qui est présent (évite des None non typés)
+        if isinstance(k_val, str):
+            result[k_col] = k_val
+        if isinstance(b_val, (int, float)):
+            result[b_col] = float(b_val)
+
+    return result
+
+
+PITCH_FACTOR: Final[float] = 12.0
+_TOLERANCE: Final[float] = 1e-6
+
+
+def _build_key_col(semitone_shift: int) -> str:
+    if semitone_shift == 0:
+        return "key_0"
+    return f"key_{'plus' if semitone_shift > 0 else 'minus'}_{abs(semitone_shift)}"
+
+
+def _build_bpm_col(semitone_shift: int) -> str:
+    if semitone_shift == 0:
+        return "bpm_0"
+    return f"bpm_{'plus' if semitone_shift > 0 else 'minus'}_{abs(semitone_shift)}"
 
 
 @with_child_logger
@@ -214,36 +232,29 @@ def get_effective_ref_key(
     target_bpm: float,
     logger: LoggerProtocol | None = None,
 ) -> str:
-    """
-    Get the effective reference key for a given track.
-
-    This function calculates the pitch shift between the original and transposed BPMs
-    and finds the closest transposition of the reference key based on this pitch shift.
-    Args:
-        track_id (int): The ID of the track.
-        ref_bpm (float): The reference BPM.
-        ref_key (str): The reference key.
-        target_bpm (float): The target BPM.
-        logger (LoggerProtocol | None): A logger instance, or None if no logging is desired.
-
-    Returns:
-        str: The effective reference key for the given track and target BPM.
-    """
     logger = ensure_logger(logger, __name__)
-    if target_bpm == ref_bpm:
+
+    if abs(target_bpm - ref_bpm) <= _TOLERANCE:
         return ref_key
+
     try:
-        ref_pitch_shift = 12 * math.log2(target_bpm / ref_bpm)
-        ref_semitone_shift = round(ref_pitch_shift)
-        ref_transpo = get_transpositions(track_id, logger=logger)
-        if ref_transpo:
-            transpo_dict = build_transposition_dict(ref_transpo)
-            key_col = f"key_{'plus' if ref_semitone_shift > 0 else 'minus'
-                if ref_semitone_shift < 0 else '0'}_{abs(ref_semitone_shift)}"
+        pitch_shift = PITCH_FACTOR * math.log2(target_bpm / ref_bpm)
+        semitone_shift = int(round(pitch_shift))
 
-            if key_col in transpo_dict and transpo_dict[key_col]:
-                return transpo_dict[key_col]
-    except Exception as e:
-        logger.warning(f"Erreur lors du calcul de la key transposée : {e}")
+        transpo_row = get_transpositions(track_id, logger=logger)
+        if not transpo_row:
+            return ref_key
 
-    return ref_key  # fallback si problème
+        transpo_dict = build_transposition_dict(
+            transpo_row
+        )  # -> dict[str, str | float]
+        key_col = _build_key_col(semitone_shift)
+
+        value = transpo_dict.get(key_col)
+        if isinstance(value, str) and value:  # ✅ narrowing → str
+            return value
+
+    except Exception as exc:  # pylint: disable=broad-except
+        logger.warning("Erreur lors du calcul de la key transposée : %s", exc)
+
+    return ref_key

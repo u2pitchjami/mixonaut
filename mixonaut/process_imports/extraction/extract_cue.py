@@ -58,7 +58,9 @@ def sanitize_cue_filename(name: str) -> str:
 
 
 @with_child_logger
-def split_cue_and_convert_ffmpeg(cue_path, logger: LoggerProtocol | None = None):
+def split_cue_and_convert_ffmpeg(
+    cue_path: str, logger: LoggerProtocol | None = None
+) -> None:
     """
     Découpe un fichier audio avec un fichier CUE via ffmpeg, compatible FLAC/MP3/WAV/APE.
 
@@ -132,7 +134,6 @@ def split_cue_and_convert_ffmpeg(cue_path, logger: LoggerProtocol | None = None)
 
             if logger:
                 logger.info(f"Split terminé. Fichiers générés dans : {final_dir}")
-            return final_dir
 
     except subprocess.CalledProcessError as e:
         if logger:

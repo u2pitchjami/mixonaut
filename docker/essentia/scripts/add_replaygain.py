@@ -9,7 +9,7 @@ import mixonaut.essentia
 import mixonaut.essentia.standard as es
 
 
-def add_replaygain(audio_path: str, json_path: str):
+def add_replaygain(audio_path: str, json_path: str) -> None:
     # Charger l'audio (mono)
     audio = es.MonoLoader(filename=audio_path)()
     replaygain = es.ReplayGain()(audio)

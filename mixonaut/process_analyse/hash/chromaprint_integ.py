@@ -105,7 +105,7 @@ def sha256_pcm(
         with subprocess.Popen(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         ) as proc:
-            stdout = proc.stdout  # type: IO[bytes] | None
+            stdout: IO[bytes] | None = proc.stdout
             if stdout is None:
                 raise RuntimeError("Failed to open ffmpeg stdout pipe.")
             for chunk in iter(partial(stdout.read, 1024 * 1024), b""):

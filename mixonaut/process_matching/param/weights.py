@@ -3,33 +3,30 @@
 """
 
 
-def get_weights(profile: str = "standard") -> dict[str, int]:
+def get_weights(profile: str = "standard") -> dict[str, float]:
     """
-    Renvoie les poids associés à un profil de personnalisation.
+    Poids par profil, clés alignées avec compute_candidate_scores:
 
-    Args:
-        profile (str): Le nom du profil. Si null ou vide, utilise 'standard'.
-
-    Returns:
-        dict[str, float]: Les poids associés au profil.
+    'bpm', 'key', 'beat', 'mood', 'genre', 'duration'. Retourne des floats normalisées (somme = 1.0).
     """
-    profiles = {
+    profiles: dict[str, dict[str, int]] = {
         "standard": {
             "key": 10,
-            "genre_sim": 30,
-            "beat_intensity": 15,
-            "bpm_sim": 10,
-            "mood_sim": 30,
-            "duration_sim": 5,
+            "genre": 30,
+            "beat": 15,
+            "bpm": 10,
+            "mood": 30,
+            "duration": 5,
         },
         "alternatif": {
             "key": 30,
-            "genre_sim": 10,
-            "beat_intensity": 25,
-            "bpm_sim": 10,
-            "mood_sim": 15,
-            "duration_sim": 10,
+            "genre": 10,
+            "beat": 25,
+            "bpm": 10,
+            "mood": 15,
+            "duration": 10,
         },
-        # Ajoute d’autres profils ici
     }
-    return profiles.get(profile, profiles["standard"])
+    raw = profiles.get(profile, profiles["standard"])
+    total = float(sum(raw.values())) or 1.0
+    return {k: v / total for k, v in raw.items()}

@@ -12,7 +12,9 @@ import math
 #     return 0.0
 
 
-def calculate_mood_sim_score(ref_emb1, ref_emb2, emb1, emb2) -> float:
+def calculate_mood_sim_score(
+    ref_emb1: float, ref_emb2: float, emb1: float, emb2: float
+) -> float:
     """
     Calcule un score de similarité entre deux embeddings mood 2D.
     """
@@ -44,7 +46,7 @@ def calculate_duration_similarity(
 
 
 def calculate_beat_intensity_score(
-    beat_intensity: int, ref_beat_intensity: int
+    beat_intensity: float, ref_beat_intensity: float
 ) -> float:
     """
     Calcule un score de intensité de battement basé sur la différence entre les deux intensités.
@@ -59,7 +61,9 @@ def calculate_beat_intensity_score(
     return max(0.0, 1 - abs(beat_intensity - ref_beat_intensity) / 100)
 
 
-def calculate_genre_sim_score(ref_emb1, ref_emb2, emb1, emb2) -> float:
+def calculate_genre_sim_score(
+    ref_emb1: float, ref_emb2: float, emb1: float, emb2: float
+) -> float:
     """
     Calcule un score de similarité entre deux embeddings genre 2D.
     """

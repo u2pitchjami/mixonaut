@@ -20,12 +20,12 @@ from mixonaut.utils.utils_div import convert_path_format, ensure_to_path
 
 
 def generate_mode_text(
-    count=None,
-    missing_features=False,
-    is_edm=False,
-    missing_field=None,
-    path_contains=None,
-):
+    count: int | None = None,
+    missing_features: bool = False,
+    is_edm: bool = False,
+    missing_field: str | None = None,
+    path_contains: str | None = None,
+) -> str:
     """
     Générer un texte explicite du mode actif.
 
@@ -61,7 +61,9 @@ def generate_mode_text(
 
 
 @with_child_logger
-def prepare_track_paths(track, logger: LoggerProtocol | None = None):
+def prepare_track_paths(
+    track: tuple[int, str, str, str, str], logger: LoggerProtocol | None = None
+) -> tuple[int, Path, str, Path, Path] | None:
     """
     Prepare track paths for Essentia processing.
 
@@ -92,14 +94,16 @@ def prepare_track_paths(track, logger: LoggerProtocol | None = None):
             safe_name = safe_name[:MAX_SAFENAME_LENGTH]
         temp_audio = Path(ESSENTIA_TEMP_AUDIO) / f"{safe_name}{path.suffix}"
         temp_json = Path(ESSENTIA_TEMP_JSON) / f"{safe_name}.json"
-        return track_id, path, safe_name, temp_audio, temp_json
+        return (track_id, path, safe_name, temp_audio, temp_json)
     except Exception as e:
         logger.error(f"Erreur préparation chemins : {e}")
         raise
 
 
 @with_child_logger
-def process_audio_file(original_path, temp_audio, logger: LoggerProtocol | None = None):
+def process_audio_file(
+    original_path: Path, temp_audio: Path, logger: LoggerProtocol | None = None
+) -> bool:
     """
     Process the audio file and copy it to the temporary location.
     Args:
@@ -139,7 +143,7 @@ def sanitize_filename(name: str) -> str:
 
 
 @with_child_logger
-def clean_temp_files(*paths, logger: LoggerProtocol | None = None):
+def clean_temp_files(*paths: Path, logger: LoggerProtocol | None = None) -> None:
     """
     Supprime les fichiers temporaires générés pendant la préparation.
 
@@ -162,7 +166,7 @@ def clean_temp_files(*paths, logger: LoggerProtocol | None = None):
 @with_child_logger
 def archive_json_result(
     track_id: int, safe_name: str, logger: LoggerProtocol | None = None
-):
+) -> None:
     """
     Déplace un JSON de `temp_folder` vers `archive_base/XXXX/` en fonction de track_id.
     """

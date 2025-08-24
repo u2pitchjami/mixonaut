@@ -2,14 +2,25 @@
 2025-08-21 sql queries for matching.
 """
 
+from __future__ import annotations
+
+import sqlite3
+from collections.abc import Mapping
+
 from mixonaut.db.access import select_all, select_one
+from mixonaut.process_matching.models.models import (
+    CandidateTrack,
+    EnrichedTrackMatch,
+    TrackFeatures,
+    TrackMatch,
+)
 from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
 
 
 @with_child_logger
 def get_track_features(
     track_id: int, logger: LoggerProtocol | None = None
-) -> tuple | None:
+) -> TrackFeatures | None:
     """
     Retrieves the features of an audio track.
 
@@ -26,13 +37,25 @@ def get_track_features(
     FROM audio_features
     WHERE id = ?
     """
-    return select_one(query, (track_id,), logger=logger)
+    raw = select_one(query, (track_id,), logger=logger)
+    if raw is None:
+        return None
+    return {
+        "bpm": raw["bpm"],
+        "key": raw["key"],
+        "beat_intensity": raw["beat_intensity"],
+        "mood_emb1": raw["mood_emb1"],
+        "mood_emb2": raw["mood_emb2"],
+        "genre_emb1": raw["genre_emb1"],
+        "genre_emb2": raw["genre_emb2"],
+        "duration": raw["duration"],
+    }
 
 
 @with_child_logger
 def get_transpositions(
     track_id: int, logger: LoggerProtocol | None = None
-) -> tuple | None:
+) -> sqlite3.Row | None:
     """
     Retrieves the transpositions for a given track.
 
@@ -52,56 +75,90 @@ def get_transpositions(
 @with_child_logger
 def get_candidate_tracks(
     track_id: int, logger: LoggerProtocol | None = None
-) -> list[tuple]:
+) -> list[CandidateTrack]:
     """
-    Retrieves a list of candidate tracks that do not match the provided track ID.
-
-    Args:
-        track_id (int): The ID of the track to exclude from the results.
-
-    Returns:
-        list[tuple]: A list of tuples containing information about the candidate tracks.
+    Récupère les candidats (toutes les pistes sauf `track_id`), sous forme typée.
     """
     logger = ensure_logger(logger, __name__)
     query = """
-    SELECT id, bpm, initial_key, beat_intensity, mood_emb_1, mood_emb_2, genre_emb_1, genre_emb_2, duration
+    SELECT
+        id,
+        bpm,
+        initial_key AS key,
+        beat_intensity,
+        mood_emb_1 AS mood_emb1,
+        mood_emb_2 AS mood_emb2,
+        genre_emb_1 AS genre_emb1,
+        genre_emb_2 AS genre_emb2,
+        duration
     FROM audio_features
     WHERE id != ?
     """
-    return select_all(query, (track_id,), logger=logger)
+    try:
+        rows = select_all(query, (track_id,), logger=logger)  # -> list[dict] idéalement
+        # Si select_all renvoie des sqlite3.Row, convertir :
+        candidates: list[CandidateTrack] = [
+            {
+                "id": int(row["id"]),
+                "bpm": float(row["bpm"]),
+                "key": str(row["key"]),
+                "beat_intensity": float(row["beat_intensity"]),
+                "mood_emb1": float(row["mood_emb1"]),
+                "mood_emb2": float(row["mood_emb2"]),
+                "genre_emb1": float(row["genre_emb1"]),
+                "genre_emb2": float(row["genre_emb2"]),
+                "duration": float(row["duration"]),
+            }
+            for row in rows
+        ]
+        return candidates
+    except Exception as exc:  # pylint: disable=broad-except
+        logger.error("Erreur lors de la récupération des candidats: %s", exc)
+        return []
 
 
 @with_child_logger
 def enrich_matches_with_metadata(
-    matches: list[dict], logger: LoggerProtocol | None = None
-) -> list[dict]:
+    matches: list[TrackMatch],
+    logger: LoggerProtocol | None = None,
+) -> list[EnrichedTrackMatch]:
     """
-    Enhance track matches with metadata from the 'items' table.
+    Ajoute artist/album/title à chaque match depuis la table items.
 
-    This function iterates over a list of track matches and retrieves corresponding artist, album, and title information
-    for each match. If no matching row is found in the 'items' table, default values ('Unknown') are assigned to the
-    corresponding metadata fields.
-
-    Args:
-        matches (list[dict]): A list of dictionaries representing track matches.
-        logger (str, optional): The logger instance used for logging. Defaults to None.
-
-    Returns:
-        list[dict]: The enriched list of track matches with added metadata.
+    Retourne une nouvelle liste (ne modifie pas l'entrée).
     """
     logger = ensure_logger(logger, __name__)
+    enriched: list[EnrichedTrackMatch] = []
+
     for match in matches:
         row = select_one(
             "SELECT artist, album, title FROM items WHERE id = ?",
-            (match["track_id"],),
+            (match["id"],),
             logger=logger,
         )
-        if row:
-            match["artist"], match["album"], match["title"] = row
-        else:
-            match["artist"], match["album"], match["title"] = (
-                "Unknown",
-                "Unknown",
-                "Unknown",
-            )
-    return matches
+
+        artist: str = "Unknown"
+        album: str = "Unknown"
+        title: str = "Unknown"
+
+        try:
+            if row:
+                if isinstance(row, Mapping):
+                    # sqlite3.Row ou dict-like
+                    artist = str(row.get("artist", "Unknown"))
+                    album = str(row.get("album", "Unknown"))
+                    title = str(row.get("title", "Unknown"))
+                elif isinstance(row, (list, tuple)) and len(row) >= 3:
+                    artist = str(row[0])
+                    album = str(row[1])
+                    title = str(row[2])
+                else:
+                    logger.warning(
+                        "Format de ligne inattendu pour id=%s: %r", match["id"], row
+                    )
+        except Exception as exc:  # pylint: disable=broad-except
+            logger.warning("Échec enrichissement metadata id=%s : %s", match["id"], exc)
+
+        enriched.append({**match, "artist": artist, "album": album, "title": title})
+
+    return enriched

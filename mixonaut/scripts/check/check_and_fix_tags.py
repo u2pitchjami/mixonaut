@@ -4,6 +4,7 @@ import argparse
 import os
 import random
 import subprocess
+from typing import Any
 
 from mixonaut.db.analyse.essentia_queries import (
     get_all_track_ids,
@@ -35,7 +36,7 @@ from mixonaut.utils.utils_div import (
 logger = get_logger("Check_&_fix_tags")
 
 
-def get_current_tags(path: str) -> dict:
+def get_current_tags(path: str) -> dict[str, Any]:
     """
     Retrieves the current tags for a given file path.
     Args:
@@ -88,7 +89,7 @@ def get_current_tags(path: str) -> dict:
 
 
 def check_and_fix_tags(
-    track_id: int, path: str, track_features: dict, dry_run: bool = False
+    track_id: int, path: str, track_features: dict[str, Any], dry_run: bool = False
 ) -> bool:
     """
     Check if the tags of a track are up-to-date and fix them if necessary.
@@ -132,8 +133,8 @@ def check_and_fix_tags(
 
 @safe_main
 def process_all_tracks(
-    dry_run: bool = False, track_id: int | None = None, nb_limit: int = 0
-):
+    dry_run: bool = False, track_id: int | None = None, nb_limit: int | None = None
+) -> None:
     """
     Process all tracks for fixing tags.
 
@@ -148,13 +149,16 @@ def process_all_tracks(
     args_to_log = {k: v for k, v in locals().items() if k != "track_ids"}
 
     track_ids = get_all_track_ids()
-    if track_id:
+    if track_id and track_ids:
         if track_id in track_ids:
             track_ids = [track_id]  # ← transforme en liste d’un seul élément
         else:
             raise ValueError(f"Track ID {track_id} non trouvé dans la base.")
-    total = nb_limit
-    if nb_limit == 0:
+
+    if nb_limit:
+        total = nb_limit
+    else:
+        total = nb_limit if nb_limit is not None else len(track_ids)
         nb_limit = len(track_ids)
         total = len(track_ids)
     random.shuffle(track_ids)
@@ -187,6 +191,10 @@ def process_all_tracks(
             continue
 
         path = get_item_field_value("path", track_id, logger=logger)
+        if not path:
+            logger.warning(f"⚠️ Impossible de retrouver le chemin du morceau {track_id}")
+            return
+
         path = ensure_to_str(path)
         if not path:
             logger.warning(f"Fichier introuvable pour l'ID {track_id}: {path}")
@@ -207,7 +215,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--nb-limit",
         type=int,
-        default=0,
+        default=None,
         help="Nombre d'éléments à traiter (défaut: 0)",
     )
     args = parser.parse_args()

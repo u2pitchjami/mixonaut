@@ -9,6 +9,7 @@ from mixonaut.db.matching.matching_queries import (
 from mixonaut.process_matching.export.export_markdown import (
     group_matches_by_transition_type,
 )
+from mixonaut.process_matching.models.models import MatchResult
 from mixonaut.process_matching.process.key_process import get_effective_ref_key
 from mixonaut.process_matching.process.scoring import get_compatible_candidates
 from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
@@ -22,7 +23,7 @@ def find_compatible_tracks(
     grouped: bool = False,
     weights_type: str = "standard",
     logger: LoggerProtocol | None = None,
-) -> list[dict] | dict[str, list[dict]]:
+) -> MatchResult:
     """
     Find compatible tracks based on the given track ID.
     Args:
@@ -44,21 +45,23 @@ def find_compatible_tracks(
             logger.warning(f"Track ID {track_id} introuvable dans audio_features")
             return []
 
-        (
-            ref_bpm,
-            ref_key,
-            ref_beat_intensity,
-            ref_mood_emb1,
-            ref_mood_emb2,
-            ref_genre_emb1,
-            ref_genre_emb2,
-            ref_duration,
-        ) = ref
-        effective_ref_key = ref_key
+        ref_bpm = ref["bpm"]
+        ref_key = ref["key"]
+        ref_beat_intensity = ref["beat_intensity"]
+        ref_mood_emb1 = ref["mood_emb1"]
+        ref_mood_emb2 = ref["mood_emb2"]
+        ref_genre_emb1 = ref["genre_emb1"]
+        ref_genre_emb2 = ref["genre_emb2"]
+        ref_duration = ref["duration"]
+        effective_ref_key: str = ref_key
 
         target_bpm = target_bpm or ref_bpm
         effective_ref_key = get_effective_ref_key(
-            track_id, ref_bpm, ref_key, target_bpm, logger=logger
+            track_id=track_id,
+            ref_bpm=ref_bpm,
+            ref_key=ref_key,
+            target_bpm=target_bpm,  # ici target_bpm == float garanti
+            logger=logger,
         )
 
         candidates = get_candidate_tracks(track_id, logger=logger)
@@ -77,15 +80,21 @@ def find_compatible_tracks(
             logger=logger,
         )
 
+        if not compatibles:
+            return {} if grouped else []
+
         if not grouped:
             return sorted(compatibles, key=lambda x: x["score"], reverse=True)[
                 :max_results
             ]
-        else:
-            return group_matches_by_transition_type(
-                compatibles, effective_ref_key, max_results, logger=logger
-            )
 
-    except Exception as e:
-        logger.exception(f"Erreur dans find_compatible_tracks: {e}")
-        return []
+        return group_matches_by_transition_type(
+            matches=compatibles,
+            ref_key=effective_ref_key,
+            max_results=max_results,
+            logger=logger,
+        )
+
+    except Exception as exc:  # pylint: disable=broad-except
+        logger.exception("Erreur dans find_compatible_tracks: %s", exc)
+        return {} if grouped else []

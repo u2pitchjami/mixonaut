@@ -4,16 +4,18 @@
 
 import sys
 import traceback
+from collections.abc import Callable
 from functools import wraps
+from typing import Any
 
 
-def safe_main(func):
+def safe_main(func: Callable[..., Any]) -> Callable[..., Any]:
     """
     Décorateur pour main en catchant toutes les exceptions et retourner un code retour.
     """
 
     @wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         try:
             return func(*args, **kwargs)
         except Exception as e:

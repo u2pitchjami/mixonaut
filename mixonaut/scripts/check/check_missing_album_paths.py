@@ -14,7 +14,7 @@ logger = get_logger("Check_Album_in_Beets")
 
 
 @safe_main
-def check_missing_album_paths():
+def check_missing_album_paths() -> None:
     """
     Verifie si les données du host sont bien connues de Beets.
 
@@ -35,7 +35,7 @@ def check_missing_album_paths():
     }
     # beet_output = get_beet_list("list", ["-a", "-f", "$path"], logger=logger)
     beet_output = get_beet_list(
-        album=True, format=True, format_fields="$path", output_file=False, logger=logger
+        album=True, format=True, format_fields="$path", output_file=None, logger=logger
     )
     if beet_output is None:
         logger.error("❌ Impossible de récupérer la liste Beets.")
@@ -71,7 +71,6 @@ def check_missing_album_paths():
         logger.warning("Aucune variable BEETS_MANUAL_LIST définie.")
 
     logger.info("🏁 CHECK PATHS IN BEETS : TERMINE !! \n\n")
-    return missing
 
 
 if __name__ == "__main__":

@@ -4,7 +4,30 @@
 modules de traitement de la key de la track.
 """
 
+from __future__ import annotations
+
+from typing import Any, Optional, TypedDict, TypeGuard, cast
+
 from mixonaut.utils.config import CAMELOT_MAP, ENHARMONIC_MAP
+
+
+class Candidate(TypedDict):
+    key: str | None
+    scale: str | None
+    strength: float | None
+
+
+def has_key_and_strength(c: Candidate) -> TypeGuard[Candidate]:
+    """Narrow: conserve seulement les candidats avec key et strength présents."""
+    return bool(c["key"]) and c["strength"] is not None
+
+
+def strength_val(c: Candidate) -> float:
+    """
+    Valeur sûre (non-Optional) pour key= de max().
+    """
+    # Ici on ne suppose rien : si None -> -inf pour être toujours dominé
+    return c["strength"] if c["strength"] is not None else float("-inf")
 
 
 def convert_to_camelot(key: str, scale: str) -> str | None:
@@ -26,56 +49,63 @@ def convert_to_camelot(key: str, scale: str) -> str | None:
     return CAMELOT_MAP.get(label)
 
 
-def get_best_key_from_essentia(track_features: dict, threshold: float = 5.0):
+def get_best_key_from_essentia(
+    track_features: dict[str, Any], threshold: float = 5.0
+) -> Candidate | None:
     """
     Sélectionne la tonalité la plus fiable, avec priorité à edma.
 
     Si un autre algo a une probabilité significativement plus élevée (> threshold), alors il est préféré à edma.
     """
-    candidates = {
+    candidates: dict[str, Candidate] = {
         "edma": {
-            "key": track_features.get("key_edma"),
-            "scale": track_features.get("scale_edma"),
-            "strength": track_features.get("strength_edma"),
+            "key": cast(Optional[str], track_features.get("key_edma")),
+            "scale": cast(Optional[str], track_features.get("scale_edma")),
+            "strength": cast(Optional[float], track_features.get("strength_edma")),
         },
         "krumhansl": {
-            "key": track_features.get("key_krumhansl"),
-            "scale": track_features.get("scale_krumhansl"),
-            "strength": track_features.get("strength_krumhansl"),
+            "key": cast(Optional[str], track_features.get("key_krumhansl")),
+            "scale": cast(Optional[str], track_features.get("scale_krumhansl")),
+            "strength": cast(Optional[float], track_features.get("strength_krumhansl")),
         },
         "temperley": {
-            "key": track_features.get("key_temperley"),
-            "scale": track_features.get("scale_temperley"),
-            "strength": track_features.get("strength_temperley"),
+            "key": cast(Optional[str], track_features.get("key_temperley")),
+            "scale": cast(Optional[str], track_features.get("scale_temperley")),
+            "strength": cast(Optional[float], track_features.get("strength_temperley")),
         },
     }
+
     edma = candidates["edma"]
+
+    # Fallback total : si edma n’a pas de key ou pas de strength, on prend le meilleur score dispo
     if not edma["key"] or edma["strength"] is None:
-        # fallback total sur le meilleur score
         best = max(
-            (
-                data
-                for data in candidates.values()
-                if data["key"] and data["strength"] is not None
-            ),
-            key=lambda x: x["strength"],
+            (data for data in candidates.values() if has_key_and_strength(data)),
+            key=strength_val,
             default=None,
         )
         return best
 
+    # Sinon on cherche le meilleur non-edma comparable
     best_non_edma = max(
         (
             data
-            for k, data in candidates.items()
-            if k != "edma" and data["key"] and data["strength"] is not None
+            for name, data in candidates.items()
+            if name != "edma" and has_key_and_strength(data)
         ),
-        key=lambda x: x["strength"],
+        key=strength_val,
         default=None,
     )
-    if best_non_edma and best_non_edma["strength"] - edma["strength"] > threshold:
-        return best_non_edma
-    else:
-        return edma
+
+    if (
+        best_non_edma
+        and best_non_edma["strength"] is not None
+        and edma["strength"] is not None
+    ):
+        if (best_non_edma["strength"] - edma["strength"]) > threshold:
+            return best_non_edma
+
+    return edma
 
 
 # # Optional test

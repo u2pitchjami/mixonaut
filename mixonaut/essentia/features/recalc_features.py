@@ -4,7 +4,8 @@
 modules de recalcul des features.
 """
 
-from pathlib import Path
+from collections.abc import Callable, Mapping
+from typing import Any
 
 from mixonaut.db.analyse.essentia_queries import (
     get_audio_features_by_id,
@@ -32,25 +33,34 @@ from mixonaut.process_analyse.transposition.transposition import generate_transp
 from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
 from mixonaut.utils.utils_div import convert_path_format, sanitize_value
 
-# Essentia recalc
-AVAILABLE_CALCS = {
-    "beat_intensity": calculate_beat_intensity,
-    "mood": lambda f: get_dominant_mood(compute_mood_vector(f)),
-    "genre": get_dominant_genre,
-    "initial_key": lambda f: sanitize_value(
-        convert_to_camelot(**get_best_key_from_essentia(f)), "key"
-    ),
+Features = dict[str, Any]
+CalcFunc = Callable[[Features], Any]
+
+
+def calc_initial_key(f: dict[str, Any]) -> str | None:
+    best = get_best_key_from_essentia(f)
+    if not best or best["key"] is None or best["scale"] is None:
+        return None
+    value = sanitize_value(convert_to_camelot(best["key"], best["scale"]), "key")
+    return value if isinstance(value, str) or value is None else None
+
+
+AVAILABLE_CALCS: Mapping[str, CalcFunc] = {
+    "beat_intensity": calculate_beat_intensity,  # -> float
+    "mood": lambda f: get_dominant_mood(compute_mood_vector(f)),  # -> str | None
+    "genre": get_dominant_genre,  # -> str | None
+    "initial_key": calc_initial_key,  # -> str | None
 }
 
 
 @with_child_logger
 def sync_fields_by_track_id(
     track_id: int,
-    track_features: dict,
-    items_columns: set,
-    no_tags=None,
+    track_features: dict[str, Any],
+    items_columns: set[str],
+    no_tags: bool | None = None,
     logger: LoggerProtocol | None = None,
-):
+) -> None:
     """
     Synchronise les features d'un track avec Beets.
 
@@ -97,11 +107,11 @@ def sync_fields_by_track_id(
 @with_child_logger
 def main_recalc(
     track_id: int,
-    recalc_fields: list,
-    items_columns: set,
-    no_tags=None,
+    recalc_fields: list[str],
+    items_columns: set[str],
+    no_tags: bool | None = None,
     logger: LoggerProtocol | None = None,
-):
+) -> None:
     """
     Recalculate the specified features for a given track ID.
 
@@ -126,13 +136,14 @@ def main_recalc(
         for field in recalc_fields:
             logger.debug(f"🔄 Recalcul du champ : {field}")
             try:
-                calc_fn = AVAILABLE_CALCS.get(field)
-                if not calc_fn:
-                    logger.warning(f"⚠️ Champ non reconnu : {field}")
+                calc_fn = AVAILABLE_CALCS.get(field)  # type: CalcFunc | None
+                if calc_fn is None:
+                    logger.warning("⚠️ Champ non reconnu : %s", field)
                     continue
 
-                features[field] = calc_fn(features)
-                logger.debug(f"✅ {field} recalculé : {features[field]}")
+                value = calc_fn(features)  # type: Any
+                features[field] = value
+                logger.debug("✅ %s recalculé : %s", field, features[field])
             except Exception as e:
                 logger.warning(f"❌ Erreur recalcul {field} : {e}")
 

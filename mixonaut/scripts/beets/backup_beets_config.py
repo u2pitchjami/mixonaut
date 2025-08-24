@@ -46,7 +46,7 @@ def sqlite_safe_backup(db_path: str, backup_dir: str) -> str:
 
 
 @safe_main
-def backup_beets_config():
+def backup_beets_config() -> None:
     """
     Crée une archive .tar.gz du dossier de config Beets + DB SQLite sûre.
     """
@@ -76,8 +76,8 @@ def backup_beets_config():
     except Exception as e:
         logger.warning(f"⚠️ Impossible de supprimer {safe_db_copy} : {e}")
 
-        logger.info(f"✅ Backup complet créé : {archive_path}")
-        return archive_path
+    logger.info(f"✅ Backup complet créé : {archive_path}")
+    return
 
 
 if __name__ == "__main__":

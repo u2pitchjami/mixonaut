@@ -52,7 +52,7 @@ def get_status_column(table: str) -> str:
 
 
 @with_child_logger
-def sync_pending_tables(logger: LoggerProtocol | None = None):
+def sync_pending_tables(logger: LoggerProtocol | None = None) -> None:
     """
     Synchronise les tables pending en ajoutant des enregistrements manquants.
 

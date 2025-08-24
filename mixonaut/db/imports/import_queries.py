@@ -147,7 +147,6 @@ from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logg
 #     )
 
 
-# db/import_queries.py (nouvelle fonction par hash)
 @with_child_logger
 def get_hashes_ready_for_deletion(
     min_ratio: float,
@@ -158,9 +157,9 @@ def get_hashes_ready_for_deletion(
     """
     Retourne les torrent_hash à supprimer selon la politique:
 
-    - importés et ratio/âge OK
-    - OU décision (REJECT, DUPLICATE_HARD, REPLACED) et ratio/âge OK
-    - OU décision (NEEDS_MANUAL, DUPLICATE_SOFT) posée il y a >= G jours et ratio/âge OK
+    - importés ET (ratio>=min_ratio OU age>=min_age_days), OU
+    - décision forte (REJECT/DUPLICATE_HARD/REPLACED) ET ratio/âge OK, OU
+    - décision soft (NEEDS_MANUAL/DUPLICATE_SOFT) posée il y a >= grace_days_soft.
     """
     logger = ensure_logger(logger, __name__)
     query = """
@@ -182,28 +181,23 @@ def get_hashes_ready_for_deletion(
     FROM base b
     LEFT JOIN dec d ON d.torrent_hash = b.torrent_hash
     WHERE
-      -- Ratio/âge OK
-      (
-        b.ratio >= ?
-        OR (julianday('now') - julianday(datetime(b.added_on, 'unixepoch'))) >= ?
-      )
+      (b.ratio >= ? OR (julianday('now') - julianday(datetime(b.added_on, 'unixepoch'))) >= ?)
       AND (
-        -- importé
         b.imported_at IS NOT NULL
-        -- ou décisions fortes
-        OR (d.decision IN ('REJECT','DUPLICATE_HARD','REPLACED'))
-        -- ou décisions "soft" après délai de grâce
+        OR d.decision IN ('REJECT','DUPLICATE_HARD','REPLACED')
         OR (d.decision IN ('NEEDS_MANUAL','DUPLICATE_SOFT')
             AND d.decided_at IS NOT NULL
-            AND (julianday('now') - julianday(d.decided_at)) >= ?
-        )
+            AND (julianday('now') - julianday(d.decided_at)) >= ?)
       )
+    ORDER BY b.torrent_hash
     """
     rows = (
         select_all(query, (min_ratio, min_age_days, grace_days_soft), logger=logger)
         or []
     )
-    return [r[0] for r in rows]
+    hashes = [r[0] for r in rows if r and r[0]]
+    logger.debug("hashes_ready_for_deletion=%d", len(hashes))
+    return hashes
 
 
 # def mark_as_cleaned(torrent_name: str, logger=None):

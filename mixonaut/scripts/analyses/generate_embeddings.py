@@ -8,7 +8,7 @@ from mixonaut.utils.safe_runner import safe_main
 
 
 @safe_main
-def main():
+def main() -> None:
     """
     Generates genre and mood embeddings for audio tracks.
 
@@ -29,10 +29,13 @@ def main():
         )
 
     logger.info("Démarrage Mood Embeddings")
-    result = compute_mood_embeddings(logger=logger)
-    for row in result:
-        tid = row["id"]
-        features = {"mood_emb_1": row["mood_emb_1"], "mood_emb_2": row["mood_emb_2"]}
+    result_mood = compute_mood_embeddings(logger=logger)
+    for row_mood in result_mood:
+        tid = row_mood["id"]
+        features = {
+            "mood_emb_1": row_mood["mood_emb_1"],
+            "mood_emb_2": row_mood["mood_emb_2"],
+        }
         insert_or_update_audio_features(
             item_id=tid, features=features, force=True, logger=logger
         )

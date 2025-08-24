@@ -44,23 +44,25 @@ def format_nb(
         return str(nb)
 
 
-def ensure_to_str(path) -> str:
+def ensure_to_str(path: Path | bytes) -> str:
     """
     Convertit un path potentiellement en bytes ou Path en str propre.
     """
     if isinstance(path, bytes):
-        path = path.decode("utf-8")
-    return str(Path(path))
+        path_bytes = path.decode("utf-8")
+        return str(path_bytes)
+    return str(path)
 
 
-def ensure_to_path(path):
+def ensure_to_path(path: str | bytes) -> Path:
     """
     Garantit qu'un chemin est une chaîne ou un Path valide.
 
     Convertit les objets bytes → str, et renvoie un Path.
     """
     if isinstance(path, bytes):
-        path = path.decode("utf-8")  # ou 'latin-1' selon ton encodage Beets
+        path_bytes = path.decode("utf-8")
+        return Path(path_bytes)
     return Path(path)
 
 
@@ -109,7 +111,11 @@ def convert_path_format(path: Path | str, to_beets: bool = False) -> Path:
 
 
 @with_child_logger
-def sanitize_value(value, format_type: str, logger: LoggerProtocol | None = None):
+def sanitize_value(
+    value: int | float | str | None,
+    format_type: str,
+    logger: LoggerProtocol | None = None,
+) -> None | int | float | str:
     """
     Sanitise une valeur d'entrée en fonction de son type.
 

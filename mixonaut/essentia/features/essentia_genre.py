@@ -5,6 +5,7 @@ modules de traitement du genre.
 """
 
 from collections import defaultdict
+from typing import Any
 
 from mixonaut.utils.config import (
     ELECTRO_OVERRIDE_GENRES,
@@ -15,7 +16,7 @@ from mixonaut.utils.config import (
 )
 
 
-def get_dominant_genre(track_features: dict) -> str | None:
+def get_dominant_genre(track_features: dict[str, Any]) -> str | None:
     """
     Détermine le genre dominant à partir des outputs Essentia.
     """
@@ -35,7 +36,8 @@ def get_dominant_genre(track_features: dict) -> str | None:
         electronic = track_features.get("genre_electronic")
         # electronic_p = track_features.get("genre_electronic_probability", 0.0)
         if electronic:
-            return GENRE_CANONICAL.get(electronic.lower(), electronic)
+            result = GENRE_CANONICAL.get(electronic.lower(), electronic)
+            return str(result) if result is not None else None
         else:
             return None
 

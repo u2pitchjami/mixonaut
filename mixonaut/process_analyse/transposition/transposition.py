@@ -72,54 +72,12 @@ def shift_to_colname(prefix: str, shift: int) -> str:
     return f"{prefix}_{sign}_{abs(shift)}"
 
 
-# @with_child_logger
-# def generate_transpositions(nb_limit=0, track_id=None, logger=None):
-#     args_to_log = {k: v for k, v in locals().items() if k != "logger"}
-#     logger.info("🔍 Démarrage de Process de Transposition")
-#     logger.info("Arguments reçus : " + ", ".join([f"{k}={v}" for k, v in args_to_log.items()]))
-
-#     rows = fetch_tracks_with_bpm_and_key(logger=logger)
-#     if track_id:
-#         filtered = [row for row in rows if row[0] == track_id]
-#         if not filtered:
-#             raise ValueError(f"Track ID {track_id} non trouvé dans les données.")
-#         rows = filtered
-
-#     total = nb_limit
-
-#     if nb_limit == 0:
-#         nb_limit = len(rows)
-#         total = len(rows)
-#     random.shuffle(rows)
-#     logger.info(f"🎯 {format_nb(total, logger=logger)} morceaux à traiter")
-#     count = 0
-#     try:
-#         for track_id, bpm, key in rows[:nb_limit]:
-#             count += 1
-#             logger.info(f"🔍 Traitement du morceau {track_id} - \
-# [{format_nb(count, logger=logger)}/{format_nb(total, logger=logger)}] \
-# ({format_percent(count, total, logger=logger)})")
-#             keys, bpms = {}, {}
-#             for shift in SEMITONE_SHIFT_VALUES:
-#                 key_col = shift_to_colname("key", shift)
-#                 bpm_col = shift_to_colname("bpm", shift)
-#                 try:
-#                     keys[key_col] = shift_camelot(key, shift, logger=logger)
-#                     bpms[bpm_col] = shift_bpm(bpm, shift)
-#                 except Exception as e:
-#                     logger.warning("⛔ Erreur lors du shift %s pour track %s: %s", shift, track_id, e)
-
-#             insert_transpositions(track_id, keys, bpms)
-
-
-#         logger.info(f"🏁 Terminé. {count} transpositions réalisées")
-#     except Exception as e:
-#         logger.error(f"❌ [{logger}] Erreur lors de la transposition : {e}")
-#         raise
 @with_child_logger
 def generate_transpositions(
-    nb_limit=0, track_id=None, logger: LoggerProtocol | None = None
-):
+    nb_limit: int | None = None,
+    track_id: int | None = None,
+    logger: LoggerProtocol | None = None,
+) -> tuple[dict[str, int] | None, str, str | None]:
     """
     Comportement:
       - Si track_id est fourni: traite 1 piste et retourne (data, err_code, err_msg)
@@ -133,7 +91,8 @@ def generate_transpositions(
     )
 
     rows = fetch_tracks_with_bpm_and_key(logger=logger)
-
+    keys: dict[str, str] = {}
+    bpms: dict[str, float] = {}
     # --- Mode single track (pour intégration post‑Essentia) ---
     if track_id:
         filtered = [row for row in rows if row[0] == track_id]
@@ -152,7 +111,7 @@ def generate_transpositions(
             return None, "KO_UNSUPPORTED", f"BPM inexploitable: {bpm}"
 
         try:
-            keys, bpms = {}, {}
+
             for shift in SEMITONE_SHIFT_VALUES:
                 key_col = shift_to_colname("key", shift)
                 bpm_col = shift_to_colname("bpm", shift)
@@ -161,8 +120,8 @@ def generate_transpositions(
 
             insert_transpositions(tid, keys, bpms, logger=logger)
             # data de sortie utile si tu veux log/inspecter
-            data = {"track_id": tid, "keys": keys, "bpms": bpms}
-            return data, "OK", None
+
+            return None, "OK", None
 
         except Exception as exc:  # pylint: disable=broad-except
             logger.exception(
@@ -171,8 +130,9 @@ def generate_transpositions(
             return None, "KO_FILE", str(exc)
 
     # --- Mode batch (legacy CLI/cron) ---
-    total = nb_limit if nb_limit > 0 else len(rows)
-    if nb_limit == 0:
+    if nb_limit:
+        total = nb_limit
+    else:
         nb_limit = len(rows)
 
     random.shuffle(rows)
@@ -196,7 +156,6 @@ def generate_transpositions(
                 )
                 continue
 
-            keys, bpms = {}, {}
             for shift in SEMITONE_SHIFT_VALUES:
                 key_col = shift_to_colname("key", shift)
                 bpm_col = shift_to_colname("bpm", shift)
@@ -210,7 +169,7 @@ def generate_transpositions(
             insert_transpositions(tid, keys, bpms, logger=logger)
 
         logger.info(f"🏁 Terminé. {count} transpositions réalisées")
-        return {"processed": count}, None, None
+        return {"processed": count}, "Mode Batch", None
 
     except Exception as e:
         logger.error("❌ [transpo] Erreur batch transposition : %s", e)

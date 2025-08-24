@@ -9,7 +9,9 @@ from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logg
 
 
 @with_child_logger
-def import_auto(noincremental: bool = False, logger: LoggerProtocol | None = None):
+def import_auto(
+    noincremental: bool = False, logger: LoggerProtocol | None = None
+) -> None:
     """
     Lance un import automatique de /app/imports après avoir :
 
@@ -42,8 +44,10 @@ def import_auto(noincremental: bool = False, logger: LoggerProtocol | None = Non
 
 @with_child_logger
 def import_manuel(
-    clear_after=False, skip_only=False, logger: LoggerProtocol | None = None
-):
+    clear_after: bool = False,
+    skip_only: bool = False,
+    logger: LoggerProtocol | None = None,
+) -> None:
     """
     Importe tous les dossiers listés dans BEETS_MANUAL_LIST, un par un, en mode manuel.
 

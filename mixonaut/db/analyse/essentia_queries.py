@@ -7,11 +7,14 @@ module utilisé par :
 
 from __future__ import annotations
 
-from typing import Any
+import sqlite3
+from typing import Any, TypeAlias
 
 from mixonaut.db.access import execute_query, select_all, select_one
 from mixonaut.utils.config import EDM_GENRES
 from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+
+SqlParam: TypeAlias = int | float | str | bytes | None
 
 
 @with_child_logger
@@ -21,57 +24,43 @@ def get_all_track_ids(logger: LoggerProtocol | None = None) -> list[int]:
     """
     logger = ensure_logger(logger, __name__)
     rows = select_all("SELECT id FROM audio_features", (), logger=logger)
-    return [row[0] for row in rows]
+
+    return [row[0] for row in rows] or []
 
 
 @with_child_logger
 def fetch_tracks(
     missing_features: bool = False,
-    mf_logic: str | None = "OR",
+    mf_logic: str = "OR",
     status_list: list[str] | None = None,
     is_edm: bool = False,
     missing_field: str | None = None,
     path_contains: str | None = None,
     track_id: int | None = None,
     logger: LoggerProtocol | None = None,
-) -> list[Any]:
+) -> list[sqlite3.Row]:
     """
     Récupère les pistes selon divers critères.
 
-    Args:
-        missing_features (bool): Si True et status_list non fourni, filtre sur la liste par défaut.
-        status_list (list[str] | None): Liste des statuts essentia_status à inclure (ex: ['PENDING','KO_FILE']).
-                                        Si fourni, pris en compte même si missing_features=False.
-        is_edm (bool): Filtrer uniquement sur les genres EDM définis dans EDM_GENRES.
-        missing_field (str | None): Champ de items devant être vide ou NULL pour filtrage.
-        path_contains (str | None): Filtrer sur le chemin (insensible à la casse).
-        track_id (int | None): Si fourni, cible un track spécifique (prioritaire).
+    Retourne une liste de sqlite3.Row (id, path, artist, title, album).
     """
     logger = ensure_logger(logger, __name__)
-    # ⚠️ Conserver l'ordre de colonnes attendu en aval: (id, path, artist, title, album)
-    # base_query = """
-    # SELECT i.id, i.path, i.artist, i.title, i.album
-    # FROM items i
-    # LEFT JOIN audio_features af ON i.id = af.id
-    # ORDER BY i.id
-    # """
+
     base_query = """
     SELECT id, path, artist, title, album
     FROM v_analyse
     """
 
-    where_clauses = []
-    params = []
+    where_clauses: list[str] = []
+    params: list[SqlParam] = []
 
     # 0) Filtre direct par track_id (prioritaire)
     if track_id is not None:
         where_clauses.append("id = ?")
         params.append(track_id)
 
-    # 1) Statuts Essentia (deux modes)
-    # - Si status_list est fourni → on l'applique tel quel
-    # - Sinon, si missing_features=True → on utilise la liste par défaut
-    effective_status_list = None
+    # 1) Statuts Essentia
+    effective_status_list: list[str] | None = None
     if status_list and len(status_list) > 0:
         effective_status_list = status_list
     elif missing_features:
@@ -81,11 +70,8 @@ def fetch_tracks(
         clause, p = build_status_filter(effective_status_list, logic=mf_logic)
         if clause:
             where_clauses.append(clause)
+            # p doit être list[SqlParam]
             params.extend(p)
-
-        # placeholders = ','.join(['?'] * len(effective_status_list))
-        # where_clauses.append(f"essentia_status IN ({placeholders})")
-        # params.extend(effective_status_list)
 
     # 2) Champ manquant
     if missing_field:
@@ -109,7 +95,7 @@ def fetch_tracks(
 
     # 4) Genres EDM
     if is_edm:
-        edm_clauses = [f"genre LIKE ?" for _ in EDM_GENRES]
+        edm_clauses = ["genre LIKE ?" for _ in EDM_GENRES]
         where_clauses.append(f"({' OR '.join(edm_clauses)})")
         params.extend([f"%{genre}%" for genre in EDM_GENRES])
 
@@ -118,14 +104,18 @@ def fetch_tracks(
         base_query += " WHERE " + " AND ".join(where_clauses)
 
     try:
-        return execute_query(base_query, tuple(params), fetch=True, logger=logger)
+        rows = execute_query(base_query, tuple(params), fetch=True, logger=logger)
+        assert rows is not None  # fetch=True ⇒ on s'attend à une liste
+        return rows
     except Exception as e:  # pylint: disable=broad-except
         if logger:
             logger.error("Erreur dans fetch_tracks : %s", e)
         raise
 
 
-def build_status_filter(effective_status_list, logic="OR"):
+def build_status_filter(
+    effective_status_list: list[str] | None, logic: str = "OR"
+) -> tuple[str | None, list[str]]:
     """
     Construction du filtre de status des analyses.
     """
@@ -144,8 +134,11 @@ def build_status_filter(effective_status_list, logic="OR"):
 
 @with_child_logger
 def insert_or_update_audio_features(
-    item_id: int, features: dict, force=True, logger: LoggerProtocol | None = None
-):
+    item_id: int,
+    features: dict[str, Any],
+    force: bool = True,
+    logger: LoggerProtocol | None = None,
+) -> bool:
     """
     Requête d'insertion dans audio_features.
     """
@@ -205,7 +198,7 @@ def insert_or_update_audio_features(
 @with_child_logger
 def get_audio_features_by_id(
     track_id: int, logger: LoggerProtocol | None = None
-) -> dict:
+) -> dict[str, Any] | None:
     """
     Requête de recup des features.
     """
@@ -221,6 +214,8 @@ def get_audio_features_by_id(
     # Obtenir les noms de colonnes (si execute_query ne le fait pas)
     columns_query = "PRAGMA table_info(audio_features)"
     columns_info = execute_query(columns_query, (), fetch=True, logger=logger)
+    if not columns_info:
+        return None
     column_names = [col[1] for col in columns_info]  # col[1] = name
 
     return dict(zip(column_names, row))

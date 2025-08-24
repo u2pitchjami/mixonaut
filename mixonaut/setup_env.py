@@ -6,7 +6,7 @@ import os
 import sys
 
 
-def setup():
+def setup() -> None:
     """
     Setup function to add the current directory to the system path.
 

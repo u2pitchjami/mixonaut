@@ -13,7 +13,7 @@ from mixonaut.utils.safe_runner import safe_main
 logger = get_logger("Beets_Recap")
 
 
-def export_beet_snapshot():
+def export_beet_snapshot() -> str:
     """
     Exporte un snapshot dans un dossier donné, avec un nom de fichier basé sur la date.
 
@@ -108,7 +108,7 @@ def generate_beet_change_log(
     return {"added": added, "modified": modified, "removed": removed}
 
 
-def auto_generate_beet_change_log(period: str = "all"):
+def auto_generate_beet_change_log(period: str = "all") -> dict[str, list[str]]:
     """
     Génère automatiquement le rapport de changement des fichiers Beets pour une période donnée.
 
@@ -219,7 +219,7 @@ def export_change_log_markdown(
 
 
 @safe_main
-def main(period=all, nosnapshot=False, markdown=False):
+def main(period: str = "all", nosnapshot: bool = False, markdown: bool = False) -> None:
     """
     Crée un récapitulatif de la.
     """

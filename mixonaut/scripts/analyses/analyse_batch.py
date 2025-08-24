@@ -101,7 +101,7 @@ def main(
 
     tracks = fetch_tracks(
         missing_features=missing_features,
-        mf_logic=mf_logic,
+        mf_logic=mf_logic if mf_logic is not None else "OR",
         status_list=status_list,
         is_edm=is_edm,
         missing_field=missing_field,
@@ -128,7 +128,7 @@ def main(
 
         try:
             result = analyse_hub(
-                track,
+                tuple(track),
                 steps=steps,
                 force=force,
                 max_length=max_length,

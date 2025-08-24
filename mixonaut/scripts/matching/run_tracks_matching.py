@@ -13,10 +13,14 @@ logger = get_logger("Generate_Compatible_Tracks")
 
 @safe_main
 def main(
-    track_id, target_bpm=None, grouped=False, weights_type="standard", max_results=10
-):
+    track_id: int,
+    target_bpm: float | None = None,
+    grouped: bool = False,
+    weights_type: str = "standard",
+    max_results: int = 10,
+) -> None:
     """
-    Generate compatible tracks for a given track ID.
+    Generate compatible tracks for a  given track ID.
 
     This function takes a track ID and optional parameters to find compatible tracks.
     Compatible tracks are determined by the target BPM and grouping options.

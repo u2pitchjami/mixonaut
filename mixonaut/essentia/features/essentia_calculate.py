@@ -4,12 +4,14 @@
 modules de calcul du beat intensity .
 """
 
+from typing import Any
+
 from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
 
 
 @with_child_logger
 def calculate_beat_intensity(
-    features: dict, logger: LoggerProtocol | None = None
+    features: dict[str, Any], logger: LoggerProtocol | None = None
 ) -> float:
     """
     Calcule une valeur d'intensité du beat sur une échelle de 0 à 10, en combinant plusieurs caractéristiques musicales
@@ -48,7 +50,7 @@ def calculate_beat_intensity(
             + onset_rate * 0.15  # ex: 4.5 → 9 * 0.15 = 1.35
             + beats_loudness_mean * 0.15  # ex: 0.1 → 10 * 0.15 = 1.5
         ) * 45
-        return round(score, 2)
+        return float(round(score, 2))
     except Exception as e:
         logger.warning(f"Erreur calcul beat_intensity : {e}")
         return 0.0

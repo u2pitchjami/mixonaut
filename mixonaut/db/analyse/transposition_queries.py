@@ -4,12 +4,16 @@
 requetes sql pour la transpo
 """
 
+import sqlite3
+
 from mixonaut.db.access import execute_query
 from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
 
 
 @with_child_logger
-def fetch_tracks_with_bpm_and_key(logger: LoggerProtocol | None = None):
+def fetch_tracks_with_bpm_and_key(
+    logger: LoggerProtocol | None = None,
+) -> list[sqlite3.Row]:
     """
     Fetch tracks from the audio_features table that have a valid BPM and key.
 
@@ -31,8 +35,11 @@ def fetch_tracks_with_bpm_and_key(logger: LoggerProtocol | None = None):
 
 @with_child_logger
 def insert_transpositions(
-    track_id, keys: dict, bpms: dict, logger: LoggerProtocol | None = None
-):
+    track_id: int,
+    keys: dict[str, str],
+    bpms: dict[str, float],
+    logger: LoggerProtocol | None = None,
+) -> None:
     """
     Insert a new track transposition or replace an existing one.
     Args:

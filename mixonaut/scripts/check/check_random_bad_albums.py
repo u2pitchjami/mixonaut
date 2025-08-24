@@ -12,7 +12,9 @@ from mixonaut.utils.logger import get_logger
 from mixonaut.utils.safe_runner import safe_main
 
 
-def append_to_csv_report(rows: list[dict], filename: str = REPORT_PATH) -> None:
+def append_to_csv_report(
+    rows: list[dict[str, str]], filename: str = REPORT_PATH
+) -> None:
     """
     Appends a list of report rows to a CSV file.
 

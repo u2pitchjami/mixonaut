@@ -4,7 +4,7 @@ import os
 import time
 
 
-def rotate_logs(log_dir, keep_days=30, logf=None):
+def rotate_logs(log_dir: str, keep_days: int = 30, logf: str | None = None) -> None:
     """
     Supprime les fichiers de log dans log_dir plus vieux que keep_days.
 
@@ -13,10 +13,11 @@ def rotate_logs(log_dir, keep_days=30, logf=None):
     now = time.time()
     cutoff = now - (keep_days * 86400)
 
-    def log(message):
+    def log(message: str) -> None:
         print(message)
         if logf:
-            logf.write(f"{message}\n")
+            with open(logf, "a", encoding="utf-8") as f:
+                f.write(f"{message}\n")
 
     if not os.path.isdir(log_dir):
         log(f"[LOG ROTATION] Dossier de logs introuvable : {log_dir}")

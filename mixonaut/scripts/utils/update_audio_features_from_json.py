@@ -2,6 +2,7 @@
 
 import argparse
 import os
+from pathlib import Path
 
 from mixonaut.db.analyse.essentia_queries import (
     get_all_track_ids,
@@ -16,7 +17,7 @@ logger = get_logger("Update_Features_From_JSON")
 
 
 @safe_main
-def main(force=False):
+def main(force: bool = False) -> None:
     """
     Main function to update audio features from existing JSON files.
 
@@ -62,7 +63,7 @@ def main(force=False):
 
         json_path = os.path.join(subdir, json_file)
 
-        result = parse_essentia_json(json_path, logger=logger)
+        result = parse_essentia_json(Path(json_path), logger=logger)
         if not result:
             continue
         insert_or_update_audio_features(track_id, result, force=force, logger=logger)

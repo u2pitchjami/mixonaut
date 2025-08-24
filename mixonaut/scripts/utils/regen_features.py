@@ -13,7 +13,7 @@ logger = get_logger("Essentia_Recalc")
 
 
 @safe_main
-def main():
+def main() -> None:
     """
     Recalculate Essentia features for multiple tracks.
 

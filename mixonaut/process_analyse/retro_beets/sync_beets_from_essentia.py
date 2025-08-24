@@ -5,6 +5,7 @@
 # import re
 
 from pathlib import Path
+from typing import Any
 
 from mixonaut.beets_utils.commands.update_beets_fields import update_beets_fields
 from mixonaut.db.beets.db_beets_queries import get_item_field_value
@@ -16,8 +17,8 @@ from mixonaut.utils.utils_div import convert_path_format, ensure_to_str
 
 @with_child_logger
 def sync_fields_by_track_id(
-    track_id: int, track_features: dict, logger: LoggerProtocol | None = None
-):
+    track_id: int, track_features: dict[str, Any], logger: LoggerProtocol | None = None
+) -> None:
     """
     Sync fields for a given track ID.
 
@@ -46,8 +47,11 @@ def sync_fields_by_track_id(
 
 @with_child_logger
 def sync_beets_from_essentia(
-    track_path: str, field_values, no_tags=None, logger: LoggerProtocol | None = None
-):
+    track_path: str,
+    field_values: dict[str, Any],
+    no_tags: bool | None = None,
+    logger: LoggerProtocol | None = None,
+) -> None:
     """
     Synchronise Beets fields from Essentia.
     Args:
@@ -80,10 +84,10 @@ def sync_beets_from_essentia(
 @with_child_logger
 def build_sync_fields(
     track_id: int,
-    track_features: dict,
-    extra_fields=None,
+    track_features: dict[str, Any],
+    extra_fields: str | None = None,
     logger: LoggerProtocol | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """
     Builds the sync fields for a given track ID.
 

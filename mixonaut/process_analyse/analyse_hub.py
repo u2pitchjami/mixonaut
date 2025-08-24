@@ -23,8 +23,8 @@ from mixonaut.process_analyse.retro_beets.sync_beets_from_essentia import (
     sync_fields_by_track_id,
 )
 from mixonaut.process_analyse.transposition.transposition import generate_transpositions
+from mixonaut.utils.ensure_to import ensure_to_str
 from mixonaut.utils.logger import LoggerProtocol, ensure_logger
-from mixonaut.utils.utils_div import ensure_to_path
 
 # --- Codes & helpers ---------------------------------------------------------
 
@@ -70,7 +70,7 @@ def run_step(
 
 
 def analyse_hub(
-    track: tuple,
+    track: tuple[int, str, str, str, str],
     steps: list[str] | None = None,
     force: bool = False,
     max_length: int | None = None,
@@ -94,7 +94,7 @@ def analyse_hub(
 
     results: dict[str, tuple[str, str]] = {}
     track_id = int(track[0])
-    path = ensure_to_path(track[1])
+    path = ensure_to_str(track[1])
 
     # 1) FINGERPRINT
     if "fingerprint" in steps:
@@ -153,7 +153,7 @@ def analyse_hub(
                 if track_features is None:
                     # passe aussi timeout vers analyse_track si elle le supporte
                     track_features, error_code, error_message = analyse_track(
-                        track, force=force, source="Mixonaut", logger=logger
+                        track, force=force, logger=logger
                     )
 
                 if track_features is None:

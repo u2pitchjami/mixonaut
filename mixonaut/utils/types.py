@@ -18,3 +18,18 @@ class ProcessResult(TypedDict):
     stdout: str
     stderr: str
     returncode: int
+
+
+class TranspoInfo(TypedDict):
+    """
+    A dictionary containing information about transportation data.
+
+    Attributes:
+        track_id (int): The ID of the transport track.
+        keys (str): The keys used to access the transport data.
+        bpms (float): The beats per minute of the transport data.
+    """
+
+    track_id: int
+    keys: dict[str, str]
+    bpms: dict[str, float]

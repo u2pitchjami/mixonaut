@@ -2,7 +2,7 @@
 """
 20250821.requêtes pour générer les hash.
 """
-from collections.abc import Sequence
+import sqlite3
 
 from mixonaut.db.access import execute_write, select_all
 from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
@@ -184,7 +184,7 @@ def mark_fp_error(
 @with_child_logger
 def list_missing_or_bad(
     logger: LoggerProtocol | None = None,
-) -> Sequence[tuple[int, str]]:
+) -> list[sqlite3.Row]:
     """
     Liste les pistes avec une empreinte mal enregistrée (pas de lien ou avec un statut KO).
 

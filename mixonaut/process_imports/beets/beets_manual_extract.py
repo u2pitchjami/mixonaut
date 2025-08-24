@@ -22,7 +22,9 @@ _SEP_SPLIT = re.compile(r"\s*;\s*")
 
 
 @with_child_logger
-def extract_manual_imports_and_decisions(logger: LoggerProtocol | None = None):
+def extract_manual_imports_and_decisions(
+    logger: LoggerProtocol | None = None,
+) -> dict[str, list[str]]:
     """
     - Parse le log Beets
     - Écrit BEETS_MANUAL_LIST (format Beets: /app/imports/...) avec une ligne par chemin
@@ -63,7 +65,7 @@ def extract_manual_imports_and_decisions(logger: LoggerProtocol | None = None):
     # Pose décisions DB via mapping conteneur -> host + rel (interne)
     repo = TorrentRepo(logger=logger)
 
-    def _decide(container_paths, decision, reason):
+    def _decide(container_paths: list[str], decision: str, reason: str) -> None:
         for p in container_paths:
             resolved = resolve_album_path_and_rel(
                 p
@@ -92,7 +94,7 @@ def extract_manual_imports_and_decisions(logger: LoggerProtocol | None = None):
     _decide(duplicates_c, "DUPLICATE_SOFT", "beets:duplicate")
 
     # Pour l'appelant, on retourne des chemins *host* (process_successful_imports les accepte aussi)
-    def _to_host_list(cont_list):
+    def _to_host_list(cont_list: list[str]) -> list[str]:
         out = []
         for p in cont_list:
             r = resolve_album_path_and_rel(p)

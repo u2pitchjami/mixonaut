@@ -5,6 +5,7 @@
 # process_imports/path_resolve.py
 from __future__ import annotations
 
+import os
 from pathlib import Path, PurePosixPath
 
 from mixonaut.utils.config import BEETS_IMPORT_PATH, MUSIC_IMPORT_PATH
@@ -48,32 +49,40 @@ def resolve_album_path_and_rel(path_str: str) -> tuple[Path, str] | None:
     """
     raw = Path(path_str)
 
-    # 1) Si c'est déjà sous MUSIC_IMPORT_PATH → parfait
-    rel = _safe_relative_to(raw, Path(MUSIC_IMPORT_PATH))
-    if rel is not None:
-        return raw, rel
+    def _norm_rel(s: str) -> str:
+        return os.path.normpath(s).replace("\\", "/").lstrip("./")
 
-    # 2) Si ça ressemble à un chemin Beets (/app/imports/...), tente prefix + convert_path_format
+    # 1) Si déjà sous MUSIC_IMPORT_PATH → parfait
+    base = Path(MUSIC_IMPORT_PATH).resolve()
+    try:
+        rel = raw.resolve().relative_to(base).as_posix()
+        return raw, _norm_rel(rel)
+    except Exception:
+        pass
+
+    # 2) Chemin Beets (/app/imports/...)
     if BEETS_IMPORT_PATH and raw.as_posix().startswith(
         Path(BEETS_IMPORT_PATH).as_posix().rstrip("/")
     ):
-        # d’abord simple remplacement de préfixe
         host_guess = _beets_to_host_via_prefix(raw)
-        rel = _safe_relative_to(host_guess, Path(MUSIC_IMPORT_PATH))
-        if rel is not None:
-            return host_guess, rel
-        # sinon, tente convert_path_format
-        host_conv = _beets_to_host_via_converter(raw)
-        rel = _safe_relative_to(host_conv, Path(MUSIC_IMPORT_PATH))
-        if rel is not None:
-            return host_conv, rel
+        try:
+            rel = host_guess.resolve().relative_to(base).as_posix()
+            return host_guess, _norm_rel(rel)
+        except Exception:
+            host_conv = _beets_to_host_via_converter(raw)
+            try:
+                rel = host_conv.resolve().relative_to(base).as_posix()
+                return host_conv, _norm_rel(rel)
+            except Exception:
+                pass
 
-    # 3) Fallback “ancre /imports/” (cd1; cd2 + chemins bizarres)
+    # 3) Fallback “ancre /imports/”
     parts = PurePosixPath(raw.as_posix()).parts
     if "imports" in parts:
         idx = parts.index("imports")
         suffix = "/".join(parts[idx + 1 :])  # Artist/Album[/CD1]
-        rebuilt = Path(MUSIC_IMPORT_PATH) / suffix
+        suffix = _norm_rel(suffix)
+        rebuilt = (base / suffix).resolve()
         return rebuilt, suffix
 
     return None

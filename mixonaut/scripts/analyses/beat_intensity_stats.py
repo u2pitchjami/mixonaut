@@ -1,5 +1,6 @@
 """2025-08-20 - module de génération de stat pour le beat intensity."""
 
+import sqlite3
 import statistics
 
 from mixonaut.db.access import select_all
@@ -19,7 +20,7 @@ FIELDS = [
 ]
 
 
-def fetch_values():
+def fetch_values() -> list[sqlite3.Row] | None:
     """
     Fetches the values for beat intensity statistics.
 
@@ -33,7 +34,7 @@ def fetch_values():
 
 
 @safe_main
-def compute_stats():
+def compute_stats() -> None:
     """
     Generates statistics for the beat intensity.
 

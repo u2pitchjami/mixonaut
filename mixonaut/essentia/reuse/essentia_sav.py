@@ -12,11 +12,17 @@ from __future__ import annotations
 import json
 import shutil
 from pathlib import Path
+from typing import Any, TypeAlias, cast
 
 from mixonaut.utils.config import (  # dossier destination des JSON archivés
     ESSENTIA_SAV_JSON,
 )
 from mixonaut.utils.logger import LoggerProtocol, ensure_logger
+
+# Valeur JSON récursive
+JSONValue: TypeAlias = (
+    str | int | float | bool | None | dict[str, "JSONValue"] | list["JSONValue"]
+)
 
 
 def _shard_dir(track_id: int) -> Path:
@@ -119,20 +125,32 @@ def duplicate_essentia_json(
 
 
 def load_essentia_json(
-    json_path: Path, logger: LoggerProtocol | None = None
-) -> dict | None:
+    json_path: Path,
+    logger: LoggerProtocol | None = None,
+) -> dict[str, JSONValue] | None:
     """
-    Charge un JSON Essentia en dict.
+    Charge un JSON Essentia (objet) en dict[str, JSONValue].
 
-    Retourne None en cas d'erreur.
+    Retourne None en cas d'erreur ou si le top-level n'est pas un objet.
     """
-    logger = ensure_logger(logger, __name__)
+    log = ensure_logger(logger, __name__)
     try:
         with open(json_path, encoding="utf-8") as handle:
-            return json.load(handle)
+            data: Any = json.load(handle)
+
+        if not isinstance(data, dict):
+            log.warning(
+                "JSON inattendu (%s) pour %s: objet attendu.",
+                type(data).__name__,
+                json_path,
+            )
+            return None
+
+        return cast(dict[str, JSONValue], data)
+
     except FileNotFoundError:
-        logger.warning("JSON introuvable: %s", json_path)
+        log.warning("JSON introuvable: %s", json_path)
         return None
-    except Exception:  # pylint: disable=broad-except
-        logger.exception("Lecture JSON Essentia échouée: %s", json_path)
+    except Exception as exc:  # pylint: disable=broad-except
+        log.exception("Lecture JSON Essentia échouée (%s): %s", json_path, exc)
         return None
