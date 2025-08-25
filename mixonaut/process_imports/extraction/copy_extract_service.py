@@ -21,6 +21,8 @@ AUDIO_ARCHIVES = {".zip", ".tar", ".tgz", ".tar.gz", ".tbz2", ".tar.bz2", ".iso"
 UNSUPPORTED_ARCHIVES = {".rar", ".7z"}  # gérés via 7z si tu actives plus tard
 CUE_EXT = {".cue"}
 AUDIO_CONVERT_EXT = {".wav", ".flac"}
+# extensions audio considérées comme “déjà présentes”
+AUDIO_EXTS_DEST = {".flac", ".wav", ".mp3", ".m4a", ".ogg", ".aac"}
 
 
 class CopyExtractService:
@@ -48,6 +50,13 @@ class CopyExtractService:
         self.reencode_flac = reencode_flac
         self.ffmpeg_bin = ffmpeg_bin
 
+        # 🔎 ici tu peux vérifier que ffmpeg est dispo
+
+        if which(self.ffmpeg_bin) is None:
+            raise RuntimeError(
+                f"ffmpeg introuvable dans le PATH (reçu: {self.ffmpeg_bin})"
+            )
+
         if self.audio_target_codec not in {"flac", "alac", "mp3"}:
             raise ValueError("audio_target_codec must be one of: flac | alac | mp3")
 
@@ -60,10 +69,36 @@ class CopyExtractService:
         return Path(os.path.normpath(str(p)))
 
     def _src_abs(self, relpath: str, save_path: str | None) -> Path:
-        base = Path(save_path).resolve() if save_path else self.default_source_root
+        """
+        Calcule le chemin source absolu.
+
+        - Si save_path est un fichier absolu → retourne ce fichier (ignore relpath).
+        - Si save_path est un dossier absolu → join(save_path, relpath).
+        - Sinon → join(self.default_source_root, relpath).
+        """
         rel_norm = self._normalize_relpath(relpath)
-        src = (base / rel_norm).resolve()
-        return src
+
+        if save_path:
+            p = Path(save_path)
+            try:
+                p_abs = p.resolve()
+            except Exception:
+                p_abs = p  # fallback
+
+            if p_abs.is_file():
+                return p_abs
+
+            if p_abs.is_dir():
+                return (p_abs / rel_norm).resolve()
+
+            # si inexistant mais semble pointer vers un fichier (a une extension)
+            if p_abs.suffix:
+                return p_abs  # on tente tel quel (cas : fichier pas encore présent)
+            # sinon on le traite comme base-dir
+            return (p_abs / rel_norm).resolve()
+
+        # fallback ancien comportement
+        return (self.default_source_root / rel_norm).resolve()
 
     def _dst_abs(self, relpath: str) -> Path:
         rel_norm = self._normalize_relpath(relpath)
@@ -147,62 +182,134 @@ class CopyExtractService:
 
     # -------------------- CUE handling --------------------
 
-    def _copy_cue_outputs(self, cue_path: Path, rel_root: Path) -> None:
+    def _dest_has_audio(self, rel_root: Path) -> bool:
+        """
+        Vérifie s’il y a déjà des fichiers audio dans imports/<rel_root>/.
+        """
+        dest_dir = (self.imports_root / rel_root).resolve()
+        if not dest_dir.exists():
+            return False
+        for p in dest_dir.rglob("*"):
+            if p.is_file() and p.suffix.lower() in AUDIO_EXTS_DEST:
+                return True
+        return False
+
+    def _find_cue_audio_file(self, cue_path: Path) -> Path | None:
+        """
+        Parse minimal de la CUE pour récupérer le premier fichier audio référencé (ligne FILE).
+
+        Gère guillemets ou non, et quelques encodages courants.
+        """
+        candidates = ("utf-8", "cp1252", "latin-1")
+        text: str | None = None
+        for enc in candidates:
+            try:
+                text = cue_path.read_text(encoding=enc)
+                break
+            except Exception:
+                continue
+        if text is None:
+            return None
+
+        # Exemple de lignes :
+        # FILE "Album.wav" WAVE
+        # FILE track.flac FLAC
+        for raw_line in text.splitlines():
+            line = raw_line.strip()
+            if not line.upper().startswith("FILE "):
+                continue
+            # entre guillemets
+            if '"' in line:
+                try:
+                    name = line.split('"', 2)[1]
+                except Exception:
+                    continue
+            else:
+                # sans guillemets : FILE filename.ext TYPE
+                parts = line.split()
+                if len(parts) >= 2:
+                    name = parts[1]
+                else:
+                    continue
+            audio = (cue_path.parent / name).resolve()
+            return audio
+        return None
+
+    def _copy_cue_outputs(self, cue_path: Path, rel_root: Path) -> bool:
+        """
+        Convertit via CUE si nécessaire.
+
+        Retourne True si conversion/copie effectuée, False si on a sciemment skip (déjà présent, source manquante).
+        """
+        # 1) si on a déjà des fichiers audio dans la destination → skip
+        if self._dest_has_audio(rel_root):
+            self.logger.debug(
+                "CUE skip: audio déjà présent dans %s", (self.imports_root / rel_root)
+            )
+            return False
+
+        # 2) retrouver le fichier audio référencé par la CUE
+        audio_file = self._find_cue_audio_file(cue_path)
+        if not audio_file or not audio_file.exists():
+            self.logger.info(
+                "CUE skip: fichier audio référencé introuvable (%s) pour %s",
+                audio_file,
+                cue_path,
+            )
+            return False
+
+        # 3) lancer la conversion via utilitaire existant
         converted_dir = split_cue_and_convert_ffmpeg(str(cue_path), logger=self.logger)
         if not converted_dir:
             raise RuntimeError(
                 "Conversion CUE a échoué (répertoire de sortie introuvable)"
             )
         converted_dir = Path(converted_dir)
+
+        # 4) copie des sorties converties vers imports/<rel_root>/
+        any_copied = False
         for src_file in converted_dir.rglob("*"):
             if src_file.is_file():
                 dest = (self.imports_root / rel_root / src_file.name).resolve()
                 dest.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(src_file, dest)
+                if not dest.exists():
+                    shutil.copy2(src_file, dest)
+                    any_copied = True
+
+        return any_copied
 
     # -------------------- audio conversion --------------------
 
-    def _ffmpeg_cmd(self, src: Path, dst: Path) -> list[str]:
-        """
-        Construit la commande ffmpeg selon self.audio_target_codec.
-        """
+    def _container_for_target(self) -> str:
         if self.audio_target_codec == "flac":
-            # lossless, compression level par défaut (5-8)
-            return [
-                self.ffmpeg_bin,
-                "-y",
-                "-i",
-                str(src),
-                "-vn",
-                "-c:a",
-                "flac",
-                str(dst),
-            ]
+            return "flac"  # conteneur FLAC
         if self.audio_target_codec == "alac":
-            # Apple Lossless → conteneur m4a
-            return [
-                self.ffmpeg_bin,
-                "-y",
-                "-i",
-                str(src),
-                "-vn",
-                "-c:a",
-                "alac",
-                str(dst),
-            ]
-        # mp3 (VBR qualité 2 ~ 190kbps)
-        return [
+            return "ipod"  # m4a/mp4; "ipod" est le muxer adapté pour ALAC
+        return "mp3"  # conteneur MP3
+
+    def _ffmpeg_cmd(self, src: Path, dst: Path) -> list[str]:
+        base = [
             self.ffmpeg_bin,
+            "-v",
+            "error",
+            "-nostdin",
             "-y",
             "-i",
             str(src),
+            "-map",
+            "0:a:0",
             "-vn",
-            "-c:a",
-            "libmp3lame",
-            "-q:a",
-            "2",
-            str(dst),
         ]
+        if self.audio_target_codec == "flac":
+            codec = ["-c:a", "flac"]
+        elif self.audio_target_codec == "alac":
+            codec = ["-c:a", "alac"]
+        else:
+            codec = ["-c:a", "libmp3lame", "-q:a", "2"]
+
+        # 👇 forcer le muxer, car l'extension se termine par .part
+        container = ["-f", self._container_for_target()]
+        return base + codec + container + [str(dst)]
 
     def _target_ext(self) -> str:
         if self.audio_target_codec == "flac":
@@ -213,13 +320,20 @@ class CopyExtractService:
 
     def _convert_audio(self, src: Path, dst_dir: Path) -> None:
         """
-        Convertit src -> dst_dir avec extension cible; .flac copiés si cible=flac et reencode_flac=False.
+        Convertit src -> dst_dir ; idempotent (skip si cible existe).
+
+        Logue toujours la stderr d'ffmpeg en cas d'échec.
         """
         dst_dir.mkdir(parents=True, exist_ok=True)
-        base = src.stem  # sans extension
+        base = src.stem
         dst = (dst_dir / f"{base}{self._target_ext()}").resolve()
 
-        # Optimisation : .flac → .flac sans ré-encodage
+        # déjà converti ?
+        if dst.exists():
+            self.logger.debug("Conversion skip (déjà présent) : %s", dst)
+            return
+
+        # flac -> flac, sans réencodage (option)
         if (
             src.suffix.lower() == ".flac"
             and self.audio_target_codec == "flac"
@@ -230,17 +344,34 @@ class CopyExtractService:
 
         tmp = dst.with_suffix(dst.suffix + ".part")
         cmd = self._ffmpeg_cmd(src, tmp)
-        try:
-            subprocess.run(
-                cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT
-            )
-            tmp.rename(dst)
-        except subprocess.CalledProcessError as exc:
-            if tmp.exists():
-                tmp.unlink(missing_ok=True)
+        self.logger.debug("ffmpeg cmd: %s", " ".join(cmd))
+
+        proc = subprocess.run(cmd, check=False, capture_output=True, text=True)
+        if proc.returncode != 0:
+            # Nettoyage du .part si échec
+            tmp.unlink(missing_ok=True)
+
+            # Catégorisation d'erreurs fréquentes pour aide au debug
+            stderr = (proc.stderr or "").strip()
+            if "Unknown encoder 'flac'" in stderr:
+                hint = "ffmpeg compilé sans encoder flac ? (installez un build complet)"
+            elif "No such file or directory" in stderr:
+                hint = "Chemin source/destination invalide ou non accessible."
+            elif "Permission denied" in stderr:
+                hint = "Droits insuffisants sur le dossier destination."
+            elif "No space left on device" in stderr:
+                hint = "Plus d'espace disque sur la destination."
+            else:
+                hint = "Voir stderr ci-dessous."
+
             raise RuntimeError(
-                f"ffmpeg conversion failed: {src.name} → {dst.name} ({exc})"
-            ) from exc
+                f"ffmpeg failed rc={proc.returncode} src={src.name} -> {dst.name}\n"
+                f"hint: {hint}\n"
+                f"stderr:\n{stderr}"
+            )
+
+        # Rename final
+        tmp.rename(dst)
 
     # -------------------- main loop --------------------
 
@@ -278,7 +409,16 @@ class CopyExtractService:
                 elif ext in CUE_EXT:
                     # placer les pistes converties dans le dossier du torrent
                     rel_dir = Path(rel).parent
-                    self._copy_cue_outputs(src, rel_dir)
+                    try:
+                        _ = self._copy_cue_outputs(src, rel_dir)
+                        # quel que soit le résultat (converti ou skip), on marque OK
+                        self.repo.mark_staged_ok(r["id"])
+                        done += 1
+                        continue
+                    except Exception as exc:
+                        self.logger.exception("CUE KO pour %s: %s", rel, exc)
+                        self.repo.mark_staged_error(r["id"], str(exc))
+                        continue
 
                 elif ext in AUDIO_CONVERT_EXT:
                     # conversion audio → dossier de destination du fichier

@@ -158,6 +158,7 @@ USEFUL_EXTENSIONS = (
     ".mp3",
     ".ogg",
     ".wav",
+    ".iso",
     ".m4a",
     ".aac",
     ".alac",
