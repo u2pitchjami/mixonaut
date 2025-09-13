@@ -69,6 +69,17 @@ def run_step(
         return StepResult(code=KO, message=str(exc))
 
 
+def skip_step(
+    table: str, track_id: int, reason: str, logger: LoggerProtocol | None = None
+) -> StepResult:
+    """
+    Enregistre un statut SKIPPED dans la DB sans exécuter la tâche.
+    """
+    logger = ensure_logger(logger, __name__)
+    update_table_status(table, track_id, SKIPPED, reason, logger=logger)
+    return StepResult(code=SKIPPED, message=reason)
+
+
 def analyse_hub(
     track: tuple[int, str, str, str, str],
     steps: list[str] | None = None,
@@ -111,14 +122,17 @@ def analyse_hub(
 
         fp_res = run_step("audio_hash", track_id, _fingerprint, logger)
         results["fingerprint"] = (fp_res.code, fp_res.message)
-        print(results["fingerprint"])
     else:
+        fp_res = skip_step("audio_hash", track_id, "step not requested", logger)
         results["fingerprint"] = (SKIPPED, "step not requested")
 
     # 2) ESSENTIA (reuse + analyse)
     if "essentia" in steps:
         # Dépendance douce : si fingerprint KO et pas force, on skip Essentia
         if results["fingerprint"][0] in (KO, KO_FILE, KO_AUDIO, SKIPPED) and not force:
+            fp_res = skip_step(
+                "audio_features", track_id, "blocked by fingerprint", logger
+            )
             results["essentia"] = (SKIPPED, "blocked by fingerprint")
             results["sync"] = (SKIPPED, "blocked by fingerprint")
         else:
@@ -176,6 +190,7 @@ def analyse_hub(
             else:
                 results["sync"] = (SKIPPED, "essentia failed")
     else:
+        fp_res = skip_step("audio_features", track_id, "step not requested", logger)
         results["essentia"] = (SKIPPED, "step not requested")
         results["sync"] = (SKIPPED, "step not requested")
 
@@ -184,6 +199,9 @@ def analyse_hub(
         # dépend d’Essentia sauf si logic interne supporte le fallback
         if results["essentia"][0] in (KO, KO_FILE, KO_AUDIO, SKIPPED) and not force:
             results["transposition"] = (SKIPPED, "blocked by essentia")
+            fp_res = skip_step(
+                "track_transpositions", track_id, "blocked by essentia", logger
+            )
         else:
 
             def _transpo() -> tuple[str, str]:
@@ -195,6 +213,9 @@ def analyse_hub(
             tr_res = run_step("track_transpositions", track_id, _transpo, logger)
             results["transposition"] = (tr_res.code, tr_res.message)
     else:
+        fp_res = skip_step(
+            "track_transpositions", track_id, "step not requested", logger
+        )
         results["transposition"] = (SKIPPED, "step not requested")
 
     return results
