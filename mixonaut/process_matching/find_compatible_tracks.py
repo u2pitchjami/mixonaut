@@ -6,95 +6,195 @@ from mixonaut.db.matching.matching_queries import (
     get_candidate_tracks,
     get_track_features,
 )
-from mixonaut.process_matching.export.export_markdown import (
-    group_matches_by_transition_type,
-)
-from mixonaut.process_matching.models.models import MatchResult
+from mixonaut.process_matching.models.matching import MatchContext
+from mixonaut.process_matching.models.models import TrackMatch
 from mixonaut.process_matching.process.key_process import get_effective_ref_key
 from mixonaut.process_matching.process.scoring import get_compatible_candidates
 from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
 
 
+def resolve_target_bpm(
+    *,
+    ref_bpm: float,
+    target_bpm: float | None,
+    interactive: bool = True,
+) -> float:
+    """
+    Resolve the effective target BPM.
+
+    If target_bpm is None and interactive=True, ask the user.
+    """
+    if target_bpm is not None:
+        return float(target_bpm)
+
+    if not interactive:
+        return float(ref_bpm)
+
+    while True:
+        try:
+            raw = input(f"Target BPM? [default: {ref_bpm:.1f}] > ").strip()
+
+            if not raw:
+                return float(ref_bpm)
+
+            value = float(raw)
+            if value <= 0:
+                raise ValueError
+
+            return value
+
+        except ValueError:
+            print("Please enter a valid BPM (positive number).")
+
+
+def build_match_context(
+    track_id: int,
+    *,
+    target_bpm: float | None,
+    interactive: bool = False,
+    logger: LoggerProtocol | None = None,
+) -> MatchContext:
+    logger = ensure_logger(logger, __name__)
+
+    ref = get_track_features(track_id, logger=logger)
+    if not ref:
+        raise ValueError(f"Track ID {track_id} introuvable dans audio_features")
+
+    try:
+        ref_bpm = float(ref["bpm"])
+        ref_key = str(ref["key"])
+        ref_duration = float(ref["duration"])
+
+        ref_beat_intensity = float(ref["beat_intensity"])
+        ref_mood_emb1 = float(ref["mood_emb1"])
+        ref_mood_emb2 = float(ref["mood_emb2"])
+        ref_genre_emb1 = float(ref["genre_emb1"])
+        ref_genre_emb2 = float(ref["genre_emb2"])
+
+    except KeyError as exc:
+        raise KeyError(
+            f"Missing required audio feature {exc!s} for track {track_id}"
+        ) from exc
+
+    # 🎧 Résolution BPM DJ-aware
+    if target_bpm is None:
+        if interactive:
+            target_bpm = resolve_target_bpm(
+                ref_bpm=ref_bpm,
+                target_bpm=None,
+                interactive=True,
+            )
+        else:
+            target_bpm = ref_bpm
+
+    logger.info("Target BPM resolved: %.2f (%s)", target_bpm)
+
+    effective_ref_key = get_effective_ref_key(
+        track_id=track_id,
+        ref_bpm=ref_bpm,
+        ref_key=ref_key,
+        target_bpm=target_bpm,
+        logger=logger,
+    )
+
+    logger.debug(
+        "MatchContext built | track_id=%s | ref_bpm=%.2f | target_bpm=%.2f | key=%s → %s",
+        track_id,
+        ref_bpm,
+        target_bpm,
+        ref_key,
+        effective_ref_key,
+    )
+
+    return MatchContext(
+        track_id=track_id,
+        ref_bpm=ref_bpm,
+        ref_key=ref_key,
+        ref_duration=ref_duration,
+        ref_beat_intensity=ref_beat_intensity,
+        ref_mood_emb1=ref_mood_emb1,
+        ref_mood_emb2=ref_mood_emb2,
+        ref_genre_emb1=ref_genre_emb1,
+        ref_genre_emb2=ref_genre_emb2,
+        target_bpm=target_bpm,
+        effective_ref_key=effective_ref_key,
+    )
+
+
+@with_child_logger
 @with_child_logger
 def find_compatible_tracks(
-    track_id: int,
-    target_bpm: float | None = None,
+    context: MatchContext,
+    *,
     max_results: int = 10,
-    grouped: bool = False,
     weights_type: str = "standard",
     logger: LoggerProtocol | None = None,
-) -> MatchResult:
+) -> list[TrackMatch]:
     """
-    Find compatible tracks based on the given track ID.
-    Args:
-        track_id (int): The ID of the track to find compatible tracks for.
-        target_bpm (float, optional): The target BPM to match. Defaults to None.
-        max_results (int, optional): The maximum number of results to return. Defaults to 10.
-        grouped (bool, optional): Whether to group matches by transition type. Defaults to False.
-        weights_type (str, optional): The type of weights to use for matching. Defaults to "standard".
-        logger (LoggerProtocol | None, optional): The logger to use for logging. Defaults to None.
+    Find compatible tracks using a pre-resolved MatchContext.
 
-    Returns:
-        list[dict] | dict[str, list[dict]]: A list of compatible tracks or
-        a dictionary with track IDs as keys and lists of dictionaries as values.
+    This function is deterministic:
+    - no DB access for reference track
+    - no user interaction
+    - no grouping logic
     """
     logger = ensure_logger(logger, __name__)
+
     try:
-        ref = get_track_features(track_id, logger=logger)
-        if not ref:
-            logger.warning(f"Track ID {track_id} introuvable dans audio_features")
-            return []
+        logger.debug(
+            "Finding compatible tracks | track_id=%s | ref_bpm=%.2f | target_bpm=%.2f | key=%s",
+            context.track_id,
+            context.ref_bpm,
+            context.target_bpm,
+            context.effective_ref_key,
+        )
 
-        ref_bpm = ref["bpm"]
-        ref_key = ref["key"]
-        ref_beat_intensity = ref["beat_intensity"]
-        ref_mood_emb1 = ref["mood_emb1"]
-        ref_mood_emb2 = ref["mood_emb2"]
-        ref_genre_emb1 = ref["genre_emb1"]
-        ref_genre_emb2 = ref["genre_emb2"]
-        ref_duration = ref["duration"]
-        effective_ref_key: str = ref_key
-
-        target_bpm = target_bpm or ref_bpm
-        effective_ref_key = get_effective_ref_key(
-            track_id=track_id,
-            ref_bpm=ref_bpm,
-            ref_key=ref_key,
-            target_bpm=target_bpm,  # ici target_bpm == float garanti
+        candidates = get_candidate_tracks(
+            context.track_id,
             logger=logger,
         )
 
-        candidates = get_candidate_tracks(track_id, logger=logger)
-        compatibles = get_compatible_candidates(
-            candidates,
-            ref_bpm,
-            ref_duration,
-            ref_beat_intensity,
-            ref_mood_emb1,
-            ref_mood_emb2,
-            ref_genre_emb1,
-            ref_genre_emb2,
-            effective_ref_key,
-            target_bpm,
-            weights_type,
+        if not candidates:
+            logger.info("No candidate tracks found")
+            return []
+
+        compatibles: list[TrackMatch] = get_compatible_candidates(
+            candidates=candidates,
+            ref_bpm=context.ref_bpm,
+            ref_duration=context.ref_duration,
+            ref_beat_intensity=context.ref_beat_intensity,
+            ref_mood_emb1=context.ref_mood_emb1,
+            ref_mood_emb2=context.ref_mood_emb2,
+            ref_genre_emb1=context.ref_genre_emb1,
+            ref_genre_emb2=context.ref_genre_emb2,
+            effective_ref_key=context.effective_ref_key,
+            target_bpm=context.target_bpm,
+            weights_type=weights_type,
             logger=logger,
         )
 
         if not compatibles:
-            return {} if grouped else []
+            logger.info("No compatible tracks found")
+            return []
 
-        if not grouped:
-            return sorted(compatibles, key=lambda x: x["score"], reverse=True)[
-                :max_results
-            ]
+        # 🔹 tri + limitation ICI (et pas ailleurs)
+        compatibles_sorted = sorted(
+            compatibles,
+            key=lambda m: m["score"],
+            reverse=True,
+        )[:max_results]
 
-        return group_matches_by_transition_type(
-            matches=compatibles,
-            ref_key=effective_ref_key,
-            max_results=max_results,
-            logger=logger,
+        logger.debug(
+            "Returning %d compatible tracks",
+            len(compatibles_sorted),
         )
 
+        return compatibles_sorted
+
     except Exception as exc:  # pylint: disable=broad-except
-        logger.exception("Erreur dans find_compatible_tracks: %s", exc)
-        return {} if grouped else []
+        logger.exception(
+            "Error in find_compatible_tracks (track_id=%s): %s",
+            context.track_id,
+            exc,
+        )
+        return []

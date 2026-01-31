@@ -9,8 +9,12 @@ from collections import defaultdict
 from datetime import datetime
 from typing import TextIO
 
-from mixonaut.db.matching.matching_queries import enrich_matches_with_metadata
-from mixonaut.process_matching.models.models import TrackMatch
+from mixonaut.process_matching.models.matching import MatchContext
+from mixonaut.process_matching.models.models import (
+    EnrichedTrackMatch,
+    MarkdownInput,
+    TrackMatch,
+)
 from mixonaut.utils.config import CAMELOT_ORDER, EXPORT_COMPATIBLE_TRACKS
 from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
 
@@ -20,19 +24,13 @@ MatchResult = list[TrackMatch] | dict[str, list[TrackMatch]]  # <— aligné au 
 
 @with_child_logger
 def export_matches_to_markdown(
-    results: MatchResult,
+    track_id: int,
+    results: MarkdownInput,
     output_dir: str = EXPORT_COMPATIBLE_TRACKS,
     logger: LoggerProtocol | None = None,
 ) -> str:
     """
-    Exporte les résultats (flat ou groupés) en Markdown.
-
-    Args:
-        results: Liste plate de TrackMatch ou dict groupé {transition_type: [TrackMatch]}.
-        output_dir: Dossier de sortie.
-
-    Returns:
-        Le chemin du fichier généré.
+    Exporte des EnrichedTrackMatch (plats ou groupés) en Markdown.
     """
     logger = ensure_logger(logger, __name__)
     logger.debug("output_dir : %s", output_dir)
@@ -44,14 +42,22 @@ def export_matches_to_markdown(
 
     with open(output_path, "w", encoding="utf-8") as fh:
         if isinstance(results, dict):
-            # Cas groupé par type de mix
             for mix_type, matches in results.items():
-                _write_mix_section(fh, mix_type, matches, logger=logger)
+                _write_mix_section(
+                    fh,
+                    mix_type,
+                    matches,
+                    logger=logger,
+                )
         elif isinstance(results, list):
-            # Cas non groupé
-            _write_mix_section(fh, "All Compatible Tracks", results, logger=logger)
+            _write_mix_section(
+                fh,
+                "All Compatible Tracks",
+                results,
+                logger=logger,
+            )
         else:
-            raise ValueError("Unsupported results format")
+            raise TypeError("Unsupported markdown input type")
 
     logger.info("Export Markdown terminé : %s", output_path)
     return output_path
@@ -60,34 +66,33 @@ def export_matches_to_markdown(
 def _write_mix_section(
     file_handle: TextIO,
     mix_type: str,
-    matches: list[TrackMatch],
+    matches: list[EnrichedTrackMatch],
     logger: LoggerProtocol | None = None,
 ) -> None:
     """
-    Écrit une section markdown avec un tableau pour un groupe de matches.
+    Écrit une section markdown pour un groupe de tracks enrichies.
     """
     logger = ensure_logger(logger, __name__)
+
     file_handle.write(f"### 🎧 Mix Type: {mix_type}\n\n")
     file_handle.write("| Artist | Title | Album | BPM | Key | Score | Reason |\n")
     file_handle.write("|--------|-------|-------|-----|-----|-------|--------|\n")
 
-    # Enrichissement : ajoute artist/title/album mais ne change pas la shape de base des champs utilisés.
-    enriched = enrich_matches_with_metadata(matches)
+    for m in matches:
+        reason = m.get("reason", "")
+        bpm = m["features"]["bpm"]
+        key = m["features"]["key"]
 
-    for m in enriched:
-        # Compat : certains anciens matches contenaient 'diagnostic'. On privilégie 'reason'.
-        reason = m.get("reason") or m.get("diagnostic", "")
-        bpm = (
-            m["features"]["bpm"]
-            if "features" in m
-            and isinstance(m["features"], dict)
-            and "bpm" in m["features"]
-            else m.get("bpm", "")
-        )
         file_handle.write(
-            f"| {m.get('artist', '')} | {m.get('title', '')} | {m.get('album', '')} "
-            f"| {bpm} | {m.get('key', '')} | {m.get('score', '')} | {reason} |\n"
+            f"| {m.get('artist', '')} "
+            f"| {m.get('title', '')} "
+            f"| {m.get('album', '')} "
+            f"| {bpm:.1f} "
+            f"| {key} "
+            f"| {m.get('score', 0.0):.3f} "
+            f"| {reason} |\n"
         )
+
     file_handle.write("\n\n")
 
 
@@ -142,5 +147,31 @@ def group_matches_by_transition_type(
         grouped[t_type] = sorted(items, key=lambda x: x["score"], reverse=True)[
             :max_results
         ]
+
+    return dict(grouped)
+
+
+def group_enriched_matches_by_transition_type(
+    *,
+    matches: list[EnrichedTrackMatch],
+    context: MatchContext,
+    max_results: int = 10,
+    logger: LoggerProtocol | None = None,
+) -> dict[str, list[EnrichedTrackMatch]]:
+    grouped: defaultdict[str, list[EnrichedTrackMatch]] = defaultdict(list)
+
+    for m in matches:
+        transition = classify_transition_type(
+            context.effective_ref_key,
+            m["features"]["key"],
+        )
+        grouped[transition].append(m)
+
+    for t_type, items in grouped.items():
+        grouped[t_type] = sorted(
+            items,
+            key=lambda x: x["score"],
+            reverse=True,
+        )[:max_results]
 
     return dict(grouped)

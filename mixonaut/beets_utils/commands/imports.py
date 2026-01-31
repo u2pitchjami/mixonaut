@@ -33,7 +33,7 @@ def import_auto(
     else:
         logger.info("🔄 Import en mode incrémental activé")
         result = run_beet_command(
-            "import", [BEETS_IMPORT_PATH], interactive=False, logger=logger
+            "import", [BEETS_IMPORT_PATH], interactive=True, logger=logger
         )
 
     if result is None:

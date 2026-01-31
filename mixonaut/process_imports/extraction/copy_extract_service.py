@@ -22,7 +22,7 @@ UNSUPPORTED_ARCHIVES = {".rar", ".7z"}  # gérés via 7z si tu actives plus tard
 CUE_EXT = {".cue"}
 AUDIO_CONVERT_EXT = {".wav", ".flac"}
 # extensions audio considérées comme “déjà présentes”
-AUDIO_EXTS_DEST = {".flac", ".wav", ".mp3", ".m4a", ".ogg", ".aac"}
+AUDIO_EXTS_DEST = {".flac", ".wav", ".mp3", ".m4a", ".ogg", ".aac", ".dsf"}
 
 
 class CopyExtractService:

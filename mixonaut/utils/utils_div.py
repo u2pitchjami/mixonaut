@@ -98,6 +98,37 @@ def convert_path_format(path: Path | str, to_beets: bool = False) -> Path:
     raise ValueError(f"Chemin non reconnu ou non convertible : {path}")
 
 
+def map_to_navidrome_path(
+    source_path: str,
+    source_root: Path,
+    navidrome_root: Path,
+    logger: LoggerProtocol | None = None,
+) -> str:
+    """
+    Map an internal audio path to a Navidrome-compatible path.
+
+    Example:
+    /app/data/Artist/Album/track.flac
+    → /music/Artist/Album/track.flac
+    """
+    logger = ensure_logger(logger, __name__)
+
+    try:
+        source = Path(source_path).resolve()
+        relative = source.relative_to(source_root)
+        mapped = navidrome_root / relative
+
+        return str(mapped)
+
+    except ValueError as exc:
+        logger.error(
+            "Path mapping failed: %s is not under %s",
+            source_path,
+            source_root,
+        )
+        raise RuntimeError("Invalid source path for Navidrome mapping") from exc
+
+
 # def get_current_timestamp():
 #     """Retourne l’horodatage actuel au format ISO 8601 (secondes)"""
 #     return datetime.now().isoformat(timespec="seconds")

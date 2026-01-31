@@ -52,7 +52,8 @@ def process_successful_imports(
     # Déduplique pour éviter de marquer/supprimer plusieurs fois le même album
     for raw_path in sorted(set(moved_paths)):
         logger.info("Importé : %s", raw_path)
-        resolved = resolve_album_path_and_rel(raw_path)
+        resolved = resolve_album_path_and_rel(raw_path, logger=logger)
+        logger.debug("resolved : %s", resolved)
         if not resolved:
             logger.warning("Chemin 'moved' ignoré (hors /imports/) : %s", raw_path)
             warnings += 1
@@ -62,8 +63,9 @@ def process_successful_imports(
         resolved_cnt += 1
 
         # Normalise rel_dir (sécurité & cohérence DB)
-        rel_dir = os.path.normpath(rel_dir).replace("\\", "/").lstrip("./")
-
+        rel_dir_temp = os.path.normpath(rel_dir).replace("\\", "/").lstrip("./")
+        rel_dir = os.path.dirname(rel_dir_temp)
+        logger.debug("rel_dir process_successful : %s", rel_dir)
         # 1) Marquer importés par hash (album_rel_dir exact, indexé)
         rows = (
             select_all(
@@ -74,6 +76,7 @@ def process_successful_imports(
             or []
         )
         hashes = [r[0] for r in rows]
+        logger.debug("hashes : %s", hashes)
         if not hashes:
             logger.warning(
                 "Aucun hash pour album_rel_dir=%s (path=%s)", rel_dir, host_path

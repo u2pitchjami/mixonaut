@@ -29,6 +29,7 @@ class EnrichedTrackMatch(TrackMatch, total=False):
     artist: str
     album: str
     title: str
+    path: str
 
 
 class BestCandidate(TypedDict):
@@ -41,6 +42,12 @@ class BestCandidate(TypedDict):
 
 TranspositionDict = dict[str, str | float]
 TrackMatchList = list[TrackMatch]
+
+
 GroupedTrackMatches = dict[str, TrackMatchList]
 MatchResult = Union[TrackMatchList, GroupedTrackMatches]
 TranspoCombo: TypeAlias = BestCandidate
+
+EnrichedTrackMatchList = list[EnrichedTrackMatch]
+GroupedEnrichedMatches = dict[str, EnrichedTrackMatchList]
+MarkdownInput = EnrichedTrackMatchList | GroupedEnrichedMatches

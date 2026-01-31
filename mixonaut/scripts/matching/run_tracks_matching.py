@@ -2,9 +2,20 @@
 
 import argparse
 
-from mixonaut.process_matching.export.export_markdown import export_matches_to_markdown
-from mixonaut.process_matching.find_compatible_tracks import find_compatible_tracks
-from mixonaut.utils.config import EXPORT_COMPATIBLE_TRACKS
+from mixonaut.db.matching.matching_queries import enrich_matches
+from mixonaut.process_matching.export.export_markdown import (
+    export_matches_to_markdown,
+    group_enriched_matches_by_transition_type,
+)
+from mixonaut.process_matching.export.playlist_m3u import (
+    build_playlist_filename,
+    generate_m3u_from_matches,
+)
+from mixonaut.process_matching.find_compatible_tracks import (
+    build_match_context,
+    find_compatible_tracks,
+)
+from mixonaut.utils.config import PLAYLISTS_PATH
 from mixonaut.utils.logger import get_logger
 from mixonaut.utils.safe_runner import safe_main
 
@@ -35,15 +46,63 @@ def main(
     Returns:
         None
     """
-    tracks = find_compatible_tracks(
+    context = build_match_context(
         track_id=track_id,
         target_bpm=target_bpm,
-        grouped=grouped,
-        weights_type=weights_type,
+        interactive=True,
         logger=logger,
-        max_results=max_results,
     )
-    export_matches_to_markdown(tracks, EXPORT_COMPATIBLE_TRACKS, logger=logger)
+
+    results = find_compatible_tracks(
+        context=context,
+        max_results=max_results,
+        logger=logger,
+    )
+
+    enriched = enrich_matches(results, logger=logger)
+
+    for m in enriched[:3]:
+        logger.debug(
+            "ENRICHED | id=%s | artist=%s | title=%s | album=%s | path=%s",
+            m["id"],
+            m["artist"],
+            m["title"],
+            m["album"],
+            m["path"],
+        )
+
+    if grouped:
+        grouped_matches = group_enriched_matches_by_transition_type(
+            matches=enriched,
+            context=context,
+            max_results=max_results,
+            logger=logger,
+        )
+        export_matches_to_markdown(track_id, grouped_matches, logger=logger)
+    else:
+        export_matches_to_markdown(track_id, enriched, logger=logger)
+
+    filename = build_playlist_filename(
+        track_id=track_id,
+        target_bpm=context.target_bpm,
+    )
+
+    playlist_path = PLAYLISTS_PATH / filename
+    logger.info("Generating M3U playlist: %s", playlist_path)
+    logger.debug(
+        "PLAYLIST DEBUG | PLAYLISTS_PATH=%r (%s) | playlist_path=%r (%s)",
+        PLAYLISTS_PATH,
+        type(PLAYLISTS_PATH),
+        playlist_path,
+        type(playlist_path),
+    )
+
+    # playlist toujours plate
+    generate_m3u_from_matches(
+        matches=enriched,
+        playlist_path=playlist_path,
+        logger=logger,
+    )
 
 
 if __name__ == "__main__":
@@ -56,7 +115,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--max-results",
         type=int,
-        default=10,
+        default=50,
         help="Maximum number of matching tracks to return.",
     )
     parser.add_argument(

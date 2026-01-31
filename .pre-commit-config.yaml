@@ -3,12 +3,6 @@
 # Ordre important : pyupgrade -> docformatter -> isort -> black -> flake8 -> mypy
 
 repos:
-  - repo: https://github.com/asottile/pyupgrade
-    rev: v3.20.0
-    hooks:
-      - id: pyupgrade
-        args: [--py310-plus]
-
   - repo: https://github.com/PyCQA/docformatter
     rev: v1.7.7
     hooks:
@@ -20,12 +14,6 @@ repos:
           - --wrap-descriptions=120
           - --make-summary-multi-line
           - --pre-summary-newline
-
-  - repo: https://github.com/pycqa/isort
-    rev: 6.0.1
-    hooks:
-      - id: isort
-        args: [--profile=black]
 
   - repo: https://github.com/psf/black
     rev: 25.1.0

@@ -119,6 +119,8 @@ WINDOWS_MUSIC = get_required("WINDOWS_MUSIC")
 BEETS_IMPORT_PATH = get_required("BEETS_IMPORT_PATH")
 LOCK_FILE = get_str("LOCK_FILE", "beets_db.lock")
 EXPORT_COMPATIBLE_TRACKS = get_str("EXPORT_COMPATIBLE_TRACKS", "./exports")
+PLAYLISTS_PATH = Path(get_required("PLAYLISTS_PATH"))
+NAVIDROME_ROOT = Path(get_required("NAVIDROME_ROOT"))
 
 # DB
 QUERIES_DIR = get_str("QUERIES_DIR", "./dashboard")
@@ -178,7 +180,17 @@ USEFUL_EXTENSIONS = (
     ".log",
     ".lrc",  # utiles
 )
-AUDIO_EXTENSIONS = {".mp3", ".flac", ".wav", ".ogg", ".m4a", ".aac", ".alac", ".wma"}
+AUDIO_EXTENSIONS = {
+    ".mp3",
+    ".flac",
+    ".wav",
+    ".ogg",
+    ".m4a",
+    ".aac",
+    ".alac",
+    ".wma",
+    ".dsf",
+}
 IGNORED_EXTENSIONS = {
     ".jpg",
     ".jpeg",

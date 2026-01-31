@@ -206,7 +206,7 @@ def get_logger(script_name: str) -> LoggerProtocol:
         MixonautLogger(base_fallback).warning(f"Rotation des logs échouée: {exc}")
 
     base = logging.getLogger(script_name)
-    base.setLevel(logging.INFO)
+    base.setLevel(logging.DEBUG)
     _ensure_handlers(base, global_log_file, script_log_file)
     return MixonautLogger(base)  # ← classe concrète, pas le Protocol
 

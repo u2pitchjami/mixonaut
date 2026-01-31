@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Mapping
+from pathlib import Path
+from typing import Any
 
 from mixonaut.db.access import select_all, select_one
 from mixonaut.process_matching.models.models import (
@@ -14,7 +16,9 @@ from mixonaut.process_matching.models.models import (
     TrackFeatures,
     TrackMatch,
 )
+from mixonaut.utils.config import BEETS_MUSIC, NAVIDROME_ROOT
 from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.utils_div import ensure_to_path, map_to_navidrome_path
 
 
 @with_child_logger
@@ -42,12 +46,12 @@ def get_track_features(
         return None
     return {
         "bpm": raw["bpm"],
-        "key": raw["key"],
+        "key": raw["initial_key"],
         "beat_intensity": raw["beat_intensity"],
-        "mood_emb1": raw["mood_emb1"],
-        "mood_emb2": raw["mood_emb2"],
-        "genre_emb1": raw["genre_emb1"],
-        "genre_emb2": raw["genre_emb2"],
+        "mood_emb1": raw["mood_emb_1"],
+        "mood_emb2": raw["mood_emb_2"],
+        "genre_emb1": raw["genre_emb_1"],
+        "genre_emb2": raw["genre_emb_2"],
         "duration": raw["duration"],
     }
 
@@ -82,20 +86,31 @@ def get_candidate_tracks(
     logger = ensure_logger(logger, __name__)
     query = """
     SELECT
-        id,
-        bpm,
-        initial_key AS key,
-        beat_intensity,
-        mood_emb_1 AS mood_emb1,
-        mood_emb_2 AS mood_emb2,
-        genre_emb_1 AS genre_emb1,
-        genre_emb_2 AS genre_emb2,
-        duration
+    id,
+    bpm,
+    initial_key AS key,
+    beat_intensity,
+    mood_emb_1 AS mood_emb1,
+    mood_emb_2 AS mood_emb2,
+    genre_emb_1 AS genre_emb1,
+    genre_emb_2 AS genre_emb2,
+    duration
     FROM audio_features
-    WHERE id != ?
+    WHERE bpm IS NOT NULL
+    AND bpm > 0
+    AND initial_key IS NOT NULL
+    AND beat_intensity IS NOT NULL
+    AND duration IS NOT NULL
+    AND duration > 0
+    AND mood_emb_1 IS NOT NULL
+    AND mood_emb_2 IS NOT NULL
+    AND genre_emb_1 IS NOT NULL
+    AND genre_emb_2 IS NOT NULL;
     """
     try:
-        rows = select_all(query, (track_id,), logger=logger)  # -> list[dict] idéalement
+        rows = select_all(query, logger=logger)  # -> list[dict] idéalement
+        logger.debug("Nombre de candidats récupérés: %d", len(rows))
+        logger.debug("Exemple de candidat: %r", rows[0] if rows else "Aucun")
         # Si select_all renvoie des sqlite3.Row, convertir :
         candidates: list[CandidateTrack] = [
             {
@@ -123,42 +138,123 @@ def enrich_matches_with_metadata(
     logger: LoggerProtocol | None = None,
 ) -> list[EnrichedTrackMatch]:
     """
-    Ajoute artist/album/title à chaque match depuis la table items.
+    Enrich TrackMatch with artist / album / title / Navidrome-compatible path.
 
-    Retourne une nouvelle liste (ne modifie pas l'entrée).
+    - Never raises
+    - Always returns EnrichedTrackMatch with stable keys
     """
     logger = ensure_logger(logger, __name__)
     enriched: list[EnrichedTrackMatch] = []
 
-    for match in matches:
-        row = select_one(
-            "SELECT artist, album, title FROM items WHERE id = ?",
-            (match["id"],),
-            logger=logger,
-        )
+    logger.debug(
+        "Enriching %d matches with metadata",
+        len(matches),
+    )
 
-        artist: str = "Unknown"
-        album: str = "Unknown"
-        title: str = "Unknown"
+    for match in matches:
+        track_id = match["id"]
+
+        artist = "Unknown Artist"
+        album = "Unknown Album"
+        title = "Unknown Title"
+        navidrome_path = "Unknown"
 
         try:
-            if row:
-                if isinstance(row, Mapping):
-                    # sqlite3.Row ou dict-like
-                    artist = str(row.get("artist", "Unknown"))
-                    album = str(row.get("album", "Unknown"))
-                    title = str(row.get("title", "Unknown"))
-                elif isinstance(row, (list, tuple)) and len(row) >= 3:
-                    artist = str(row[0])
-                    album = str(row[1])
-                    title = str(row[2])
-                else:
-                    logger.warning(
-                        "Format de ligne inattendu pour id=%s: %r", match["id"], row
-                    )
-        except Exception as exc:  # pylint: disable=broad-except
-            logger.warning("Échec enrichissement metadata id=%s : %s", match["id"], exc)
+            row = select_one(
+                "SELECT artist, album, title, path FROM items WHERE id = ?",
+                (track_id,),
+                logger=logger,
+            )
 
-        enriched.append({**match, "artist": artist, "album": album, "title": title})
+            if row is None:
+                logger.warning(
+                    "No metadata found for track id=%s",
+                    track_id,
+                )
+            else:
+                try:
+                    row_map = _normalize_db_row(row)
+                except TypeError as exc:
+                    logger.warning(
+                        "Invalid metadata row for track id=%s: %s",
+                        track_id,
+                        exc,
+                    )
+                else:
+                    artist = str(row_map.get("artist") or artist)
+                    album = str(row_map.get("album") or album)
+                    title = str(row_map.get("title") or title)
+
+                    source_path = row_map.get("path")
+                    logger.debug(
+                        "RAW PATH CHECK | id=%s | row_path=%r | type=%s",
+                        track_id,
+                        row_map.get("path"),
+                        type(row_map.get("path")),
+                    )
+                    raw_path = row_map.get("path")
+
+                    if raw_path:
+                        try:
+                            source_path = ensure_to_path(raw_path)
+
+                            navidrome_path = map_to_navidrome_path(
+                                source_path=str(source_path),
+                                source_root=Path(BEETS_MUSIC),
+                                navidrome_root=NAVIDROME_ROOT,
+                                logger=logger,
+                            )
+
+                            logger.debug(
+                                "Mapped path for track id=%s: %s",
+                                track_id,
+                                navidrome_path,
+                            )
+
+                        except Exception as exc:  # pylint: disable=broad-except
+                            logger.warning(
+                                "Path mapping failed for track id=%s (raw=%r): %s",
+                                track_id,
+                                raw_path,
+                                exc,
+                            )
+
+        except Exception as exc:  # pylint: disable=broad-except
+            logger.exception(
+                "Unexpected error while enriching track id=%s: %s",
+                track_id,
+                exc,
+            )
+
+        enriched.append(
+            {
+                **match,
+                "artist": artist,
+                "album": album,
+                "title": title,
+                "path": navidrome_path,
+            }
+        )
 
     return enriched
+
+
+def enrich_matches(
+    matches: list[TrackMatch],
+    logger: LoggerProtocol | None = None,
+) -> list[EnrichedTrackMatch]:
+    return enrich_matches_with_metadata(matches, logger=logger)
+
+
+def _normalize_db_row(row: Any) -> Mapping[str, Any]:
+    """
+    Normalize sqlite3.Row / SQLAlchemy Row / dict into a Mapping[str, Any].
+    """
+    if isinstance(row, Mapping):
+        return row
+
+    if hasattr(row, "keys"):
+        # sqlite3.Row or SQLAlchemy Row
+        return {key: row[key] for key in row.keys()}
+
+    raise TypeError(f"Unsupported DB row type: {type(row)!r}")

@@ -11,14 +11,13 @@ from mixonaut.process_imports.qbit.process_qbit import (
     update_ratios_from_qbit,
 )
 from mixonaut.utils.config import QBIT_HOST, QBIT_PASS, QBIT_USER
-from mixonaut.utils.logger import get_logger, with_child_logger
+from mixonaut.utils.logger import get_logger
 from mixonaut.utils.safe_runner import safe_main
 
 logger = get_logger("test_qbittorrent_supp")
 
 
 @safe_main
-@with_child_logger
 def cleanup_completed_torrents(
     qbit_host: str,
     qbit_user: str,
@@ -91,5 +90,4 @@ if __name__ == "__main__":
         min_age_days=args.min_age_days,
         grace_days_soft=args.grace_days_soft,
         dry_run=args.dry_run,
-        logger=logger,
     )
