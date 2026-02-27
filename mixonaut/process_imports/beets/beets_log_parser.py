@@ -2,6 +2,7 @@
 """
 2020-08-20 module de traitemment de parsing du log beets.
 """
+
 from __future__ import annotations
 
 import re

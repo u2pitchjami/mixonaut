@@ -56,7 +56,7 @@ def insert_transpositions(
     values = [track_id] + list(keys.values()) + list(bpms.values())
     placeholders = ", ".join(["?"] * len(values))
     query = f"""
-        INSERT OR REPLACE INTO track_transpositions ({', '.join(fields)})
+        INSERT OR REPLACE INTO track_transpositions ({", ".join(fields)})
         VALUES ({placeholders})
     """
     try:

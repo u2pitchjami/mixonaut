@@ -4,6 +4,7 @@
 
 modules qui lance le replaygain via docker.
 """
+
 import subprocess
 import sys
 from pathlib import Path

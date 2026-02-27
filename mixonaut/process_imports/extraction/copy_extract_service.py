@@ -9,6 +9,7 @@ import os
 import shutil
 import subprocess
 import tarfile
+import unicodedata
 import zipfile
 from pathlib import Path
 from shutil import which
@@ -373,6 +374,59 @@ class CopyExtractService:
         # Rename final
         tmp.rename(dst)
 
+    def fix_double_encoded_utf8(self, s: str) -> str:
+        try:
+            return s.encode("latin1").decode("utf-8")
+        except UnicodeError:
+            return s
+
+    def resolve_existing_path(self, expected: Path) -> Path:
+        """
+        Résout le fichier attendu même si son nom ou son dossier parent est encodé bizarrement.
+        """
+        expected_dir = expected.parent
+        expected_name = unicodedata.normalize("NFC", expected.name).lower()
+
+        # Cas 1 — le chemin complet existe : pas de souci
+        if expected.exists():
+            return expected
+
+        # Cas 2 — le dossier parent existe → on cherche le bon fichier dedans
+        if expected_dir.exists():
+            for file in expected_dir.iterdir():
+                actual_name = unicodedata.normalize("NFC", file.name).lower()
+                if actual_name == expected_name:
+                    return file
+            raise FileNotFoundError(
+                f"📁 Dossier OK, mais fichier introuvable : {expected}"
+            )
+
+        # Cas 3 — le dossier parent est manquant → on tente de le retrouver aussi
+        grand_parent = expected_dir.parent
+        expected_dir_name = unicodedata.normalize("NFC", expected_dir.name).lower()
+
+        if not grand_parent.exists():
+            raise FileNotFoundError(f"🛑 Dossier parent inexistant : {grand_parent}")
+
+        for candidate_dir in grand_parent.iterdir():
+            if not candidate_dir.is_dir():
+                continue
+            candidate_name = unicodedata.normalize("NFC", candidate_dir.name).lower()
+            if candidate_name == expected_dir_name:
+                # On a retrouvé le dossier → on refait la recherche de fichier dedans
+                self.logger.warning(
+                    "📂 Dossier récupéré via normalisation : %r", candidate_dir
+                )
+                for file in candidate_dir.iterdir():
+                    actual_name = unicodedata.normalize("NFC", file.name).lower()
+                    if actual_name == expected_name:
+                        return file
+                raise FileNotFoundError(
+                    f"✔️ Dossier trouvé, fichier toujours absent : {expected_name}"
+                )
+
+        raise FileNotFoundError(f"🧨 Ni dossier ni fichier retrouvés : {expected}")
+
     # -------------------- main loop --------------------
 
     def process_batch(self, nb_limit: int | None = None) -> int:
@@ -393,13 +447,21 @@ class CopyExtractService:
         for r in rows:
             rel = r["relpath"]
             save_path = r.get("save_path")
-            src = self._src_abs(rel, save_path if isinstance(save_path, str) else None)
-            dst = self._dst_abs(rel)
+
+            fixed_rel = self.fix_double_encoded_utf8(rel)
+            fixed_save_path = (
+                self.fix_double_encoded_utf8(save_path) if save_path else None
+            )
+            try:
+                src = self.resolve_existing_path(
+                    Path(self._src_abs(fixed_rel, fixed_save_path))
+                )
+            except FileNotFoundError as e:
+                self.logger.error("❌ Staging KO pour %s: %s", rel, e)
+                continue  # skip cette entrée et passer à la suivante
+            dst = self._dst_abs(fixed_rel)
 
             try:
-                if not src.exists():
-                    raise FileNotFoundError(f"Source introuvable: {src}")
-
                 ext = src.suffix.lower()
                 if ext in AUDIO_ARCHIVES:
                     # extraire dans imports/<rel_dir>/

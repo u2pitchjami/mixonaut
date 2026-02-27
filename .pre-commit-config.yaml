@@ -1,8 +1,11 @@
-# .pre-commit-config.yaml
-# Pré-commit optimisé Python 3.11+
-# Ordre important : pyupgrade -> docformatter -> isort -> black -> flake8 -> mypy
-
 repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.12.12
+    hooks:
+      - id: ruff
+        args: [--fix]        # auto-fix lint (imports, pyupgrade, etc.)
+      - id: ruff-format       # formateur (remplace Black)
+
   - repo: https://github.com/PyCQA/docformatter
     rev: v1.7.7
     hooks:
@@ -15,25 +18,12 @@ repos:
           - --make-summary-multi-line
           - --pre-summary-newline
 
-  - repo: https://github.com/psf/black
-    rev: 25.1.0
-    hooks:
-      - id: black
-        language_version: python3
-
-  - repo: https://github.com/PyCQA/flake8
-    rev: 7.3.0
-    hooks:
-      - id: flake8
-        args: [--max-line-length=120]
-        exclude: ^(docker|z_old)/
-        additional_dependencies: []  # ajoute ici bugbear/comprehensions si tu veux
-
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.17.1
     hooks:
     - id: mypy
       args: [--config-file=pyproject.toml]
+      pass_filenames: false   # ⬅️ IMPORTANT : on laisse mypy décider quoi analyser (files=…)
       exclude: ^(docker|z_old)/
       additional_dependencies:
         - types-requests

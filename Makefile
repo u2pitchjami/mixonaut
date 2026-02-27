@@ -1,44 +1,70 @@
 # Makefile à placer à la racine du projet
 
 PYTHON := /home/pipo/envs/vmix/bin/python3
-PIP := pip
-PKG    := mixonaut
+PIP    ?= $(PYTHON) -m pip
+PKG    ?= .
 
-# ----------------------------------------
-# ENVIRONNEMENT
-# ----------------------------------------
-# -------- Install dev / hooks --------
+# ------- Phony -------
+.PHONY: install-dev hooks fmt check lint types qa clean help
+
+# ------- Install / Dev env -------
 install-dev:
-	$(PYTHON) -m pip install -U pip
-	$(PYTHON) -m pip install -r dev-requirements.txt
-	$(PYTHON) -m pre_commit install
+	$(PIP) install -U pip
+	# deps projet (si tu as un fichier, sinon enlève la ligne)
+	@if [ -f requirements.txt ]; then $(PIP) install -r requirements.txt; fi
+	@if [ -f dev-requirements.txt ]; then $(PIP) install -r dev-requirements.txt; fi
+	# outils qualité
+	$(PIP) install ruff mypy pre-commit
+	# (optionnel) docstrings auto - si tu veux conserver docformatter
+	@if [ -f .use-docformatter ]; then $(PIP) install docformatter; fi
+	# install editable du package
+	$(PIP) install -e .
 
 hooks:
-	$(PYTHON) -m pre_commit run --all-files
+	$(PYTHON) -m pre_commit install
+	# passage initial sur tout le repo
+	$(PYTHON) -m pre_commit run --all-files || true
 
-# -------- Format / Docstrings / Imports --------
-docstrings:
-	$(PYTHON) -m docformatter --in-place --recursive $(PKG)/
-
+# ------- Format & Lint -------
+# Format code (remplace Black)
 format:
-	$(PYTHON) -m isort --profile black $(PKG)/
-	$(PYTHON) -m black $(PKG)/
+	ruff format $(PKG)
 
-check-format:
-	$(PYTHON) -m isort --profile black --check-only $(PKG)/
-	$(PYTHON) -m black --check $(PKG)/
+# Auto-fix lint (imports/isort, pyupgrade, espaces, etc.)
+fix:
+	ruff check $(PKG) --fix
 
-# -------- Lint / Types --------
-lint:
-	$(PYTHON) -m flake8 $(PKG)/
+# Combo format + auto-fix (recommandé)
+fmt: fix format
 
+# Vérif sans modifier
+check:
+	ruff format $(PKG) --check
+	ruff check $(PKG)
+
+# Lint alias
+lint: check
+
+# ------- Types -------
 types:
-	$(PYTHON) -m mypy $(PKG)/
+	mypy $(PKG)
 
-# -------- All-in-one rapide --------
-qa: docstrings format lint types
+# ------- All-in-one qualité -------
+qa: fmt types
 
-# -------- Clean --------
+# ------- Clean -------
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} +
-	find . -type f -name "*.pyc" -delete
+	find . -type f -name "*.py[co]" -delete
+	rm -rf .mypy_cache .pytest_cache .ruff_cache
+
+# ------- Help -------
+help:
+	@echo "Targets:"
+	@echo "  install-dev   : installe deps projet + ruff+mypy+pre-commit"
+	@echo "  hooks         : installe les hooks pre-commit et lance un scan"
+	@echo "  fmt           : ruff check --fix + ruff format (auto-fix)"
+	@echo "  check|lint    : vérifie le format et le lint sans modifier"
+	@echo "  types         : lance mypy sur $(PKG)"
+	@echo "  qa            : fmt + types"
+	@echo "  clean         : nettoie caches et pyc"

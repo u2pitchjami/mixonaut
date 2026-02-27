@@ -9,6 +9,8 @@ RUN apt-get update && apt-get install -y \
     #embedart
     imagemagick \
     libjpeg-dev libpng-dev libtiff-dev libwebp-dev libtool libxml2-dev libfontconfig-dev libfreetype6-dev liblcms2-dev libopenexr-dev libx11-dev libxext-dev libxt-dev \
+    #edit
+    xdg-utils \
     && rm -rf /var/lib/apt/lists/* \
     && ln -s /usr/bin/convert /usr/local/bin/magick
 

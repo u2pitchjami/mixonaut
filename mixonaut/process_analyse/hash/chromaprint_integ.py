@@ -2,6 +2,7 @@
 """
 2020-08-20 module de traitemments des hashs.
 """
+
 from __future__ import annotations
 
 import hashlib

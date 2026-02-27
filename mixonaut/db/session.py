@@ -2,6 +2,7 @@
 """
 2025-08-22 Gestionnaire de contexte pour une session SQLite Beets.
 """
+
 from __future__ import annotations
 
 import os
@@ -56,9 +57,9 @@ class MixonautDBSession:
         """
         Retourne la connexion SQLite active (non-None dans le bloc `with`).
         """
-        assert (
-            self._conn is not None
-        ), "Connection not initialized (use within a with-block)"
+        assert self._conn is not None, (
+            "Connection not initialized (use within a with-block)"
+        )
         return self._conn
 
     # ---------- Context Manager ----------
@@ -102,7 +103,6 @@ class MixonautDBSession:
             if read_lock_pid() == get_current_pid():
                 try:
                     os.remove(LOCK_FILE)
-                    log.debug("🔓 Verrou supprimé.")
                 except OSError:
                     log.debug("🔓 Verrou déjà absent.")
             else:

@@ -97,7 +97,6 @@ def analyse_track(
             temp_audio, temp_json, profile, logger=logger
         )
         if not track_features:
-
             logger.warning(
                 f"❌ Erreur traitement track {track_id} : Aucune caractéristique extraite"
             )

@@ -100,7 +100,7 @@ def write_tags_docker(
                 if value is not None:
                     clean_value = str(value).strip().replace("\n", " ")
                     tag_cmds.append(f'--user-text-frame="{tag}:{clean_value}"')
-            full_cmd = f"eyeD3 {' '.join(tag_cmds)} \"{container_path}\""
+            full_cmd = f'eyeD3 {" ".join(tag_cmds)} "{container_path}"'
 
             # Appel docker run
             cmd = [

@@ -2,6 +2,7 @@
 """
 20250821.requêtes pour générer les hash.
 """
+
 import sqlite3
 
 from mixonaut.db.access import execute_write, select_all

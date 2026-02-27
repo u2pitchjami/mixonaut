@@ -5,7 +5,6 @@ import os
 import sys
 from pathlib import Path
 
-import mixonaut.essentia
 import mixonaut.essentia.standard as es
 
 

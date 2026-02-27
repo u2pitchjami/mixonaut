@@ -2,6 +2,7 @@
 """
 Repository pour accéder/mettre à jour l'état des torrents/fichiers Mixonaut.
 """
+
 from __future__ import annotations
 
 from collections.abc import Iterable

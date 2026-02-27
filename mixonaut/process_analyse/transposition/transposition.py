@@ -111,7 +111,6 @@ def generate_transpositions(
             return None, "KO_UNSUPPORTED", f"BPM inexploitable: {bpm}"
 
         try:
-
             for shift in SEMITONE_SHIFT_VALUES:
                 key_col = shift_to_colname("key", shift)
                 bpm_col = shift_to_colname("bpm", shift)
