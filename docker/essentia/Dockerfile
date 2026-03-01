@@ -1,5 +1,5 @@
 # Base image
-FROM debian:bullseye-slim
+FROM debian:bullseye-20260223-slim
 
 # Install system dependencies
 COPY assets/* /app/
