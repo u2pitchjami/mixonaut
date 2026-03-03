@@ -45,3 +45,4 @@ config.env
 z_old/
 docker/
 docker/beets/docker-compose.yml
+.venv/

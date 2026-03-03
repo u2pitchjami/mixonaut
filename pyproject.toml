@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mixonaut"
-version = "0.1.0"
+version = "1.0.1"
 description = "Outils pour audio (Beets, Essentia, etc.)"
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 
 [tool.setuptools]
 packages = ["mixonaut"]
@@ -22,7 +22,7 @@ known_first_party = ["mixonaut"]
 
 # --- Mypy -------------------------------------------------------------------
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 pretty = true
 show_error_codes = true
 ignore_missing_imports = false

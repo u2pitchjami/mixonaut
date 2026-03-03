@@ -1,70 +1,54 @@
-# Makefile à placer à la racine du projet
-
-PYTHON := /home/pipo/envs/vmix/bin/python3
+PYTHON ?= python3
 PIP    ?= $(PYTHON) -m pip
-PKG    ?= .
+PKG    ?= src
 
-# ------- Phony -------
-.PHONY: install-dev hooks fmt check lint types qa clean help
+.PHONY: init fmt check types qa clean patch compile help
 
-# ------- Install / Dev env -------
-install-dev:
-	$(PIP) install -U pip
-	# deps projet (si tu as un fichier, sinon enlève la ligne)
-	@if [ -f requirements.txt ]; then $(PIP) install -r requirements.txt; fi
-	@if [ -f dev-requirements.txt ]; then $(PIP) install -r dev-requirements.txt; fi
-	# outils qualité
-	$(PIP) install ruff mypy pre-commit
-	# (optionnel) docstrings auto - si tu veux conserver docformatter
-	@if [ -f .use-docformatter ]; then $(PIP) install docformatter; fi
-	# install editable du package
-	$(PIP) install -e .
+init:
+	./dev_scripts/rebuild_env.sh
+	python -m pre_commit install
 
 hooks:
-	$(PYTHON) -m pre_commit install
-	# passage initial sur tout le repo
-	$(PYTHON) -m pre_commit run --all-files || true
+	python -m pre_commit install
 
-# ------- Format & Lint -------
-# Format code (remplace Black)
-format:
+patch:
+	./dev_scripts/patch.sh
+
+compile:
+	./dev_scripts/patch.sh compile
+
+fmt:
+	ruff check $(PKG) --fix
 	ruff format $(PKG)
 
-# Auto-fix lint (imports/isort, pyupgrade, espaces, etc.)
-fix:
-	ruff check $(PKG) --fix
-
-# Combo format + auto-fix (recommandé)
-fmt: fix format
-
-# Vérif sans modifier
 check:
-	ruff format $(PKG) --check
 	ruff check $(PKG)
+	ruff format $(PKG) --check
 
-# Lint alias
-lint: check
-
-# ------- Types -------
 types:
 	mypy $(PKG)
 
-# ------- All-in-one qualité -------
-qa: fmt types
+vulture:
+	vulture $(PKG) --min-confidence 80
 
-# ------- Clean -------
+qa: fmt types vulture
+
 clean:
-	find . -type d -name "__pycache__" -exec rm -rf {} +
-	find . -type f -name "*.py[co]" -delete
-	rm -rf .mypy_cache .pytest_cache .ruff_cache
+	rm -rf .venv .mypy_cache .ruff_cache
+	find . -name "__pycache__" -type d -exec rm -rf {} +
 
-# ------- Help -------
+test:
+	pytest
+
 help:
 	@echo "Targets:"
-	@echo "  install-dev   : installe deps projet + ruff+mypy+pre-commit"
-	@echo "  hooks         : installe les hooks pre-commit et lance un scan"
-	@echo "  fmt           : ruff check --fix + ruff format (auto-fix)"
-	@echo "  check|lint    : vérifie le format et le lint sans modifier"
-	@echo "  types         : lance mypy sur $(PKG)"
-	@echo "  qa            : fmt + types"
-	@echo "  clean         : nettoie caches et pyc"
+	@echo "  init     : rebuild environment"
+	@echo "  patch    : dependency patch management"
+	@echo "  compile  : recompile lock files"
+	@echo "  fmt      : auto-fix lint + format"
+	@echo "  check    : lint + format check"
+	@echo "  types    : run mypy"
+	@echo "  qa       : fmt + types + vulture"
+	@echo "  clean    : remove caches"
+	@echo "  test     : run test suite"
+	@echo "  vulture  : run vulture for dead code detection"

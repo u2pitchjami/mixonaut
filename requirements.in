@@ -1,0 +1,8 @@
+python-dotenv==1.1.0
+scikit_learn==1.6.1
+psutil==7.0.0
+pyyaml==6.0.2
+requests==2.32.4
+rich==13.3.5
+types-requests==2.32.4.20250809
+typing_extensions==4.14.1
