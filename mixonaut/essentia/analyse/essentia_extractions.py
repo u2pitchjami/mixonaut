@@ -16,10 +16,9 @@ from mixonaut.utils.config import (
     IMAGE_ESSENTIA,
     PROF_ESSENTIA,
 )
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 
 
-@with_child_logger
 def run_essentia_extraction(
     audio_path: Path,
     json_path: Path,
@@ -99,7 +98,6 @@ def get_nested(data: dict[str, Any], path: Any) -> dict[str, Any]:
         raise
 
 
-@with_child_logger
 def parse_essentia_json(
     json_path: Path, logger: LoggerProtocol | None = None
 ) -> dict[str, Any]:

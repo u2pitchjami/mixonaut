@@ -493,6 +493,7 @@ def create_tables() -> None:
         cursor.execute(
             """
         DROP VIEW IF EXISTS "main"."v_analyse";
+
         CREATE VIEW v_analyse AS
         SELECT
             i.id,
@@ -501,25 +502,41 @@ def create_tables() -> None:
             i.album,
             i.genre,
             i.bpm,
+            a.duration,
+
             a.mood,
             a.beat_intensity,
             i.rg_track_gain,
             i.initial_key,
             i.path,
             i.updated_at AS beets_updated_at,
+
             a.essentia_status,
             a.last_error AS essentia_last_error,
             a.updated_at AS essentia_updated_at,
+
+            m.madmom_status,
+            m.last_error AS madmom_last_error,
+            m.updated_at AS madmom_updated_at,
+            m.bpm_main AS madmom_bpm_main,
+            m.bpm_main_confidence AS madmom_bpm_main_confidence,
+            m.estimated_bpm_from_intervals AS madmom_estimated_bpm,
+            m.rhythm_stability,
+            m.rhythm_intensity,
+
             f.status AS hash_status,
             f.last_error AS hash_last_error,
             f.updated_at AS hash_last_updated_at,
+
             t.transposition_status,
             t.last_error AS transposition_last_error,
             t.updated_at AS transposition_updated_at
+
         FROM items AS i
         JOIN audio_features AS a USING (id)
-        JOIN track_transpositions AS t USING (id)
+        JOIN madmom_features AS m USING (id)
         JOIN audio_hash AS f USING (id)
+        JOIN track_transpositions AS t USING (id);
         """
         )
 
@@ -648,6 +665,70 @@ def create_tables() -> None:
         WHERE td.decision IN ('REJECT','DUPLICATE_HARD','REPLACED')
         AND ifs.imported_in_beets_at IS NULL
                 """
+        )
+
+        # madmom_features ####
+
+        cursor.execute(
+            """
+        CREATE TABLE IF NOT EXISTS madmom_features (
+        id INTEGER PRIMARY KEY
+        REFERENCES items(id)
+        ON DELETE CASCADE,
+
+        madmom_status TEXT DEFAULT 'PENDING',
+        last_error TEXT,
+        updated_at TIMESTAMP,
+        retries INTEGER DEFAULT 0,
+
+        -- tempo principal
+        bpm_main REAL,
+        bpm_main_confidence REAL,
+
+        -- alternatives tempo
+        bpm_alt_1 REAL,
+        bpm_alt_1_confidence REAL,
+
+        bpm_alt_2 REAL,
+        bpm_alt_2_confidence REAL,
+
+        -- bpm dérivé des intervalles
+        estimated_bpm_from_intervals REAL,
+
+        -- beats
+        beats_count INTEGER,
+        beat_interval_mean REAL,
+        beat_interval_median REAL,
+        beat_interval_std REAL,
+
+        -- activations beats
+        beat_activation_mean REAL,
+        beat_activation_median REAL,
+        beat_activation_std REAL,
+        beat_activation_max REAL,
+
+        -- onsets
+        onsets_count INTEGER,
+        onset_activation_mean REAL,
+        onset_activation_std REAL,
+
+        -- downbeats
+        downbeats_count INTEGER,
+
+        -- densités calculées
+        beats_per_second REAL,
+        onsets_per_second REAL,
+        downbeats_per_second REAL,
+
+        -- enrichissement métier
+        rhythm_stability REAL,
+        rhythm_intensity REAL,
+
+        -- metadata analyse
+        analysis_version TEXT,
+        raw_json_path TEXT
+        );
+        """
         )
 
         conn.commit()

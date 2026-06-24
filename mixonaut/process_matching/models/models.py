@@ -1,4 +1,5 @@
 from typing import TypeAlias, TypedDict, Union
+from mixonaut.process_matching.process.genre_vector import GenreVector
 
 
 class TrackFeatures(TypedDict):
@@ -7,9 +8,13 @@ class TrackFeatures(TypedDict):
     beat_intensity: float
     mood_emb1: float
     mood_emb2: float
+    duration: float
+    # Ancien système, gardé temporairement
     genre_emb1: float
     genre_emb2: float
-    duration: float
+
+    # Nouveau système
+    genre_vector: GenreVector
 
 
 class CandidateTrack(TrackFeatures):

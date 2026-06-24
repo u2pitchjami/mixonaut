@@ -8,12 +8,11 @@ from typing import Any, Union
 
 from mixonaut.db.session import MixonautDBSession
 from mixonaut.utils.config import BEETS_DB
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 
 Scalar = Union[int, float, str, bytes]
 
 
-@with_child_logger
 def execute_query(
     query: str,
     params: Sequence[Any] | tuple[Any, ...] = (),
@@ -30,7 +29,6 @@ def execute_query(
         return list(cur.fetchall()) if fetch else []
 
 
-@with_child_logger
 def execute_many(
     query: str,
     param_list: list[tuple[Any, ...]],
@@ -49,7 +47,6 @@ def execute_many(
         logger.debug("execute_many: %d lignes écrites", len(param_list))
 
 
-@with_child_logger
 def select_all(
     query: str,
     params: Sequence[Any] | tuple[Any, ...] = (),
@@ -72,7 +69,6 @@ def select_all(
     return execute_query(query, params=params, fetch=True, db=db, logger=logger)
 
 
-@with_child_logger
 def select_one(
     query: str,
     params: Sequence[Any] | tuple[Any, ...] = (),
@@ -99,7 +95,6 @@ def select_one(
     return result[0] if result else None
 
 
-@with_child_logger
 def execute_write(
     query: str,
     params: Sequence[Any] | tuple[Any, ...] = (),
@@ -126,7 +121,6 @@ def execute_write(
     return execute_query(query, params, fetch=False, db=db, logger=logger)
 
 
-@with_child_logger
 def select_scalar(
     query: str,
     params: Sequence[Any] | tuple[Any, ...] = (),

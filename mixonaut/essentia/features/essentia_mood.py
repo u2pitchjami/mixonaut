@@ -7,10 +7,9 @@ modules de traitement du mood.
 from typing import Any
 
 from mixonaut.utils.config import MOOD_KEYS
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 
 
-@with_child_logger
 def compute_mood_vector(
     features: dict[str, Any], logger: LoggerProtocol | None = None
 ) -> dict[str, float]:

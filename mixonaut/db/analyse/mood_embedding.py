@@ -11,7 +11,7 @@ from sklearn.decomposition import PCA
 
 from mixonaut.db.access import execute_query
 from mixonaut.utils.config import MOOD_KEYS
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 
 
 class MoodEmbedding2D(TypedDict):
@@ -20,7 +20,6 @@ class MoodEmbedding2D(TypedDict):
     mood_emb_2: float
 
 
-@with_child_logger
 def compute_mood_embeddings(
     n_components: int = 2, logger: LoggerProtocol | None = None
 ) -> list[MoodEmbedding2D]:

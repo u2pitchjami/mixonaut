@@ -6,7 +6,7 @@
 import sqlite3
 
 from mixonaut.db.access import execute_write, select_all
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 
 # ────────────────────────────────────────────────────────────────────────────────
 # SQL – fp_files (données dédupliquées par contenu)
@@ -104,7 +104,6 @@ WHERE l.id IS NULL OR l.status != 'ok';
 # ────────────────────────────────────────────────────────────────────────────────
 
 
-@with_child_logger
 def upsert_fp_success(
     *,
     track_id: int,
@@ -140,10 +139,9 @@ def upsert_fp_success(
     #     (track_id, file_sha1, 'ok', None),
     #     logger=logger,
     # )
-    logger.debug(f"✅ FP upsert OK track={track_id} sha1={file_sha1} dur={duration}")
+    # logger.debug(f"✅ FP upsert OK track={track_id} sha1={file_sha1} dur={duration}")
 
 
-@with_child_logger
 def mark_fp_error(
     *,
     track_id: int,
@@ -161,28 +159,27 @@ def mark_fp_error(
     logger.warning(f"⚠️ FP erreur track={track_id} sha1={file_sha1} → {message}")
 
 
-# @with_child_logger
+#
 # def update_acoustid(*, file_sha1: str, acoustid_id: str, confidence: Optional[float], logger=None) -> None:
 #     execute_write(SQL_UPDATE_ACOUSTID, (acoustid_id, confidence, file_sha1), logger=logger)
 
-# @with_child_logger
+#
 # def get_by_track(track_id: int, logger=None) -> Optional[Tuple]:
 #     return select_one(SQL_GET_BY_TRACK_VW, (track_id,), logger=logger)
 
-# @with_child_logger
+#
 # def get_link(track_id: int, logger=None) -> Optional[Tuple]:
 #     return select_one(SQL_GET_LINK, (track_id,), logger=logger)
 
-# @with_child_logger
+#
 # def get_file(file_sha1: str, logger=None) -> Optional[Tuple]:
 #     return select_one(SQL_GET_FILE, (file_sha1,), logger=logger)
 
-# @with_child_logger
+#
 # def list_duplicates(logger=None) -> Sequence[Tuple[str, int]]:
 #     return select_all(SQL_DUPLICATE_GROUPS, logger=logger)
 
 
-@with_child_logger
 def list_missing_or_bad(
     logger: LoggerProtocol | None = None,
 ) -> list[sqlite3.Row]:
@@ -195,10 +192,10 @@ def list_missing_or_bad(
     return select_all(SQL_TRACKS_WITHOUT_OK, logger=logger)
 
 
-# @with_child_logger
+#
 # def delete_link(track_id: int, logger=None) -> None:
 #     execute_write(SQL_DELETE_LINK, (track_id,), logger=logger)
 
-# @with_child_logger
+#
 # def purge_orphan_files(logger=None) -> None:
 #     execute_write(SQL_DELETE_ORPHAN_FP_FILES, logger=logger)

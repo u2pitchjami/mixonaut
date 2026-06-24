@@ -3,11 +3,57 @@
 import re
 from pathlib import Path
 
-from mixonaut.utils.config import BEETS_MUSIC, HOST_MUSIC, WINDOWS_MUSIC
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.config import (
+    BEETS_MUSIC,
+    HOST_MUSIC,
+    WINDOWS_MUSIC,
+    FPCALC_MOUNT_CONTAINER,
+    ESSENTIA_TEMP_AUDIO,
+    ESSENTIA_MOUNT_CONTAINER,
+    MADMOM_MOUNT_CONTAINER,
+)
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 
 
-@with_child_logger
+VOLUME_MAPPINGS: dict[str, tuple[Path, Path]] = {
+    "essentia": (
+        Path(ESSENTIA_TEMP_AUDIO),
+        Path(ESSENTIA_MOUNT_CONTAINER),
+    ),
+    "fpcalc": (
+        Path(ESSENTIA_TEMP_AUDIO),
+        Path(FPCALC_MOUNT_CONTAINER),
+    ),
+    "madmom": (
+        Path(ESSENTIA_TEMP_AUDIO),
+        Path(MADMOM_MOUNT_CONTAINER),
+    ),
+    "beets": (
+        Path("/home/pipo/data/appdata/mixonaut"),
+        Path("/mixonaut"),
+    ),
+}
+
+
+def to_container_path(host_path: Path, container_name: str) -> Path:
+    """
+    Convertit un chemin host vers le chemin visible par un conteneur.
+    """
+    try:
+        host_root, container_root = VOLUME_MAPPINGS[container_name]
+        relative_path = host_path.resolve().relative_to(host_root.resolve())
+        return container_root / relative_path
+
+    except KeyError as exc:
+        raise ValueError(f"Conteneur inconnu: {container_name}") from exc
+
+    except ValueError as exc:
+        raise ValueError(
+            f"Le chemin {host_path} n'est pas sous le volume host attendu "
+            f"pour {container_name}: {host_root}"
+        ) from exc
+
+
 def format_percent(
     part: int, total: int, digits: int = 0, logger: LoggerProtocol | None = None
 ) -> str:
@@ -27,7 +73,6 @@ def format_percent(
         return "ERR%"
 
 
-@with_child_logger
 def format_nb(
     nb: int, insécable: bool = False, logger: LoggerProtocol | None = None
 ) -> str:
@@ -89,11 +134,11 @@ def convert_path_format(path: Path | str, to_beets: bool = False) -> Path:
             windows_relative = Path(
                 str(path).replace(WINDOWS_MUSIC, "").replace("\\", "/")
             )
-            return Path(BEETS_MUSIC) / windows_relative
+            return windows_relative
     else:
-        if str(path).startswith(str(BEETS_MUSIC)):
-            relative = path.relative_to(BEETS_MUSIC)
-            return Path(HOST_MUSIC) / relative
+        # if str(path).startswith(str(BEETS_MUSIC)):
+        # relative = path.relative_to(BEETS_MUSIC)
+        return Path(HOST_MUSIC) / path
 
     raise ValueError(f"Chemin non reconnu ou non convertible : {path}")
 
@@ -141,7 +186,6 @@ def map_to_navidrome_path(
 #     return field_values
 
 
-@with_child_logger
 def sanitize_value(
     value: int | float | str | None,
     format_type: str,

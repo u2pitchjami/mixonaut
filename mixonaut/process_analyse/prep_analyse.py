@@ -60,9 +60,48 @@ def generate_mode_text(
     return mode_text
 
 
+def prep_track(
+    track: tuple[int, str, str, str, str, str, str, str, str, float | None],
+    logger: LoggerProtocol | None = None,
+) -> tuple[int, Path, str, Path, Path, Path]:
+    """
+    Prépare les chemins pour l'analyse d'un morceau.
+    Args:
+        track: Chemin du morceau à analyser.
+        logger: Objectif pour loguer les messages.
+
+    Returns:
+        tuple[int, Path, str, Path, Path, Path]: Les chemins préparés pour l'analyse.
+    """
+    logger = ensure_logger(logger, __name__)
+    try:
+        result = prepare_track_paths(track, logger=logger)
+        if result is None:
+            logger.error(f"❌ Erreur préparation des chemins pour le morceau : {track}")
+            msg = f"Fichier introuvable: {track[1]}"
+            raise FileNotFoundError(msg)
+        track_id, original_path, safe_name, temp_audio, temp_json, temp_json_madmom = (
+            result
+        )
+        if not process_audio_file(original_path, temp_audio, logger=logger):
+            raise FileNotFoundError(msg)
+        return (
+            track_id,
+            original_path,
+            safe_name,
+            temp_audio,
+            temp_json,
+            temp_json_madmom,
+        )
+    except Exception as e:
+        logger.exception(f"❌ Erreur traitement track {track_id} : {e}")
+        raise FileNotFoundError(msg)
+
+
 def prepare_track_paths(
-    track: tuple[int, str, str, str, str], logger: LoggerProtocol | None = None
-) -> tuple[int, Path, str, Path, Path] | None:
+    track: tuple[int, str, str, str, str, str, str, str, str, float | None],
+    logger: LoggerProtocol | None = None,
+) -> tuple[int, Path, str, Path, Path, Path] | None:
     """
     Prepare track paths for Essentia processing.
 
@@ -81,19 +120,21 @@ def prepare_track_paths(
     """
     logger = ensure_logger(logger, __name__)
     try:
-        track_id, raw_path, artist, album, title = track
+        track_id, raw_path, artist, album, title, _, _, _, _, duration = track
         path = Path(convert_path_format(ensure_to_path(raw_path), to_beets=False))
         if not path.exists():
             logger.warning(f"Fichier introuvable : {path}")
             return None
 
         safe_name = f"{track_id}_{sanitize_filename(artist)}_{sanitize_filename(album)}_{sanitize_filename(title)}"
+        safe_name_madmom = f"{track_id}_mm-{sanitize_filename(artist)}_{sanitize_filename(album)}_{sanitize_filename(title)}"
         # Tronque si trop long
         if len(safe_name) > MAX_SAFENAME_LENGTH:
             safe_name = safe_name[:MAX_SAFENAME_LENGTH]
         temp_audio = Path(ESSENTIA_TEMP_AUDIO) / f"{safe_name}{path.suffix}"
         temp_json = Path(ESSENTIA_TEMP_JSON) / f"{safe_name}.json"
-        return (track_id, path, safe_name, temp_audio, temp_json)
+        temp_json_madmom = Path(ESSENTIA_TEMP_JSON) / f"{safe_name_madmom}.json"
+        return (track_id, path, safe_name, temp_audio, temp_json, temp_json_madmom)
     except Exception as e:
         logger.error(f"Erreur préparation chemins : {e}")
         raise
@@ -140,24 +181,29 @@ def sanitize_filename(name: str) -> str:
     return name.strip("_").lower()
 
 
-def clean_temp_files(*paths: Path, logger: LoggerProtocol | None = None) -> None:
+def clean_temp_files(
+    *paths: Path | None,
+    logger: LoggerProtocol | None = None,
+) -> None:
     """
     Supprime les fichiers temporaires générés pendant la préparation.
-
-    Args:
-        paths (Path): Chemins vers les fichiers temporaires à supprimer.
-        logger (LoggerProtocol, optional): Loggueur pour afficher les erreurs. Defaults to None.
-
-    Returns:
-        None
     """
     logger = ensure_logger(logger, __name__)
+
     for path in paths:
+        if path is None:
+            continue
+
         try:
             if path.exists():
                 path.unlink()
-        except Exception as e:
-            logger.warning(f"Erreur suppression fichier temporaire : {path} -> {e}")
+
+        except Exception as exc:
+            logger.warning(
+                "Erreur suppression fichier temporaire : %s -> %s",
+                path,
+                exc,
+            )
 
 
 def archive_json_result(

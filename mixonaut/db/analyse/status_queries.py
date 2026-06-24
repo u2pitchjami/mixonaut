@@ -7,10 +7,9 @@ requetes sqlite gère les statuts pour lancer ou non l'analyse.
 from datetime import datetime
 
 from mixonaut.db.access import execute_many, execute_write, select_all
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 
 
-@with_child_logger
 def update_table_status(
     table: str,
     id_value: int,
@@ -43,6 +42,8 @@ def get_status_column(table: str) -> str:
     """
     if table == "audio_features":
         return "essentia_status"
+    if table == "madmom_features":
+        return "madmom_status"
     elif table == "track_transpositions":
         return "transposition_status"
     elif table == "audio_hash":
@@ -51,7 +52,6 @@ def get_status_column(table: str) -> str:
         raise ValueError(f"Table inconnue pour mise à jour de statut : {table}")
 
 
-@with_child_logger
 def sync_pending_tables(logger: LoggerProtocol | None = None) -> None:
     """
     Synchronise les tables pending en ajoutant des enregistrements manquants.
@@ -70,8 +70,9 @@ def sync_pending_tables(logger: LoggerProtocol | None = None) -> None:
     # Tables à synchroniser : table, colonne statut, statut par défaut
     tables = [
         ("audio_features", "essentia_status", "PENDING"),
+        ("madmom_features", "madmom_status", "PENDING"),
         ("track_transpositions", "transposition_status", "PENDING"),
-        ("audio_hash", "status", "PENDING"),  # statut défaut pour fp_links
+        ("audio_hash", "status", "PENDING"),
     ]
 
     for table, status_col, default_status in tables:

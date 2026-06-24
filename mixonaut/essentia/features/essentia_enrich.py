@@ -16,11 +16,10 @@ from mixonaut.essentia.features.essentia_mood import (
     compute_mood_vector,
     get_dominant_mood,
 )
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 from mixonaut.utils.utils_div import sanitize_value
 
 
-@with_child_logger
 def enrich_features(
     track_features: dict[str, Any], logger: LoggerProtocol | None = None
 ) -> dict[str, Any]:

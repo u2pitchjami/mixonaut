@@ -15,7 +15,7 @@ from mixonaut.process_matching.models.models import (
     TranspositionDict,
 )
 from mixonaut.utils.config import CAMELOT_ORDER, TOLERANCE_BPM_PERCENT
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 
 BPM_SHIFT_PENALTY = 0.1
 # CAMELOT_ORDER = [f"{n}{l}" for n in range(1, 13) for l in ["a", "b"]]
@@ -30,7 +30,6 @@ KEY_TRANSITION_SCORES = {
 }
 
 
-@with_child_logger
 def get_key_score(
     ref_key: str, candidate_key: str, logger: LoggerProtocol | None = None
 ) -> float:
@@ -51,23 +50,23 @@ def get_key_score(
     """
     logger = ensure_logger(logger, __name__)
     try:
-        logger.debug(
-            f"get_key_score ref_key : {ref_key}, candidate_key : {candidate_key}"
-        )
+        # logger.debug(
+        #     f"get_key_score ref_key : {ref_key}, candidate_key : {candidate_key}"
+        # )
         if ref_key == candidate_key:
             return 1.0
         ref_idx = CAMELOT_ORDER.index(ref_key)
         cand_idx = CAMELOT_ORDER.index(candidate_key)
         diff = abs(ref_idx - cand_idx) % 24
-        logger.debug(
-            f"get_key_score ref_idx : {ref_idx}, cand_idx : {cand_idx}, diff : {diff}"
-        )
+        # logger.debug(
+        #     f"get_key_score ref_idx : {ref_idx}, cand_idx : {cand_idx}, diff : {diff}"
+        # )
         if diff > 12:
             diff = 24 - diff
-            logger.debug(f"get_key_score diff > 12, diff : {diff}")
+            # logger.debug(f"get_key_score diff > 12, diff : {diff}")
 
         for dist, (_, score) in KEY_TRANSITION_SCORES.items():
-            logger.debug(f"get key score : for dist, dist : {dist}, diff : {diff}")
+            # logger.debug(f"get key score : for dist, dist : {dist}, diff : {diff}")
             if diff == dist:
                 return score
         return 0.0
@@ -78,7 +77,6 @@ def get_key_score(
         return 0.0
 
 
-@with_child_logger
 def calculate_key_score(
     effective_ref_key: str,
     bpm_original: float,
@@ -120,7 +118,6 @@ def calculate_key_score(
     return key_score, pitch_shift, penalty
 
 
-@with_child_logger
 def find_best_transposition_combo(
     ref_key: str,
     target_bpm: float,  # anciennement ref_bpm
@@ -224,7 +221,6 @@ def _build_bpm_col(semitone_shift: int) -> str:
     return f"bpm_{'plus' if semitone_shift > 0 else 'minus'}_{abs(semitone_shift)}"
 
 
-@with_child_logger
 def get_effective_ref_key(
     track_id: int,
     ref_bpm: float,

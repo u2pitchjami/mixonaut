@@ -10,8 +10,8 @@ from __future__ import annotations
 import sqlite3
 from typing import Any, TypeAlias
 
-from mixonaut.db.access import execute_query, select_all, select_one
-from mixonaut.utils.config import EDM_GENRES, EFFECTIVE_STATUS_LIST
+from mixonaut.db.access import execute_query, select_all, select_one, execute_many
+from mixonaut.utils.config import EDM_GENRES
 from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 
 SqlParam: TypeAlias = int | float | str | bytes | None
@@ -19,10 +19,10 @@ SqlParam: TypeAlias = int | float | str | bytes | None
 
 def get_all_track_ids(logger: LoggerProtocol | None = None) -> list[int]:
     """
-    Requête de récup de toutes les id de audio_features.
+    Requête de récup de toutes les id de madmom_features.
     """
     logger = ensure_logger(logger, __name__)
-    rows = select_all("SELECT id FROM audio_features", (), logger=logger)
+    rows = select_all("SELECT id FROM madmom_features", (), logger=logger)
 
     return [row[0] for row in rows] or []
 
@@ -40,13 +40,12 @@ def fetch_tracks(
     """
     Récupère les pistes selon divers critères.
 
-    Retourne une liste de sqlite3.Row (id, path, artist, title, album, essentia_status, madmom_status,
-    transposition_status, hash_status, duration).
+    Retourne une liste de sqlite3.Row (id, path, artist, title, album).
     """
     logger = ensure_logger(logger, __name__)
 
     base_query = """
-    SELECT id, path, artist, title, album, essentia_status, madmom_status, transposition_status, hash_status, duration
+    SELECT id, path, artist, title, album
     FROM v_analyse
     """
 
@@ -63,7 +62,7 @@ def fetch_tracks(
     if status_list and len(status_list) > 0:
         effective_status_list = status_list
     elif missing_features:
-        effective_status_list = EFFECTIVE_STATUS_LIST
+        effective_status_list = ["PENDING", "TO_RETRY", "KO", "KO_FILE", "KO_AUDIO"]
 
     if effective_status_list:
         clause, p = build_status_filter(effective_status_list, logic=mf_logic)
@@ -73,19 +72,19 @@ def fetch_tracks(
             params.extend(p)
 
     # 2) Champ manquant
-    if missing_field:
-        allowed_fields = {
-            "bpm",
-            "energy_level",
-            "mood",
-            "beat_intensity",
-            "initial_key",
-            "rg_track_gain",
-            "genre",
-        }
-        if missing_field not in allowed_fields:
-            raise ValueError(f"Champ interdit : {missing_field}")
-        where_clauses.append(f"({missing_field} IS NULL OR {missing_field} = '')")
+    # if missing_field:
+    #     allowed_fields = {
+    #         "bpm",
+    #         "energy_level",
+    #         "mood",
+    #         "beat_intensity",
+    #         "initial_key",
+    #         "rg_track_gain",
+    #         "genre",
+    #     }
+    #     if missing_field not in allowed_fields:
+    #         raise ValueError(f"Champ interdit : {missing_field}")
+    #     where_clauses.append(f"({missing_field} IS NULL OR {missing_field} = '')")
 
     # 3) Filtre sur le chemin (insensible à la casse)
     if path_contains:
@@ -128,7 +127,7 @@ def build_status_filter(
         f"{logic} transposition_status IN ({placeholders}) "
         f"{logic} hash_status IN ({placeholders}))"
     )
-    params = effective_status_list * 4
+    params = effective_status_list * 3
     return clause, params
 
 
@@ -139,22 +138,22 @@ def insert_or_update_audio_features(
     logger: LoggerProtocol | None = None,
 ) -> bool:
     """
-    Requête d'insertion dans audio_features.
+    Requête d'insertion dans madmom_features.
     """
     logger = ensure_logger(logger, __name__)
     try:
         if not features:
-            logger.warning("Aucune feature fournie pour audio_features.")
+            logger.warning("Aucune feature fournie pour madmom_features.")
             return False
 
         features_cleaned = {k: v for k, v in features.items() if v is not None}
 
         if not features_cleaned:
-            logger.warning("Aucun champ valide pour audio_features.")
+            logger.warning("Aucun champ valide pour madmom_features.")
             return False
 
         # Vérifie si la ligne existe déjà
-        check_query = "SELECT id FROM audio_features WHERE id = ?"
+        check_query = "SELECT id FROM madmom_features WHERE id = ?"
         exists = execute_query(check_query, (item_id,), fetch=True, logger=logger)
 
         field_list = ", ".join(features_cleaned.keys())
@@ -171,7 +170,7 @@ def insert_or_update_audio_features(
                 )
 
             update_query = f"""
-                UPDATE audio_features
+                UPDATE madmom_features
                 SET {assignments}
                 WHERE id = ?
             """
@@ -179,7 +178,7 @@ def insert_or_update_audio_features(
             execute_query(update_query, tuple(values + [item_id]), logger=logger)
         else:
             insert_query = f"""
-                INSERT INTO audio_features (id, {field_list})
+                INSERT INTO madmom_features (id, {field_list})
                 VALUES (?, {placeholders})
             """
             # logger.debug(f"[INSERT] {insert_query} {[item_id] + values}")
@@ -194,25 +193,14 @@ def insert_or_update_audio_features(
         raise
 
 
-def get_audio_duration_by_id(
-    track_id: int, logger: LoggerProtocol | None = None
-) -> sqlite3.Row | None:
-    essentia_duration = select_one(
-        "SELECT duration FROM audio_features WHERE id = ?",
-        params=(track_id,),
-        logger=logger,
-    )
-    return essentia_duration
-
-
-def get_audio_features_by_id(
+def get_madmom_features_by_id(
     track_id: int, logger: LoggerProtocol | None = None
 ) -> dict[str, Any] | None:
     """
     Requête de recup des features.
     """
     logger = ensure_logger(logger, __name__)
-    query = "SELECT * FROM audio_features WHERE id = ?"
+    query = "SELECT * FROM madmom_features WHERE id = ?"
     rows = execute_query(query, (track_id,), fetch=True, logger=logger)
 
     if not rows:
@@ -221,7 +209,7 @@ def get_audio_features_by_id(
     row = rows[0]  # On suppose un seul résultat
 
     # Obtenir les noms de colonnes (si execute_query ne le fait pas)
-    columns_query = "PRAGMA table_info(audio_features)"
+    columns_query = "PRAGMA table_info(madmom_features)"
     columns_info = execute_query(columns_query, (), fetch=True, logger=logger)
     if not columns_info:
         return None
@@ -230,7 +218,7 @@ def get_audio_features_by_id(
     return dict(zip(column_names, row))
 
 
-def get_all_audio_features(
+def get_all_madmom_features(
     logger: LoggerProtocol | None = None,
 ) -> list[sqlite3.Row]:
     """
@@ -240,7 +228,30 @@ def get_all_audio_features(
 
     query = """
     SELECT *
-    FROM audio_features
+    FROM madmom_features
+    """
+
+    return select_all(
+        query,
+        logger=logger,
+    )
+
+
+def get_all_madmom_features_for_bulk(
+    logger: LoggerProtocol | None = None,
+) -> list[sqlite3.Row]:
+    """
+    Récupère toutes les features Madmom enrichies avec la durée provenant de audio_features.
+    """
+    logger = ensure_logger(logger, __name__)
+
+    query = """
+    SELECT
+        mf.*,
+        af.duration
+    FROM madmom_features AS mf
+    INNER JOIN audio_features AS af
+        ON af.track_id = mf.track_id
     """
 
     return select_all(
@@ -265,14 +276,14 @@ def count_existing_features(
     track_ids: list[int], logger: LoggerProtocol | None = None
 ) -> int:
     """
-    Retourne le nombre de tracks présents dans audio_features pour les ids fournis.
+    Retourne le nombre de tracks présents dans madmom_features pour les ids fournis.
     """
     logger = ensure_logger(logger, __name__)
     if not track_ids:
         return 0
 
     placeholders = ",".join(["?"] * len(track_ids))
-    query = f"SELECT COUNT(*) FROM audio_features WHERE id IN ({placeholders})"
+    query = f"SELECT COUNT(*) FROM madmom_features WHERE id IN ({placeholders})"
 
     try:
         result = select_one(query, params=tuple(track_ids), logger=logger)
@@ -354,3 +365,32 @@ def list_candidate_tracks_same_sha256(
         SQL_FIND_TRACKS_WITH_SAME_SHA256_EXCEPT, (audio_hash_sha256,), logger=logger
     )
     return [r[0] for r in rows] if rows else []
+
+
+def save_madmom_enrichment_batch(
+    updates: list[
+        tuple[
+            float | None,
+            float | None,
+            float | None,
+            float | None,
+            float | None,
+            str,
+            int,
+        ]
+    ],
+) -> None:
+    execute_many(
+        """
+        UPDATE madmom_features
+        SET
+            beats_per_second = ?,
+            onsets_per_second = ?,
+            downbeats_per_second = ?,
+            rhythm_stability = ?,
+            rhythm_intensity = ?,
+            analysis_version = ?
+        WHERE id = ?
+        """,
+        updates,
+    )

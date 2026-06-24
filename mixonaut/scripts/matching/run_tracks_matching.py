@@ -18,17 +18,15 @@ from mixonaut.process_matching.find_compatible_tracks import (
 from mixonaut.utils.config import PLAYLISTS_PATH
 from mixonaut.utils.logger import get_logger
 from mixonaut.utils.safe_runner import safe_main
+from mixonaut.process_matching.models.matching import MatchFilters
+from mixonaut.process_matching.models.models import EnrichedTrackMatch
 
 logger = get_logger("Generate_Compatible_Tracks")
 
 
 @safe_main
 def main(
-    track_id: int,
-    target_bpm: float | None = None,
-    grouped: bool = False,
-    weights_type: str = "standard",
-    max_results: int = 10,
+    filters: MatchFilters,
 ) -> None:
     """
     Generate compatible tracks for a  given track ID.
@@ -42,21 +40,42 @@ def main(
         grouped (bool, optional): Whether to group compatible tracks. Defaults to False.
         weights_type (str, optional): The type of weights to use for compatibility calculations. Defaults to "standard".
         max_results (int, optional): The maximum number of results to return. Defaults to 10.
+        genre (str, optional): The genre to filter compatible tracks. Defaults to "all".
+        artist (str, optional): The artist to filter compatible tracks. Defaults to None.
+        label (str, optional): The label to filter compatible tracks. Defaults to None.
+        year_min (int, optional): The minimum year to filter compatible tracks. Defaults to None.
+        year_max (int, optional): The maximum year to filter compatible tracks. Defaults to None.
+        include_live (bool, optional): Whether to include live tracks. Defaults to False.
 
     Returns:
         None
     """
     context = build_match_context(
-        track_id=track_id,
-        target_bpm=target_bpm,
+        track_id=filters.id_base,
+        target_bpm=filters.target_bpm,
         interactive=True,
         logger=logger,
     )
 
     results = find_compatible_tracks(
         context=context,
-        max_results=max_results,
+        filters=filters,
         logger=logger,
+    )
+
+    filename = build_playlist_filename(
+        track_id=filters.id_base,
+        target_bpm=filters.target_bpm,
+    )
+
+    playlist_path = PLAYLISTS_PATH / filename
+    logger.info("Generating M3U playlist: %s", playlist_path)
+    logger.debug(
+        "PLAYLIST DEBUG | PLAYLISTS_PATH=%r (%s) | playlist_path=%r (%s)",
+        PLAYLISTS_PATH,
+        type(PLAYLISTS_PATH),
+        playlist_path,
+        type(playlist_path),
     )
 
     enriched = enrich_matches(results, logger=logger)
@@ -71,53 +90,70 @@ def main(
             m["path"],
         )
 
-    if grouped:
+    if filters.grouped:
         grouped_matches = group_enriched_matches_by_transition_type(
             matches=enriched,
             context=context,
-            max_results=max_results,
+            max_results=filters.max_results,
             logger=logger,
         )
-        export_matches_to_markdown(track_id, grouped_matches, logger=logger)
+        export_matches_to_markdown(
+            filters.id_base, grouped_matches, filters, logger=logger
+        )
+
+        matches: list[EnrichedTrackMatch] = [
+            match
+            for group_matches in grouped_matches.values()
+            for match in group_matches
+        ]
+
+        generate_m3u_from_matches(
+            matches=matches,
+            playlist_path=playlist_path,
+            logger=logger,
+        )
     else:
-        export_matches_to_markdown(track_id, enriched, logger=logger)
+        export_matches_to_markdown(
+            filters.id_base, enriched[: filters.max_results], filters, logger=logger
+        )
 
-    filename = build_playlist_filename(
-        track_id=track_id,
-        target_bpm=context.target_bpm,
-    )
-
-    playlist_path = PLAYLISTS_PATH / filename
-    logger.info("Generating M3U playlist: %s", playlist_path)
-    logger.debug(
-        "PLAYLIST DEBUG | PLAYLISTS_PATH=%r (%s) | playlist_path=%r (%s)",
-        PLAYLISTS_PATH,
-        type(PLAYLISTS_PATH),
-        playlist_path,
-        type(playlist_path),
-    )
-
-    # playlist toujours plate
-    generate_m3u_from_matches(
-        matches=enriched,
-        playlist_path=playlist_path,
-        logger=logger,
-    )
+        # playlist toujours plate
+        generate_m3u_from_matches(
+            matches=enriched[: filters.max_results],
+            playlist_path=playlist_path,
+            logger=logger,
+        )
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--track-id", type=int, required=True)
-    parser.add_argument("--target-bpm", type=float, required=False, default=None)
+
     parser.add_argument(
-        "--grouped", action="store_true", help="Group results by Camelot mix type."
+        "--track-id",
+        type=int,
+        required=True,
     )
+
+    parser.add_argument(
+        "--target-bpm",
+        type=float,
+        required=False,
+        default=None,
+    )
+
+    parser.add_argument(
+        "--grouped",
+        action="store_true",
+        help="Group results by Camelot mix type.",
+    )
+
     parser.add_argument(
         "--max-results",
         type=int,
         default=50,
         help="Maximum number of matching tracks to return.",
     )
+
     parser.add_argument(
         "--weights-type",
         type=str,
@@ -125,11 +161,64 @@ if __name__ == "__main__":
         help="Profil de pondération à utiliser (standard, no_mood, etc.)",
     )
 
+    parser.add_argument(
+        "--genre",
+        type=str,
+        default="all",
+        help=(
+            "Genre BPM range utilisé pour filtrer les résultats "
+            "(ex: 'house', 'deep_house', 'ambient')."
+        ),
+    )
+
+    parser.add_argument(
+        "--artist",
+        type=str,
+        default=None,
+        help="Filtrer les résultats sur un artiste spécifique.",
+    )
+
+    parser.add_argument(
+        "--label",
+        type=str,
+        default=None,
+        help="Filtrer les résultats sur un label spécifique.",
+    )
+
+    parser.add_argument(
+        "--year-min",
+        type=int,
+        default=None,
+        help="Année minimale des tracks candidates.",
+    )
+
+    parser.add_argument(
+        "--year-max",
+        type=int,
+        default=None,
+        help="Année maximale des tracks candidates.",
+    )
+
+    parser.add_argument(
+        "--include-live",
+        action="store_true",
+        default=False,
+        help="Inclure les albums live et broadcast.",
+    )
+
     args = parser.parse_args()
-    main(
-        track_id=args.track_id,
+    filters = MatchFilters(
+        id_base=args.track_id,
         target_bpm=args.target_bpm,
-        grouped=args.grouped,
         weights_type=args.weights_type,
         max_results=args.max_results,
+        genre=args.genre,
+        artist=args.artist,
+        label=args.label,
+        year_min=args.year_min,
+        year_max=args.year_max,
+        include_live=args.include_live,
+        grouped=args.grouped,
     )
+
+    main(filters=filters)

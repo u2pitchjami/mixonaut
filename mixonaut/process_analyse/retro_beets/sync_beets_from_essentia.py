@@ -11,11 +11,10 @@ from mixonaut.beets_utils.commands.update_beets_fields import update_beets_field
 from mixonaut.db.beets.db_beets_queries import get_item_field_value
 from mixonaut.process_analyse.retro_beets.write_tags import write_tags_docker
 from mixonaut.utils.config import RETRO_MIXONAUT_BEETS
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 from mixonaut.utils.utils_div import convert_path_format, ensure_to_str
 
 
-@with_child_logger
 def sync_fields_by_track_id(
     track_id: int, track_features: dict[str, Any], logger: LoggerProtocol | None = None
 ) -> None:
@@ -45,7 +44,6 @@ def sync_fields_by_track_id(
     )
 
 
-@with_child_logger
 def sync_beets_from_essentia(
     track_path: str,
     field_values: dict[str, Any],
@@ -81,7 +79,6 @@ def sync_beets_from_essentia(
     logger.debug("🏁 Retro_Beets_Db : TERMINE \n")
 
 
-@with_child_logger
 def build_sync_fields(
     track_id: int,
     track_features: dict[str, Any],
@@ -138,7 +135,7 @@ def build_sync_fields(
     return result
 
 
-# @with_child_logger
+#
 # def should_update_genre(track_id: int, new_genre: str, logger: str = None) -> bool:
 #     logger.debug(f"should_update_genre new_genre : {new_genre}")
 #     current_genre = get_item_field_value("genre", track_id, logger=logger)
@@ -163,7 +160,7 @@ def build_sync_fields(
 #     logger.debug(f"new_value : {new_value}")
 #     return new_value
 
-# @with_child_logger
+#
 # def should_update_bpm(track_id: int, bpm: str, logger: str = None) -> bool:
 #     try:
 #         bpm_float = float(bpm)

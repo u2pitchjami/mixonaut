@@ -16,16 +16,17 @@ from mixonaut.process_matching.models.models import (
     TrackMatch,
 )
 from mixonaut.utils.config import CAMELOT_ORDER, EXPORT_COMPATIBLE_TRACKS
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
+from mixonaut.process_matching.models.matching import MatchFilters
 
 # Types d'agrégats attendus par l'export
 MatchResult = list[TrackMatch] | dict[str, list[TrackMatch]]  # <— aligné au pipeline
 
 
-@with_child_logger
 def export_matches_to_markdown(
     track_id: int,
     results: MarkdownInput,
+    filters: MatchFilters,
     output_dir: str = EXPORT_COMPATIBLE_TRACKS,
     logger: LoggerProtocol | None = None,
 ) -> str:
@@ -46,6 +47,7 @@ def export_matches_to_markdown(
                 _write_mix_section(
                     fh,
                     mix_type,
+                    filters,
                     matches,
                     logger=logger,
                 )
@@ -53,6 +55,7 @@ def export_matches_to_markdown(
             _write_mix_section(
                 fh,
                 "All Compatible Tracks",
+                filters,
                 results,
                 logger=logger,
             )
@@ -66,6 +69,7 @@ def export_matches_to_markdown(
 def _write_mix_section(
     file_handle: TextIO,
     mix_type: str,
+    filters: MatchFilters,
     matches: list[EnrichedTrackMatch],
     logger: LoggerProtocol | None = None,
 ) -> None:
@@ -74,14 +78,20 @@ def _write_mix_section(
     """
     logger = ensure_logger(logger, __name__)
 
-    file_handle.write(f"### 🎧 Mix Type: {mix_type}\n\n")
-    file_handle.write("| Artist | Title | Album | BPM | Key | Score | Reason |\n")
-    file_handle.write("|--------|-------|-------|-----|-----|-------|--------|\n")
+    file_handle.write(f"### 🎧 Mix Type: {mix_type}\n")
+    file_handle.write(f"### 🪪 Filters: {filters}\n\n")
+    file_handle.write(
+        "| Artist | Title | Album | BPM | Key | Beat Intensity | Score | Reason |\n"
+    )
+    file_handle.write(
+        "|--------|-------|-------|-----|-----|----------------|--------|-------|\n"
+    )
 
     for m in matches:
         reason = m.get("reason", "")
         bpm = m["features"]["bpm"]
         key = m["features"]["key"]
+        bi = m["features"]["beat_intensity"]
 
         file_handle.write(
             f"| {m.get('artist', '')} "
@@ -89,6 +99,7 @@ def _write_mix_section(
             f"| {m.get('album', '')} "
             f"| {bpm:.1f} "
             f"| {key} "
+            f"| {bi} "
             f"| {m.get('score', 0.0):.3f} "
             f"| {reason} |\n"
         )
@@ -125,7 +136,6 @@ def classify_transition_type(ref_key: str, candidate_key: str) -> str:
         return "unknown"
 
 
-@with_child_logger
 def group_matches_by_transition_type(
     matches: list[TrackMatch],
     ref_key: str,

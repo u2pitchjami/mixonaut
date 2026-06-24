@@ -7,10 +7,10 @@ import argparse
 from mixonaut.db.analyse.essentia_queries import fetch_tracks
 from mixonaut.db.analyse.status_queries import sync_pending_tables
 from mixonaut.process_analyse.analyse_hub import analyse_hub
-from mixonaut.utils.config import ALLOWED_STEPS, FPCALC_MAXLEN
+from mixonaut.utils.config import ALLOWED_STEPS, FPCALC_MAXLEN, EFFECTIVE_STATUS_LIST
 from mixonaut.utils.logger import get_logger
 from mixonaut.utils.safe_runner import safe_main
-from mixonaut.utils.utils_div import format_nb  # , format_percent
+from mixonaut.utils.utils_div import format_nb
 
 logger = get_logger("Analyse_Batch")
 
@@ -33,6 +33,11 @@ def _parse_list(s: str | None) -> list[str] | None:
     if not s:
         return None
     return [v.strip() for v in s.split(",") if v.strip()]
+
+
+def add_step(steps: list[str], step: str) -> None:
+    if step not in steps:
+        steps.append(step)
 
 
 @safe_main
@@ -109,7 +114,6 @@ def main(
         track_id=track_id,
         logger=logger,
     )
-
     if not tracks:
         logger.info("Aucune piste à traiter.")
         return
@@ -119,6 +123,37 @@ def main(
 
     for idx, track in enumerate(tracks[:count], start=1):
         track_id = track[0]
+        if missing_features and not force:
+            logger.info(
+                "▶️  [%s/%s] Analyse track_id=%s (missing features)",
+                format_nb(idx, logger=logger),
+                format_nb(count, logger=logger),
+                track_id,
+            )
+
+            essentia_status = track[5]
+            madmom_status = track[6]
+            transposition_status = track[7]
+            hash_status = track[8]
+
+            if steps is None:
+                steps = []
+
+            if essentia_status in EFFECTIVE_STATUS_LIST:
+                add_step(steps, "essentia")
+
+            if madmom_status in EFFECTIVE_STATUS_LIST:
+                add_step(steps, "madmom")
+
+            if hash_status in EFFECTIVE_STATUS_LIST:
+                add_step(steps, "fingerprint")
+
+            if transposition_status in EFFECTIVE_STATUS_LIST:
+                add_step(steps, "transposition")
+
+            if "essentia" in steps or "madmom" in steps:
+                add_step(steps, "transposition")
+
         logger.info(
             "▶️  [%s/%s] Analyse track_id=%s",
             format_nb(idx, logger=logger),

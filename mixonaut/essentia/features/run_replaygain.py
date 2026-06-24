@@ -9,11 +9,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-from mixonaut.utils.config import IMAGE_ESSENTIA
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.config import IMAGE_ESSENTIA, ESSENTIA_MOUNT_CONTAINER
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 
 
-@with_child_logger
 def run_replaygain_in_container(
     audio_path: Path,
     json_out_path: Path,
@@ -51,14 +50,14 @@ def run_replaygain_in_container(
         "run",
         "--rm",
         "-v",
-        f"{temp_dir}:/app/music",
+        f"{temp_dir}:{ESSENTIA_MOUNT_CONTAINER}",
         "-v",
         f"{profile}:/app/profile",
         IMAGE_ESSENTIA,
         "python3",
         "/usr/local/bin/add_replaygain.py",  # ou "python3 /app/add_replaygain.py" si pas executable
-        f"/app/music/{audio.name}",
-        f"/app/music/{json_out.name}",
+        f"{ESSENTIA_MOUNT_CONTAINER}/{audio.name}",
+        f"{ESSENTIA_MOUNT_CONTAINER}/{json_out.name}",
     ]
 
     logger.debug(f"▶️ Commande : {' '.join(docker_cmd)}")

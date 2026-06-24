@@ -7,7 +7,7 @@ import subprocess
 from typing import Any
 
 from mixonaut.utils.config import BEETS_MUSIC, IMAGE_BEETS, MUSIC_BASE_PATH
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 
 # Configuration (à adapter)
 IMAGE_NAME = IMAGE_BEETS  # Nom de l'image Docker
@@ -15,7 +15,6 @@ HOST_MUSIC_DIR = MUSIC_BASE_PATH
 CONTAINER_MUSIC_DIR = BEETS_MUSIC
 
 
-@with_child_logger
 def write_tags_docker(
     path: str, track_features: dict[str, Any], logger: LoggerProtocol | None = None
 ) -> None:

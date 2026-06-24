@@ -21,10 +21,15 @@ from mixonaut.process_matching.process.others_process import (
     calculate_beat_intensity_score,
     calculate_bpm_similarity,
     calculate_duration_similarity,
-    calculate_genre_sim_score,
     calculate_mood_sim_score,
 )
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
+from mixonaut.process_matching.process.genre_vector import (
+    GenreVector,
+    calculate_genre_similarity,
+)
+import sys
+import time
 
 
 def compute_candidate_scores(
@@ -33,10 +38,9 @@ def compute_candidate_scores(
     ref_beat_intensity: float,
     ref_mood_emb1: float,
     ref_mood_emb2: float,
-    ref_genre_emb1: float,
-    ref_genre_emb2: float,
-    candidate: TrackFeatures,  # dict typé
-    best_combo: TranspoCombo,  # alias de BestCandidate
+    ref_genre_vector: GenreVector,
+    candidate: TrackFeatures,
+    best_combo: TranspoCombo,
 ) -> dict[str, float]:
     """
     Calcule les sous-scores normalisés ∈ [0,1] pour chaque dimension.
@@ -46,24 +50,27 @@ def compute_candidate_scores(
     return {
         "key": float(best_combo["score"]),
         "bpm": float(
-            calculate_bpm_similarity(ref_bpm=ref_bpm, candidate_bpm=candidate["bpm"])
+            calculate_bpm_similarity(
+                ref_bpm=ref_bpm,
+                candidate_bpm=candidate["bpm"],
+            )
         ),
         "genre": float(
-            calculate_genre_sim_score(
-                ref_emb1=ref_genre_emb1,
-                ref_emb2=ref_genre_emb2,
-                emb1=candidate["genre_emb1"],
-                emb2=candidate["genre_emb2"],
+            calculate_genre_similarity(
+                ref_vector=ref_genre_vector,
+                candidate_vector=candidate["genre_vector"],
             )
         ),
         "duration": float(
             calculate_duration_similarity(
-                ref_duration=ref_duration, candidate_duration=candidate["duration"]
+                ref_duration=ref_duration,
+                candidate_duration=candidate["duration"],
             )
         ),
         "beat": float(
             calculate_beat_intensity_score(
-                candidate["beat_intensity"], ref_beat_intensity
+                candidate["beat_intensity"],
+                ref_beat_intensity,
             )
         ),
         "mood": float(
@@ -106,7 +113,6 @@ def compute_total_score(
     return float(total)
 
 
-@with_child_logger
 def get_compatible_candidates(
     candidates: list[CandidateTrack],
     ref_bpm: float,
@@ -114,8 +120,7 @@ def get_compatible_candidates(
     ref_beat_intensity: float,
     ref_mood_emb1: float,
     ref_mood_emb2: float,
-    ref_genre_emb1: float,
-    ref_genre_emb2: float,
+    ref_genre_vector: GenreVector,
     effective_ref_key: str,
     target_bpm: float,
     weights_type: str,
@@ -129,9 +134,17 @@ def get_compatible_candidates(
     logger = ensure_logger(logger, __name__)
     weights = get_weights(weights_type)  # dict[str, float] attendu
     compatibles: list[TrackMatch] = []
+    total = len(candidates)
+    index = 0
 
     for cand in candidates:
         try:
+            index += 1
+            sys.stdout.write(f"\rTraitement tracks {index}/{total}")
+            sys.stdout.flush()
+
+            time.sleep(0.001)
+
             cid = cand["id"]
             bpm = cand["bpm"]
             key = cand["key"]
@@ -164,12 +177,15 @@ def get_compatible_candidates(
             # 2) Features du candidat pour le scoring global (avec key retenue)
             candidate_data: TrackFeatures = {
                 "bpm": bpm,
-                "key": best_combo["key"],  # key transposée retenue
+                "key": best_combo["key"],
                 "beat_intensity": cand["beat_intensity"],
                 "mood_emb1": cand["mood_emb1"],
                 "mood_emb2": cand["mood_emb2"],
+                # ancien, temporaire
                 "genre_emb1": cand["genre_emb1"],
                 "genre_emb2": cand["genre_emb2"],
+                # nouveau
+                "genre_vector": cand["genre_vector"],
                 "duration": cand["duration"],
             }
 
@@ -180,13 +196,18 @@ def get_compatible_candidates(
                 ref_beat_intensity=ref_beat_intensity,
                 ref_mood_emb1=ref_mood_emb1,
                 ref_mood_emb2=ref_mood_emb2,
-                ref_genre_emb1=ref_genre_emb1,
-                ref_genre_emb2=ref_genre_emb2,
+                ref_genre_vector=ref_genre_vector,
                 candidate=candidate_data,
-                best_combo=best_combo,  # <- OK grâce à l’alias
+                best_combo=best_combo,
             )
 
-            total_score = compute_total_score(scores, weights)  # <- plus d’erreur mypy
+            # logger.debug(
+            #     "Genre similarity: %.4f | vector size=%d",
+            #     scores["genre"],
+            #     len(cand["genre_vector"]),
+            # )
+
+            total_score = compute_total_score(scores, weights)
 
             # 4) Diagnostic + construction du match
             reason = ", ".join(f"{k}_score={v:.2f}" for k, v in scores.items())
@@ -206,6 +227,7 @@ def get_compatible_candidates(
                         "mood_emb2": cand["mood_emb2"],
                         "genre_emb1": cand["genre_emb1"],
                         "genre_emb2": cand["genre_emb2"],
+                        "genre_vector": cand["genre_vector"],
                         "duration": cand["duration"],
                     },
                 }
@@ -221,5 +243,5 @@ def get_compatible_candidates(
                 cand.get("id", "?"),
                 exc,
             )
-
+    print()  # retour ligne final
     return compatibles

@@ -1,7 +1,7 @@
 """
 2025-08-20.
 
-modules de préparation des fichiers pour essentia.
+modules de préparation des fichiers pour madmom.
 """
 
 import re
@@ -10,9 +10,9 @@ import unicodedata
 from pathlib import Path
 
 from mixonaut.utils.config import (
-    ESSENTIA_SAV_JSON,
-    ESSENTIA_TEMP_AUDIO,
-    ESSENTIA_TEMP_JSON,
+    MADMOM_SAV_JSON,
+    MADMOM_TEMP_AUDIO,
+    MADMOM_TEMP_JSON,
     MAX_SAFENAME_LENGTH,
 )
 from mixonaut.utils.logger import LoggerProtocol, ensure_logger
@@ -64,11 +64,11 @@ def prepare_track_paths(
     track: tuple[int, str, str, str, str], logger: LoggerProtocol | None = None
 ) -> tuple[int, Path, str, Path, Path] | None:
     """
-    Prepare track paths for Essentia processing.
+    Prepare track paths for madmom processing.
 
     This function takes a track (a tuple containing the track ID, raw path,
     artist, album, and title) and prepares the necessary file paths for
-    Essentia processing. If the file exists at the specified raw path, it is
+    madmom processing. If the file exists at the specified raw path, it is
     replaced with a temporary path to avoid overwriting existing files.
     Args:
         track: A tuple containing the track ID, raw path, artist, album, and title.
@@ -91,8 +91,8 @@ def prepare_track_paths(
         # Tronque si trop long
         if len(safe_name) > MAX_SAFENAME_LENGTH:
             safe_name = safe_name[:MAX_SAFENAME_LENGTH]
-        temp_audio = Path(ESSENTIA_TEMP_AUDIO) / f"{safe_name}{path.suffix}"
-        temp_json = Path(ESSENTIA_TEMP_JSON) / f"{safe_name}.json"
+        temp_audio = Path(MADMOM_TEMP_AUDIO) / f"{safe_name}{path.suffix}"
+        temp_json = Path(MADMOM_TEMP_JSON) / f"{safe_name}.json"
         return (track_id, path, safe_name, temp_audio, temp_json)
     except Exception as e:
         logger.error(f"Erreur préparation chemins : {e}")
@@ -162,26 +162,28 @@ def clean_temp_files(*paths: Path, logger: LoggerProtocol | None = None) -> None
 
 def archive_json_result(
     track_id: int, safe_name: str, logger: LoggerProtocol | None = None
-) -> None:
+) -> Path | None:
     """
     Déplace un JSON de `temp_folder` vers `archive_base/XXXX/` en fonction de track_id.
     """
     logger = ensure_logger(logger, __name__)
     # Dossier de destination
-    target_folder = Path(ESSENTIA_SAV_JSON) / f"{(track_id // 1000) * 1000:04d}"
+    target_folder = Path(MADMOM_SAV_JSON) / f"{(track_id // 1000) * 1000:04d}"
     target_folder.mkdir(parents=True, exist_ok=True)
 
     # Fichier source et destination
-    source = Path(ESSENTIA_TEMP_JSON) / f"{safe_name}.json"
+    source = Path(MADMOM_TEMP_JSON) / f"{safe_name}.json"
     dest = target_folder / f"{safe_name}.json"
 
     if not source.exists():
         logger.warning(
             f"❌ JSON temporaire non trouvé pour track {track_id} : {source}"
         )
-        return
+        return None
     try:
         shutil.copy(source, dest)
         logger.debug(f"✅ JSON archivé : {dest}")
     except Exception as e:
         logger.warning(f"Erreur archivage JSON {track_id} : {e}")
+        return None
+    return dest

@@ -108,6 +108,15 @@ ESSENTIA_SAV_JSON = get_str("ESSENTIA_SAV_JSON", "data/tsav_json")
 ESSENTIA_TEMP_AUDIO = get_str("ESSENTIA_TEMP_AUDIO", "data/temp_audio")
 ESSENTIA_TEMP_JSON = get_str("ESSENTIA_TEMP_JSON", "data/temp_json")
 MAX_SAFENAME_LENGTH = 100
+ESSENTIA_MOUNT_CONTAINER = get_str("ESSENTIA_MOUNT_CONTAINER", "/app/music")
+
+# MADMOM
+MADMOM_SAV_JSON = get_str("MADMOM_SAV_JSON", "data/tsav_json")
+MADMOM_TEMP_AUDIO = get_str("MADMOM_TEMP_AUDIO", "data/temp_audio")
+MADMOM_TEMP_JSON = get_str("MADMOM_TEMP_JSON", "data/temp_json")
+MAX_SAFENAME_LENGTH = 100
+MADMOM_ANALYSIS_VERSION = get_str("MADMOM_ANALYSIS_VERSION", "madmom-vx.x.x")
+MADMOM_MOUNT_CONTAINER = get_str("MADMOM_MOUNT_CONTAINER", "/app/music")
 
 # PATHS
 MUSIC_BASE_PATH = Path(get_required("MUSIC_BASE_PATH"))
@@ -128,6 +137,7 @@ QUERIES_DIR = get_str("QUERIES_DIR", "./dashboard")
 # IMAGES
 IMAGE_BEETS = get_required("IMAGE_BEETS")
 IMAGE_ESSENTIA = get_required("IMAGE_ESSENTIA")
+IMAGE_MADMOM = get_required("IMAGE_MADMOM")
 IMAGE_FPCALC = get_required("IMAGE_FPCALC")
 IMAGE_CLIENTS_DB = get_required("IMAGE_CLIENTS_DB")
 
@@ -143,8 +153,10 @@ FPCALC_MAXLEN = get_int("FPCALC_MAXLEN", 120)
 
 
 # --- Constantes et configurations ---
+EFFECTIVE_STATUS_LIST = ["PENDING", "TO_RETRY", "KO", "KO_FILE", "KO_AUDIO", "SKIPPED"]
 
-ALLOWED_STEPS = {"fingerprint", "essentia", "transposition"}
+
+ALLOWED_STEPS = {"fingerprint", "essentia", "madmom", "transposition"}
 
 # --- parse logs beets
 DUP_PREFIX = "duplicate-skip "
@@ -211,7 +223,6 @@ IGNORED_EXTENSIONS = {
 RETRO_MIXONAUT_BEETS = {
     "mood",
     "beat_intensity",
-    "bpm",
     "rg_track_gain",
     "initial_key",
     "genre",
@@ -335,6 +346,95 @@ ENHARMONIC_MAP = {
     "F#": "F#",
     "G#": "G#",
     "A#": "A#",
+}
+
+MADMOM_MAPPING = {
+    "bpm_main": ["tempo", "data", "tempo_candidates", 0, "bpm"],
+    "bpm_main_confidence": [
+        "tempo",
+        "data",
+        "tempo_candidates",
+        0,
+        "confidence",
+    ],
+    "bpm_alt_1": ["tempo", "data", "tempo_candidates", 1, "bpm"],
+    "bpm_alt_1_confidence": [
+        "tempo",
+        "data",
+        "tempo_candidates",
+        1,
+        "confidence",
+    ],
+    "bpm_alt_2": ["tempo", "data", "tempo_candidates", 2, "bpm"],
+    "bpm_alt_2_confidence": [
+        "tempo",
+        "data",
+        "tempo_candidates",
+        2,
+        "confidence",
+    ],
+    "beats_count": ["beats", "data", "beats_count"],
+    "beat_interval_mean": [
+        "beats",
+        "data",
+        "beat_intervals_stats",
+        "mean",
+    ],
+    "beat_interval_median": [
+        "beats",
+        "data",
+        "beat_intervals_stats",
+        "median",
+    ],
+    "beat_interval_std": [
+        "beats",
+        "data",
+        "beat_intervals_stats",
+        "std",
+    ],
+    "estimated_bpm_from_intervals": [
+        "beats",
+        "data",
+        "estimated_bpm_from_intervals",
+    ],
+    "beat_activation_mean": [
+        "tempo",
+        "data",
+        "beat_activation_stats",
+        "mean",
+    ],
+    "beat_activation_median": [
+        "tempo",
+        "data",
+        "beat_activation_stats",
+        "median",
+    ],
+    "beat_activation_std": [
+        "tempo",
+        "data",
+        "beat_activation_stats",
+        "std",
+    ],
+    "beat_activation_max": [
+        "tempo",
+        "data",
+        "beat_activation_stats",
+        "max",
+    ],
+    "onsets_count": ["onsets", "data", "onsets_count"],
+    "onset_activation_mean": [
+        "onsets",
+        "data",
+        "onset_activation_stats",
+        "mean",
+    ],
+    "onset_activation_std": [
+        "onsets",
+        "data",
+        "onset_activation_stats",
+        "std",
+    ],
+    "downbeats_count": ["downbeats", "data", "downbeats_count"],
 }
 
 ESSENTIA_MAPPING = {

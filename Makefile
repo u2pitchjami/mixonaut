@@ -1,6 +1,6 @@
 PYTHON ?= python3
 PIP    ?= $(PYTHON) -m pip
-PKG    ?= src
+PKG    ?= mixonaut
 
 .PHONY: init fmt check types qa clean patch compile help
 

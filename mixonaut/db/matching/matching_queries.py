@@ -16,47 +16,78 @@ from mixonaut.process_matching.models.models import (
     TrackFeatures,
     TrackMatch,
 )
+from mixonaut.process_matching.models.matching import GENRE_BPM_RANGES
 from mixonaut.utils.config import BEETS_MUSIC, NAVIDROME_ROOT
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 from mixonaut.utils.utils_div import ensure_to_path, map_to_navidrome_path
+from mixonaut.process_matching.process.genre_vector import (
+    get_genre_columns_sql,
+    build_genre_vector,
+)
+from typing import cast
+from mixonaut.process_matching.models.matching import MatchFilters
 
 
-@with_child_logger
 def get_track_features(
-    track_id: int, logger: LoggerProtocol | None = None
+    track_id: int,
+    logger: LoggerProtocol | None = None,
 ) -> TrackFeatures | None:
     """
     Retrieves the features of an audio track.
 
     Args:
         track_id (int): The ID of the audio track to retrieve features for.
-        logger (str, optional): The name of the logger. Defaults to None.
+        logger (LoggerProtocol | None, optional):
+            Logger instance.
 
     Returns:
-        tuple | None: A dictionary containing the audio track's features, or None if no matching track is found.
+        TrackFeatures | None:
+            A dictionary containing the audio track's features,
+            or None if no matching track is found.
     """
     logger = ensure_logger(logger, __name__)
-    query = """
-    SELECT bpm, initial_key, beat_intensity, mood_emb_1, mood_emb_2, genre_emb_1, genre_emb_2, duration
+
+    genre_columns_sql = get_genre_columns_sql()
+
+    query = f"""
+    SELECT
+        bpm,
+        initial_key,
+        beat_intensity,
+        mood_emb_1,
+        mood_emb_2,
+        genre_emb_1,
+        genre_emb_2,
+        duration,
+        {genre_columns_sql}
     FROM audio_features
     WHERE id = ?
     """
+
     raw = select_one(query, (track_id,), logger=logger)
+
     if raw is None:
+        logger.warning(
+            "Aucune feature trouvée pour la track id=%s",
+            track_id,
+        )
         return None
-    return {
-        "bpm": raw["bpm"],
-        "key": raw["initial_key"],
-        "beat_intensity": raw["beat_intensity"],
-        "mood_emb1": raw["mood_emb_1"],
-        "mood_emb2": raw["mood_emb_2"],
-        "genre_emb1": raw["genre_emb_1"],
-        "genre_emb2": raw["genre_emb_2"],
-        "duration": raw["duration"],
+
+    result: TrackFeatures = {
+        "bpm": float(raw["bpm"]),
+        "key": str(raw["initial_key"]),
+        "beat_intensity": float(raw["beat_intensity"]),
+        "mood_emb1": float(raw["mood_emb_1"]),
+        "mood_emb2": float(raw["mood_emb_2"]),
+        "genre_emb1": float(raw["genre_emb_1"]),
+        "genre_emb2": float(raw["genre_emb_2"]),
+        "genre_vector": build_genre_vector(cast(Mapping[str, object], raw)),
+        "duration": float(raw["duration"]),
     }
 
+    return result
 
-@with_child_logger
+
 def get_transpositions(
     track_id: int, logger: LoggerProtocol | None = None
 ) -> sqlite3.Row | None:
@@ -76,42 +107,97 @@ def get_transpositions(
     )
 
 
-@with_child_logger
 def get_candidate_tracks(
-    track_id: int, logger: LoggerProtocol | None = None
+    filters: MatchFilters, logger: LoggerProtocol | None = None
 ) -> list[CandidateTrack]:
     """
-    Récupère les candidats (toutes les pistes sauf `track_id`), sous forme typée.
+    Récupère les candidats compatibles avec les filtres demandés.
     """
     logger = ensure_logger(logger, __name__)
-    query = """
+
+    genre_columns_sql = get_genre_columns_sql()
+    genre_range = GENRE_BPM_RANGES.get(filters.genre)
+
+    if genre_range is None:
+        raise ValueError(f"Genre BPM range inconnu: {filters.genre}")
+
+    where_clauses = [
+        "af.id != ?",
+        "af.bpm IS NOT NULL",
+        "af.bpm BETWEEN ? AND ?",
+        "af.initial_key IS NOT NULL",
+        "af.beat_intensity IS NOT NULL",
+        "af.duration IS NOT NULL",
+        "af.duration > 0",
+        "af.mood_emb_1 IS NOT NULL",
+        "af.mood_emb_2 IS NOT NULL",
+        "af.genre_emb_1 IS NOT NULL",
+        "af.genre_emb_2 IS NOT NULL",
+    ]
+
+    params: list[object] = [
+        filters.id_base,
+        genre_range.min_bpm,
+        genre_range.max_bpm,
+    ]
+
+    if not filters.include_live:
+        where_clauses.append(
+            """
+            LOWER(COALESCE(i.albumtypes, '')) NOT LIKE '%live%'
+            """
+        )
+        where_clauses.append(
+            """
+            LOWER(COALESCE(i.albumtypes, '')) NOT LIKE '%broadcast%'
+            """
+        )
+
+    if filters.artist is not None and filters.artist.lower() != "all":
+        where_clauses.append("LOWER(i.artist) = LOWER(?)")
+        params.append(filters.artist)
+
+    if filters.label is not None and filters.label.lower() != "all":
+        where_clauses.append("LOWER(i.label) = LOWER(?)")
+        params.append(filters.label)
+
+    if filters.year_min is not None:
+        where_clauses.append("i.year >= ?")
+        params.append(filters.year_min)
+
+    if filters.year_max is not None:
+        where_clauses.append("i.year <= ?")
+        params.append(filters.year_max)
+
+    where_sql = "\n    AND ".join(where_clauses)
+
+    query = f"""
     SELECT
-    id,
-    bpm,
-    initial_key AS key,
-    beat_intensity,
-    mood_emb_1 AS mood_emb1,
-    mood_emb_2 AS mood_emb2,
-    genre_emb_1 AS genre_emb1,
-    genre_emb_2 AS genre_emb2,
-    duration
-    FROM audio_features
-    WHERE bpm IS NOT NULL
-    AND bpm > 0
-    AND initial_key IS NOT NULL
-    AND beat_intensity IS NOT NULL
-    AND duration IS NOT NULL
-    AND duration > 0
-    AND mood_emb_1 IS NOT NULL
-    AND mood_emb_2 IS NOT NULL
-    AND genre_emb_1 IS NOT NULL
-    AND genre_emb_2 IS NOT NULL;
+        af.id,
+        af.bpm,
+        af.initial_key AS key,
+        af.beat_intensity,
+        af.mood_emb_1 AS mood_emb1,
+        af.mood_emb_2 AS mood_emb2,
+        af.genre_emb_1 AS genre_emb1,
+        af.genre_emb_2 AS genre_emb2,
+        af.duration,
+        {genre_columns_sql},
+        i.artist,
+        i.label,
+        i.year,
+        i.albumtype
+    FROM audio_features af
+    JOIN items i ON i.id = af.id
+    WHERE {where_sql};
     """
+
     try:
-        rows = select_all(query, logger=logger)  # -> list[dict] idéalement
+        rows = select_all(query, tuple(params), logger=logger)
+
         logger.debug("Nombre de candidats récupérés: %d", len(rows))
         logger.debug("Exemple de candidat: %r", rows[0] if rows else "Aucun")
-        # Si select_all renvoie des sqlite3.Row, convertir :
+
         candidates: list[CandidateTrack] = [
             {
                 "id": int(row["id"]),
@@ -122,17 +208,19 @@ def get_candidate_tracks(
                 "mood_emb2": float(row["mood_emb2"]),
                 "genre_emb1": float(row["genre_emb1"]),
                 "genre_emb2": float(row["genre_emb2"]),
+                "genre_vector": build_genre_vector(cast(Mapping[str, object], row)),
                 "duration": float(row["duration"]),
             }
             for row in rows
         ]
+
         return candidates
+
     except Exception as exc:  # pylint: disable=broad-except
         logger.error("Erreur lors de la récupération des candidats: %s", exc)
         return []
 
 
-@with_child_logger
 def enrich_matches_with_metadata(
     matches: list[TrackMatch],
     logger: LoggerProtocol | None = None,
@@ -186,12 +274,12 @@ def enrich_matches_with_metadata(
                     title = str(row_map.get("title") or title)
 
                     source_path = row_map.get("path")
-                    logger.debug(
-                        "RAW PATH CHECK | id=%s | row_path=%r | type=%s",
-                        track_id,
-                        row_map.get("path"),
-                        type(row_map.get("path")),
-                    )
+                    # logger.debug(
+                    #     "RAW PATH CHECK | id=%s | row_path=%r | type=%s",
+                    #     track_id,
+                    #     row_map.get("path"),
+                    #     type(row_map.get("path")),
+                    # )
                     raw_path = row_map.get("path")
 
                     if raw_path:
@@ -205,11 +293,11 @@ def enrich_matches_with_metadata(
                                 logger=logger,
                             )
 
-                            logger.debug(
-                                "Mapped path for track id=%s: %s",
-                                track_id,
-                                navidrome_path,
-                            )
+                            # logger.debug(
+                            #     "Mapped path for track id=%s: %s",
+                            #     track_id,
+                            #     navidrome_path,
+                            # )
 
                         except Exception as exc:  # pylint: disable=broad-except
                             logger.warning(

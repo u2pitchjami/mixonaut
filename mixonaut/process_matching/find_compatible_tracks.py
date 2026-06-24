@@ -10,7 +10,9 @@ from mixonaut.process_matching.models.matching import MatchContext
 from mixonaut.process_matching.models.models import TrackMatch
 from mixonaut.process_matching.process.key_process import get_effective_ref_key
 from mixonaut.process_matching.process.scoring import get_compatible_candidates
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
+from mixonaut.process_matching.process.genre_vector import GenreVector
+from mixonaut.process_matching.models.matching import MatchFilters
 
 
 def resolve_target_bpm(
@@ -70,7 +72,7 @@ def build_match_context(
         ref_mood_emb2 = float(ref["mood_emb2"])
         ref_genre_emb1 = float(ref["genre_emb1"])
         ref_genre_emb2 = float(ref["genre_emb2"])
-
+        ref_genre_vector: GenreVector = ref["genre_vector"]
     except KeyError as exc:
         raise KeyError(
             f"Missing required audio feature {exc!s} for track {track_id}"
@@ -87,7 +89,7 @@ def build_match_context(
         else:
             target_bpm = ref_bpm
 
-    logger.info("Target BPM resolved: %.2f (%s)", target_bpm)
+    logger.info("Target BPM resolved: %.2f", target_bpm)
 
     effective_ref_key = get_effective_ref_key(
         track_id=track_id,
@@ -116,18 +118,15 @@ def build_match_context(
         ref_mood_emb2=ref_mood_emb2,
         ref_genre_emb1=ref_genre_emb1,
         ref_genre_emb2=ref_genre_emb2,
+        ref_genre_vector=ref_genre_vector,
         target_bpm=target_bpm,
         effective_ref_key=effective_ref_key,
     )
 
 
-@with_child_logger
-@with_child_logger
 def find_compatible_tracks(
     context: MatchContext,
-    *,
-    max_results: int = 10,
-    weights_type: str = "standard",
+    filters: MatchFilters,
     logger: LoggerProtocol | None = None,
 ) -> list[TrackMatch]:
     """
@@ -150,7 +149,7 @@ def find_compatible_tracks(
         )
 
         candidates = get_candidate_tracks(
-            context.track_id,
+            filters=filters,
             logger=logger,
         )
 
@@ -165,11 +164,10 @@ def find_compatible_tracks(
             ref_beat_intensity=context.ref_beat_intensity,
             ref_mood_emb1=context.ref_mood_emb1,
             ref_mood_emb2=context.ref_mood_emb2,
-            ref_genre_emb1=context.ref_genre_emb1,
-            ref_genre_emb2=context.ref_genre_emb2,
+            ref_genre_vector=context.ref_genre_vector,
             effective_ref_key=context.effective_ref_key,
             target_bpm=context.target_bpm,
-            weights_type=weights_type,
+            weights_type=filters.weights_type,
             logger=logger,
         )
 
@@ -177,12 +175,14 @@ def find_compatible_tracks(
             logger.info("No compatible tracks found")
             return []
 
+        # nb_results = filters.max_results if filters.grouped else filters.max_results * 6
+
         # 🔹 tri + limitation ICI (et pas ailleurs)
         compatibles_sorted = sorted(
             compatibles,
             key=lambda m: m["score"],
             reverse=True,
-        )[:max_results]
+        )  # [:nb_results]
 
         logger.debug(
             "Returning %d compatible tracks",

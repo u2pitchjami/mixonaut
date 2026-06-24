@@ -61,15 +61,39 @@ def calculate_beat_intensity_score(
     return max(0.0, 1 - abs(beat_intensity - ref_beat_intensity) / 100)
 
 
+# def calculate_genre_sim_score(
+#     ref_emb1: float, ref_emb2: float, emb1: float, emb2: float
+# ) -> float:
+#     """
+#     Calcule un score de similarité entre deux embeddings genre 2D.
+#     """
+#     if ref_emb1 is not None and emb1 is not None:
+#         return max(0.0, 1 - math.sqrt((ref_emb1 - emb1) ** 2 + (ref_emb2 - emb2) ** 2))
+#     return 0.0
+
+
 def calculate_genre_sim_score(
-    ref_emb1: float, ref_emb2: float, emb1: float, emb2: float
+    ref_vector: list[float],
+    candidate_vector: list[float],
 ) -> float:
     """
-    Calcule un score de similarité entre deux embeddings genre 2D.
+    Calcule une similarité cosinus entre deux vecteurs genre.
+
+    Retourne un score entre 0.0 et 1.0.
     """
-    if ref_emb1 is not None and emb1 is not None:
-        return max(0.0, 1 - math.sqrt((ref_emb1 - emb1) ** 2 + (ref_emb2 - emb2) ** 2))
-    return 0.0
+    if len(ref_vector) != len(candidate_vector):
+        raise ValueError("Les deux vecteurs genre doivent avoir la même taille.")
+
+    dot_product = sum(a * b for a, b in zip(ref_vector, candidate_vector, strict=True))
+    norm_ref = math.sqrt(sum(a * a for a in ref_vector))
+    norm_candidate = math.sqrt(sum(b * b for b in candidate_vector))
+
+    if norm_ref == 0.0 or norm_candidate == 0.0:
+        return 0.0
+
+    similarity = dot_product / (norm_ref * norm_candidate)
+
+    return max(0.0, min(1.0, similarity))
 
 
 # def cosine_similarity(vec1: list, vec2: list) -> float:

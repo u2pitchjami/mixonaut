@@ -5,11 +5,10 @@ modules de calcul du beat intensity .
 """
 
 from typing import Any
+import math
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
 
-
-@with_child_logger
 def calculate_beat_intensity(
     features: dict[str, Any], logger: LoggerProtocol | None = None
 ) -> float:
@@ -25,20 +24,14 @@ def calculate_beat_intensity(
     """
     logger = ensure_logger(logger, __name__)
     try:
-        spectral_flux = features.get("spectral_flux", 0.0)
-        # print(f"spectral_flux : {spectral_flux * 1000 * 0.20}")
-        spectral_rms_mean = features.get("spectral_rms_mean", 0.0)
-        # print(f"spectral_rms_mean : {spectral_rms_mean * 10000 * 0.15}")
-        average_loudness = features.get("average_loudness", 0.0)
-        # print(f"average_loudness : {average_loudness * 100 * 0.10}")
-        spectral_energy = features.get("spectral_energy", 0.0)
-        # print(f"spectral_energy : {spectral_energy * 1000 * 0.10}")
-        dynamic_complexity = features.get("dynamic_complexity", 0.0)
-        # print(f"dynamic_complexity : {dynamic_complexity * 10 * 0.15}")
-        onset_rate = features.get("onset_rate", 0.0)
-        # print(f"onset_rat : {onset_rate * 10 * 0.15}")
-        beats_loudness_mean = features.get("beats_loudness_mean", 0.0)
-        # print(f"beats_loudness_mean : {beats_loudness_mean * 1000 * 0.15}")
+        dynamic_complexity = float(features.get("dynamic_complexity") or 0.0)
+        dynamic_complexity_score = math.log1p(dynamic_complexity) or 0.0
+        spectral_flux = float(features.get("spectral_flux") or 0.0)
+        spectral_rms_mean = float(features.get("spectral_rms_mean") or 0.0)
+        average_loudness = float(features.get("average_loudness") or 0.0)
+        spectral_energy = float(features.get("spectral_energy") or 0.0)
+        onset_rate = float(features.get("onset_rate") or 0.0)
+        beats_loudness_mean = float(features.get("beats_loudness_mean") or 0.0)
 
         # Pondérations (en %)
         score = (
@@ -46,7 +39,7 @@ def calculate_beat_intensity(
             + spectral_rms_mean * 0.15  # ex: 0.005 → 10 * 0.15 = 1.5
             + average_loudness * 0.10  # ex: 0.9 → 90 * 0.1 = 9.0
             + spectral_energy * 0.10  # ex: 0.05 → 10 * 0.1 = 1.0
-            + dynamic_complexity * 0.15  # ex: 4.0 → 6 * 0.15 = 0.9
+            + dynamic_complexity_score * 0.15  # ex: 4.0 → 6 * 0.15 = 0.9
             + onset_rate * 0.15  # ex: 4.5 → 9 * 0.15 = 1.35
             + beats_loudness_mean * 0.15  # ex: 0.1 → 10 * 0.15 = 1.5
         ) * 45

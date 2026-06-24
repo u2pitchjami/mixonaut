@@ -30,8 +30,8 @@ from mixonaut.process_analyse.retro_beets.sync_beets_from_essentia import (
 )
 from mixonaut.process_analyse.retro_beets.write_tags import write_tags_docker
 from mixonaut.process_analyse.transposition.transposition import generate_transpositions
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
-from mixonaut.utils.utils_div import convert_path_format, sanitize_value
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
+from mixonaut.utils.utils_div import convert_path_format, sanitize_value, ensure_to_path
 
 Features = dict[str, Any]
 CalcFunc = Callable[[Features], Any]
@@ -53,7 +53,6 @@ AVAILABLE_CALCS: Mapping[str, CalcFunc] = {
 }
 
 
-@with_child_logger
 def sync_fields_by_track_id(
     track_id: int,
     track_features: dict[str, Any],
@@ -97,14 +96,19 @@ def sync_fields_by_track_id(
         logger=logger,
     )
     if not no_tags:
-        new_path = convert_path_format(path=str(path), to_beets=False)
+        normalized_path = ensure_to_path(path)
+
+        new_path = convert_path_format(
+            path=normalized_path,
+            to_beets=False,
+        )
+        # new_path = convert_path_format(path=str(path), to_beets=False)
         logger.debug("🏷️ Ecriture des tags")
         write_tags_docker(path=str(new_path), track_features=sync_fields, logger=logger)
 
     logger.debug("🏁 Retro_Beets_Db : TERMINE \n")
 
 
-@with_child_logger
 def main_recalc(
     track_id: int,
     recalc_fields: list[str],

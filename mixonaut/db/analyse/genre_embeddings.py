@@ -10,7 +10,7 @@ from typing import TypedDict
 from sklearn.decomposition import PCA
 
 from mixonaut.db.access import select_all
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 
 
 class GenreEmbedding2D(TypedDict):
@@ -37,10 +37,36 @@ GENRE_COLUMNS = [
     "genre_electronic_house",
     "genre_electronic_techno",
     "genre_electronic_trance",
+    # Rosamerica
+    "genre_rosamerica_cla",
+    "genre_rosamerica_dan",
+    "genre_rosamerica_hip",
+    "genre_rosamerica_jaz",
+    "genre_rosamerica_pop",
+    "genre_rosamerica_roc",
+    "genre_rosamerica_rhy",
+    "genre_rosamerica_spe",
+    # Tzanetakis
+    "genre_tzanetakis_blu",
+    "genre_tzanetakis_cla",
+    "genre_tzanetakis_cou",
+    "genre_tzanetakis_dis",
+    "genre_tzanetakis_hip",
+    "genre_tzanetakis_jaz",
+    "genre_tzanetakis_met",
+    "genre_tzanetakis_pop",
+    "genre_tzanetakis_reg",
+    "genre_tzanetakis_roc",
 ]
 
 
-@with_child_logger
+def build_genre_vector(row: sqlite3.Row) -> list[float]:
+    """
+    Construit un vecteur genre depuis une row SQL.
+    """
+    return [float(row[column] or 0.0) for column in GENRE_COLUMNS]
+
+
 def compute_genre_embeddings(
     n_components: int = 2, logger: "LoggerProtocol | None" = None
 ) -> list[GenreEmbedding2D]:
@@ -63,7 +89,7 @@ def compute_genre_embeddings(
         if rows:
             for row in rows:
                 track_id = int(row[0])
-                vec = row[1:]
+                vec = build_genre_vector(row)
                 if None not in vec:
                     ids.append(track_id)
                     # conversion stricte en float

@@ -14,10 +14,10 @@ from mixonaut.db.analyse.essentia_queries import (
     list_candidate_tracks_same_sha1,
     list_candidate_tracks_same_sha256,
 )
-from mixonaut.essentia.reuse.essentia_sav import (
-    duplicate_essentia_json,
+from mixonaut.madmom.reuse.madmom_sav import (
     find_latest_sav_json,
-    load_essentia_json,
+    duplicate_madmom_json,
+    load_madmom_json,
 )
 from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 
@@ -62,7 +62,7 @@ def _apply_donor_to_dest(
         Path du fichier JSON copié, ou None si échec.
     """
     logger = ensure_logger(logger, __name__)
-    copied = duplicate_essentia_json(
+    copied = duplicate_madmom_json(
         donor_track_id=donor_id,
         dest_track_id=dest_track_id,
         logger=logger,
@@ -71,7 +71,7 @@ def _apply_donor_to_dest(
     if not copied:
         return None
 
-    donor_data = load_essentia_json(donor_json, logger=logger)
+    donor_data = load_madmom_json(donor_json, logger=logger)
     if donor_data is None:
         return None
 
@@ -79,11 +79,11 @@ def _apply_donor_to_dest(
     return donor_json
 
 
-def try_reuse_essentia(
+def try_reuse_madmom(
     track_id: int, *, logger: LoggerProtocol | None = None
 ) -> Path | None:
     """
-    Tente de réutiliser des features Essentia existantes pour `track_id`.
+    Tente de réutiliser des features Madmom existantes pour `track_id`.
 
     Returns:
         Path du JSON copié si réutilisation réussie, sinon None.

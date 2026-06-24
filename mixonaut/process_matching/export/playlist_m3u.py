@@ -47,19 +47,19 @@ def generate_m3u_from_matches(
     logger.debug("Number of tracks to write: %d", len(tracks))
 
     try:
-        logger.info("PLAYLIST STEP 1 | before mkdir")
+        # logger.info("PLAYLIST STEP 1 | before mkdir")
         playlist_path.parent.mkdir(parents=True, exist_ok=True)
-        logger.info("PLAYLIST STEP 2 | after mkdir")
+        # logger.info("PLAYLIST STEP 2 | after mkdir")
 
         if sort_by_score:
             tracks.sort(key=lambda m: m.get("score", 0.0), reverse=True)
 
         written = 0
-        logger.info("PLAYLIST STEP 3 | before open")
+        # logger.info("PLAYLIST STEP 3 | before open")
         with playlist_path.open("w", encoding="utf-8") as f:
-            logger.info("PLAYLIST STEP 4 | file opened")
+            # logger.info("PLAYLIST STEP 4 | file opened")
             f.write("#EXTM3U\n")
-            logger.info("PLAYLIST STEP 5 | header written")
+            # logger.info("PLAYLIST STEP 5 | header written")
             for match in tracks:
                 raw_path = match.get("path")
 
