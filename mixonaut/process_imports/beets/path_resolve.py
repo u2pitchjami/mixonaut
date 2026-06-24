@@ -9,7 +9,7 @@ import os
 from pathlib import Path, PurePosixPath
 
 from mixonaut.utils.config import BEETS_IMPORT_PATH, MUSIC_IMPORT_PATH
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 from mixonaut.utils.utils_div import convert_path_format
 
 
@@ -42,7 +42,6 @@ def _beets_to_host_via_converter(p: Path) -> Path:
         return p  # on retombe sur p si non convertible
 
 
-@with_child_logger
 def resolve_album_path_and_rel(
     path_str: str, logger: LoggerProtocol | None = None
 ) -> tuple[Path, str] | None:

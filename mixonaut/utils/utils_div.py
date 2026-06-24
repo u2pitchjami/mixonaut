@@ -230,7 +230,7 @@ def sanitize_value(
         return None
 
 
-# @with_child_logger
+#
 # def clear_folder(folder_path, logger=None):
 #     logger.info(f"Vidage du contenu du dossier temporaire : {folder_path}")
 #     for filename in os.listdir(folder_path):

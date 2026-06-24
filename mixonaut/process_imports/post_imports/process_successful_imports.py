@@ -12,7 +12,7 @@ from mixonaut.db.access import select_all
 from mixonaut.db.imports.torrent_repo import TorrentRepo
 from mixonaut.process_imports.beets.path_resolve import resolve_album_path_and_rel
 from mixonaut.utils.config import MUSIC_IMPORT_PATH
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 
 
 def _is_subpath(child: Path, parent: Path) -> bool:
@@ -24,7 +24,6 @@ def _is_subpath(child: Path, parent: Path) -> bool:
     return parent == child or parent in child.parents
 
 
-@with_child_logger
 def process_successful_imports(
     moved_paths: list[str],
     logger: LoggerProtocol | None = None,

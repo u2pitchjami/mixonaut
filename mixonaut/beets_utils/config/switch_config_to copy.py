@@ -7,10 +7,9 @@ switch la config beets auto <-> manuel.
 import yaml
 
 from mixonaut.utils.config import BEETS_CONFIG
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 
 
-@with_child_logger
 def switch_config_to(mode_target: str, logger: LoggerProtocol | None = None) -> str:
     """
     Modifie le fichier de config Beets (config.yaml) pour activer le mode spécifié (auto ou manuel), uniquement si ce

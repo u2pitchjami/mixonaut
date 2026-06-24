@@ -14,11 +14,10 @@ from mixonaut.beets_utils.lock.beets_safe import (
     safe_beets_call,
 )
 from mixonaut.utils.config import LOCK_FILE
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 from mixonaut.utils.types import ProcessResult
 
 
-@with_child_logger
 def run_beet_command(
     command: str,
     args: list[str] | None = None,
@@ -92,7 +91,7 @@ def run_beet_command(
             )
 
 
-# @with_child_logger
+#
 # def run_beet_action_by_dirs(action, dirs, dry_run=False, logger=None):
 #     if not dirs:
 #         return
@@ -108,7 +107,6 @@ def run_beet_command(
 #                 logger.warning(f"[ERREUR] {action} échoué sur : {album_dir}")
 
 
-@with_child_logger
 def get_beet_list(
     query: str | None = None,
     format_fields: str = "$title|$genre|$rg_track_gain|$initial_key|$bpm|$path",

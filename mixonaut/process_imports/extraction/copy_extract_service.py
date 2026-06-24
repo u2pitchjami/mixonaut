@@ -260,7 +260,7 @@ class CopyExtractService:
             return False
 
         # 3) lancer la conversion via utilitaire existant
-        converted_dir = split_cue_and_convert_ffmpeg(str(cue_path), logger=self.logger)
+        converted_dir = split_cue_and_convert_ffmpeg(cue_path, logger=self.logger)
         if not converted_dir:
             raise RuntimeError(
                 "Conversion CUE a échoué (répertoire de sortie introuvable)"

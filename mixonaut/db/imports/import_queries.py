@@ -5,9 +5,9 @@ requêtes liée aux torrents et qbit.
 """
 
 from mixonaut.db.access import select_all
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 
-# @with_child_logger
+#
 # def get_imported_music_files(logger=None):
 #     query = """
 #     SELECT path, import_date
@@ -15,7 +15,7 @@ from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logg
 #     """
 # return select_all(query, logger=logger)
 
-# @with_child_logger
+#
 # def update_imported_file(path: str, size: int, logger=None):
 #     execute_write(
 #         "INSERT OR REPLACE INTO imported_files (path, size, last_seen) VALUES (?, ?, ?)",
@@ -23,7 +23,7 @@ from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logg
 #         logger=logger
 #     )
 
-# @with_child_logger
+#
 # def cleanup_imported_files(base_folder: str, logger=None):
 #     rows = select_all("SELECT path FROM imported_files", logger=logger)
 #     for (path,) in rows:
@@ -33,7 +33,7 @@ from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logg
 #             logger.info(f"Supprimé de la base de suivi (plus présent): {path}")
 
 
-# @with_child_logger
+#
 # def is_already_imported(name: str, torrent_name: str, logger=None) -> bool:
 #     """
 #     Vérifie si un fichier a déjà été importé par Beets,
@@ -67,7 +67,7 @@ from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logg
 
 #     return bool(row)
 
-# @with_child_logger
+#
 # def insert_or_update_imported(path: str, size: int, logger=None):
 #     execute_write(
 #         "INSERT OR REPLACE INTO imported_files (path, size, last_seen) VALUES (?, ?, ?)",
@@ -75,7 +75,7 @@ from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logg
 #         logger=logger
 #     )
 
-# @with_child_logger
+#
 # def cleanup_missing_imported(logger=None):
 #     rows = select_all("SELECT path FROM imported_files", logger=logger)
 #     for (tracked_path,) in rows:
@@ -83,7 +83,7 @@ from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logg
 #             execute_write("DELETE FROM imported_files WHERE path = ?", (tracked_path,), logger=logger)
 #             logger.info(f"Fichier disparu supprimé du suivi : {tracked_path}")
 
-# @with_child_logger
+#
 # def update_imported_in_beets_at(torrent_name: str, logger=None) -> bool:
 #     """
 #     Marque comme importés tous les fichiers liés à un torrent donné.
@@ -111,7 +111,7 @@ from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logg
 #     logger.info(f"✅ {count} fichier(s) mis à jour pour torrent_name = {torrent_name}")
 #     return True
 
-# @with_child_logger
+#
 # def insert_or_ignore_imported_file(path, name, size, torrent_hash, torrent_name, \
 # added_on, completion_on, ratio, logger=None):
 #     existing = select_one("SELECT id, imported_in_beets_at FROM imported_files WHERE path = ?"\
@@ -135,7 +135,7 @@ from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logg
 
 #     logger.info(f"✅ Ajout en base : {name}")
 
-# @with_child_logger
+#
 # def update_ratio_for_torrent(torrent_name: str, ratio: float, logger=None):
 #     """
 #     Met à jour le ratio de tous les fichiers liés à un torrent donné.
@@ -147,7 +147,6 @@ from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logg
 #     )
 
 
-@with_child_logger
 def get_hashes_ready_for_deletion(
     min_ratio: float,
     min_age_days: int,

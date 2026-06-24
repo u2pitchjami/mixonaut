@@ -9,7 +9,7 @@
 # from mixonaut.utils.config import BEETS_IMPORT_PATH
 # from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
 
-# @with_child_logger
+#
 # def _copy_tree(src_dir, dest_dir, logger=None):
 #     for root, dirs, files in os.walk(src_dir):
 #         for name in files:
@@ -20,7 +20,7 @@
 #             os.makedirs(os.path.dirname(dest), exist_ok=True)
 #             shutil.copy2(os.path.join(root, name), dest)
 
-# @with_child_logger
+#
 # def extract_torrent_name(import_path: str, base_path: str = BEETS_IMPORT_PATH, logger=None) -> str:
 #     """
 #     Extrait le nom du dossier racine d’un import Beets, correspondant au torrent_name.

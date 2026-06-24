@@ -7,10 +7,9 @@ from typing import Any
 from mixonaut.beets_utils.commands.commands import (
     run_beet_command,
 )
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 
 
-@with_child_logger
 def update_beets_fields(
     track_path: str,
     field_values: dict[str, Any],

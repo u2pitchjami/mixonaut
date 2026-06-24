@@ -5,10 +5,9 @@
 import os
 from datetime import datetime
 
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 
 
-@with_child_logger
 def extract_paths_from_file(
     source_file: str,
     output_file: str,

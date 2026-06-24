@@ -7,10 +7,9 @@ requêtes sqlite beets
 from typing import Any
 
 from mixonaut.db.access import execute_query, execute_write, select_all, select_one
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 
 
-@with_child_logger
 def get_item_field_value(
     field: str, track_id: int, logger: LoggerProtocol | None = None
 ) -> Any | None:
@@ -32,7 +31,6 @@ def get_item_field_value(
         ) from e
 
 
-@with_child_logger
 def get_items_columns(logger: LoggerProtocol | None = None) -> set[str]:
     """
     Récupère l'ensemble des colonnes de la table 'items'.
@@ -44,7 +42,6 @@ def get_items_columns(logger: LoggerProtocol | None = None) -> set[str]:
     return {col[1] for col in columns_info}
 
 
-@with_child_logger
 def retro_inject_features(
     track_id: int,
     features: dict[str, Any],

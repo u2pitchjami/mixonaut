@@ -16,7 +16,7 @@ from mixonaut.process_imports.qbit.qbit_utils import (
     get_qbit_session,
 )
 from mixonaut.utils.config import MUSIC_SOURCE_PATH, QBIT_HOST, QBIT_PASS, QBIT_USER
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 
 
 def _is_subpath(child: Path, parent: Path) -> bool:
@@ -25,7 +25,6 @@ def _is_subpath(child: Path, parent: Path) -> bool:
     return parent == child or parent in child.parents
 
 
-@with_child_logger
 def delete_torrents_and_files_by_hashes(
     torrent_hashes: list[str],
     qbit_host: str = QBIT_HOST,

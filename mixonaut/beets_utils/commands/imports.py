@@ -5,10 +5,9 @@ import os
 from mixonaut.beets_utils.commands.commands import run_beet_command
 from mixonaut.beets_utils.config.switch_config_to import switch_config_to
 from mixonaut.utils.config import BEETS_IMPORT_PATH, BEETS_MANUAL_LIST
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 
 
-@with_child_logger
 def import_auto(
     noincremental: bool = False, logger: LoggerProtocol | None = None
 ) -> None:
@@ -42,7 +41,6 @@ def import_auto(
         logger.info("✅ Import automatique terminé.")
 
 
-@with_child_logger
 def import_manuel(
     clear_after: bool = False,
     skip_only: bool = False,

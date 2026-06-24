@@ -12,7 +12,7 @@ import time
 from datetime import datetime
 
 from mixonaut.utils.config import LOCK_FILE
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 
 TIMEOUT = 120  # secondes d'attente max
 
@@ -66,7 +66,6 @@ def create_lock() -> bool:
         return False
 
 
-@with_child_logger
 def wait_for_unlock(
     timeout: int = TIMEOUT, logger: LoggerProtocol | None = None
 ) -> bool:
@@ -143,7 +142,6 @@ def read_lock_pid(
         return None
 
 
-@with_child_logger
 def safe_beets_call(logger: LoggerProtocol | None = None) -> bool:
     """
     Effectue une appel sécurisé à Beets après avoir vérifié que le verrou est libéré.

@@ -13,7 +13,6 @@ from mixonaut.utils.logger import (
     LoggerProtocol,
     ensure_logger,
     get_logger,
-    with_child_logger,
 )
 
 LOG = get_logger("manage_decisions")
@@ -57,7 +56,6 @@ class UnsetArgs(_BaseArgs, HashArgs, Protocol):
     cmd: Literal["unset"]
 
 
-@with_child_logger
 def _find_hashes_by_name(
     torrent_name: str, logger: LoggerProtocol | None = None
 ) -> list[str]:
@@ -73,7 +71,6 @@ def _find_hashes_by_name(
     return [r[0] for (r,) in rows]
 
 
-@with_child_logger
 def _find_hashes_by_album_path(
     path: str, logger: LoggerProtocol | None = None
 ) -> list[str]:
@@ -94,7 +91,6 @@ def _find_hashes_by_album_path(
     return [r[0] for (r,) in rows]
 
 
-@with_child_logger
 def cmd_mark(
     decision: str,
     reason: str,
@@ -132,7 +128,6 @@ def cmd_mark(
         )
 
 
-@with_child_logger
 def cmd_unset(hashes: list[str], logger: LoggerProtocol | None = None) -> None:
     """
     Unset decisions for a list of hashes.
@@ -158,7 +153,6 @@ def cmd_unset(hashes: list[str], logger: LoggerProtocol | None = None) -> None:
         logger.info("↩️ Decision effacée pour hash=%s", h)
 
 
-@with_child_logger
 def cmd_show(
     limit: int, only: str | None, logger: LoggerProtocol | None = None
 ) -> None:
@@ -210,7 +204,6 @@ def cmd_show(
         )
 
 
-@with_child_logger
 def _collect_hashes(args: HashArgs, logger: LoggerProtocol | None = None) -> list[str]:
     """
     Résout la cible en liste de hashes selon les options fournies.

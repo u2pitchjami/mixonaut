@@ -11,13 +11,12 @@ from requests import RequestException, Session
 
 from mixonaut.process_imports.models.models import QbtFile, QbtTorrent, TorrentFullInfo
 from mixonaut.utils.config import QBIT_HOST, QBIT_PASS, QBIT_USER
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 from mixonaut.utils.safe_cast import safe_float, safe_int, safe_str
 
 # --- Session/auth ------------------------------------------------------------------
 
 
-@with_child_logger
 def get_qbit_session(
     qbit_host: str = QBIT_HOST,
     qbit_user: str = QBIT_USER,
@@ -55,7 +54,6 @@ def get_qbit_session(
 # --- Listing torrents ---------------------------------------------------------------
 
 
-@with_child_logger
 def get_completed_music_torrents(
     session: Session,
     qbit_host: str = QBIT_HOST,
@@ -88,7 +86,6 @@ def get_completed_music_torrents(
 # --- Suppression d'un torrent -------------------------------------------------------
 
 
-@with_child_logger
 def delete_torrent(
     session: Session,
     hash_id: str,
@@ -123,7 +120,6 @@ def delete_torrent(
 # --- Détails d'un torrent (fichiers, ratio, etc.) ----------------------------------
 
 
-@with_child_logger
 def get_torrent_full_info(
     torrent: QbtTorrent,
     session: Session,
@@ -219,7 +215,7 @@ def get_torrent_full_info(
         return None
 
 
-# @with_child_logger
+#
 # def extract_files_from_torrent(session, hash_id: str, qbit_host: str = QBIT_HOST,  logger=None):
 #     """
 #     Récupère les chemins des fichiers d'un torrent donné

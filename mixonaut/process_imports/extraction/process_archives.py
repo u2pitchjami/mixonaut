@@ -11,7 +11,7 @@
 # from mixonaut.process_imports.imports_utils import _copy_tree
 # from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
 
-# @with_child_logger
+#
 # def handle_archive(path: str, import_dir: str, logger=None):
 #     """
 #     Gère l'extraction et la copie d'une archive vers le dossier d'import.

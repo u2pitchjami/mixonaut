@@ -8,11 +8,10 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 
 
-@with_child_logger
-def get_audio_base_name(cue_path: str, logger: LoggerProtocol | None = None) -> str:
+def get_audio_base_name(cue_path: Path, logger: LoggerProtocol | None = None) -> Path:
     """
     Extracts the audio base name from a .cue file path.
 
@@ -31,18 +30,18 @@ def get_audio_base_name(cue_path: str, logger: LoggerProtocol | None = None) -> 
     # Supprime récursivement les extensions .cue, .flac.cue, .wav.cue, etc.
     while base.lower().endswith(".cue"):
         base = os.path.splitext(base)[0]
-        base = sanitize_cue_filename(base)
+        base = sanitize_cue_filename(str(base))
     logger.debug(f"Base name after processing: {base}")
-    return base
+    return Path(base)
 
 
-# @with_child_logger
+#
 # def convert_wav_to_flac(wav_path, flac_path, logger=None):
 #     cmd = ["ffmpeg", "-i", wav_path, "-compression_level", "12", flac_path]
 #     logger.debug(f"Conversion WAV → FLAC : {' '.join(cmd)}")
 #     subprocess.run(cmd, check=True)
 
-# @with_child_logger
+#
 # def convert_wav_to_mp3(wav_path, mp3_path, logger=None):
 #     cmd = ["ffmpeg", "-i", wav_path, "-q:a", "2", mp3_path]
 #     logger.debug(f"Conversion WAV → MP3 : {' '.join(cmd)}")
@@ -57,10 +56,9 @@ def sanitize_cue_filename(name: str) -> str:
     return cleaned.strip()
 
 
-@with_child_logger
 def split_cue_and_convert_ffmpeg(
-    cue_path: str, logger: LoggerProtocol | None = None
-) -> None:
+    cue_path: Path, logger: LoggerProtocol | None = None
+) -> Path | None:
     """
     Découpe un fichier audio avec un fichier CUE via ffmpeg, compatible FLAC/MP3/WAV/APE.
 
@@ -73,7 +71,7 @@ def split_cue_and_convert_ffmpeg(
 
         audio_file = None
         for ext in [".flac", ".mp3", ".wav", ".ape", ".wv", ""]:
-            candidate = os.path.join(cue_dir, cue_base + ext)
+            candidate = Path(cue_dir) / f"{cue_base}{ext}"
             if os.path.exists(candidate):
                 audio_file = candidate
                 if logger:
@@ -86,7 +84,7 @@ def split_cue_and_convert_ffmpeg(
             return None
 
         # 1. Récupérer les points de split
-        cue_cmd = ["cuebreakpoints", cue_path]
+        cue_cmd = ["cuebreakpoints", str(cue_path)]
         result = subprocess.run(cue_cmd, capture_output=True, text=True, check=True)
         lines = result.stdout.strip().splitlines()
         points = ["00:00:00"] + lines + ["99:59:59"]
@@ -105,10 +103,10 @@ def split_cue_and_convert_ffmpeg(
             for idx, (start, end) in enumerate(zip(points[:-1], points[1:]), 1):
                 track_num = f"{idx:02}"
                 out_file = out_dir / f"track{track_num}.{ext}"
-                cmd = [
+                cmd: list[str] = [
                     "ffmpeg",
                     "-i",
-                    audio_file,
+                    str(audio_file),
                     "-ss",
                     start,
                     "-to",
@@ -134,6 +132,7 @@ def split_cue_and_convert_ffmpeg(
 
             if logger:
                 logger.info(f"Split terminé. Fichiers générés dans : {final_dir}")
+            return Path(final_dir)
 
     except subprocess.CalledProcessError as e:
         if logger:

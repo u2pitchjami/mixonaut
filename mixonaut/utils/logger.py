@@ -163,20 +163,36 @@ def _ensure_handlers(
     if getattr(base, "_mixonaut_configured", False):
         return
 
-    formatter = logging.Formatter(
+    normal_formatter = logging.Formatter(
         "%(asctime)s - %(levelname)s - [%(name)s] %(message)s"
     )
 
+    debug_formatter = logging.Formatter(
+        "%(asctime)s - %(levelname)s - [%(name)s:%(funcName)s:%(lineno)d] %(message)s"
+    )
+
+    # Console → debug détaillé
     stream = logging.StreamHandler()
-    stream.setFormatter(formatter)
+    stream.setFormatter(debug_formatter)
+    stream.setLevel(logging.DEBUG)
     base.addHandler(stream)
 
-    fh_global = logging.FileHandler(global_log_file, encoding="utf-8")
-    fh_global.setFormatter(formatter)
+    # Log global → format compact
+    fh_global = logging.FileHandler(
+        global_log_file,
+        encoding="utf-8",
+    )
+    fh_global.setFormatter(normal_formatter)
+    fh_global.setLevel(logging.INFO)
     base.addHandler(fh_global)
 
-    fh_script = logging.FileHandler(script_log_file, encoding="utf-8")
-    fh_script.setFormatter(formatter)
+    # Log script → debug détaillé
+    fh_script = logging.FileHandler(
+        script_log_file,
+        encoding="utf-8",
+    )
+    fh_script.setFormatter(debug_formatter)
+    fh_script.setLevel(logging.DEBUG)
     base.addHandler(fh_script)
 
     setattr(base, "_mixonaut_configured", True)
@@ -228,7 +244,7 @@ def ensure_logger(logger: LoggerProtocol | None, module: str) -> LoggerProtocol:
     """
     if logger is None:
         return get_logger(module)
-    return logger.get_child(module)
+    return logger
 
 
 # ---------- Décorateur type-safe ----------

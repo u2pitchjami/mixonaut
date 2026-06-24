@@ -8,10 +8,9 @@ from pathlib import Path
 from mixonaut.db.imports.torrent_repo import TorrentRepo
 from mixonaut.process_imports.extraction.copy_extract_service import CopyExtractService
 from mixonaut.utils.config import MUSIC_IMPORT_PATH, MUSIC_SOURCE_PATH
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 
 
-@with_child_logger
 def scan_and_process_downloads(
     nb_limit: int | None = None,
     source_root: str | Path = MUSIC_SOURCE_PATH,

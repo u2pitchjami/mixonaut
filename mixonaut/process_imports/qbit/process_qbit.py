@@ -15,13 +15,11 @@ from mixonaut.utils.logger import (
     LoggerProtocol,
     ensure_logger,
     get_logger,
-    with_child_logger,
 )
 
 logger = get_logger("import_from_qbit")
 
 
-@with_child_logger
 def import_completed_torrents(
     session: Session | None = None,
     qbit_host: str = QBIT_HOST,
@@ -126,7 +124,6 @@ def is_useful_file(name: str) -> bool:
     return name.lower().endswith(USEFUL_EXTENSIONS)
 
 
-@with_child_logger
 def update_ratios_from_qbit(logger: LoggerProtocol | None = None) -> None:
     logger = ensure_logger(logger, __name__)
     session = get_qbit_session(logger=logger)

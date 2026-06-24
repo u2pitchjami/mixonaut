@@ -16,12 +16,11 @@ from mixonaut.process_imports.beets.path_resolve import (  # helpers robustes
     resolve_album_path_and_rel,
 )
 from mixonaut.utils.config import BEETS_LOGS, BEETS_MANUAL_LIST
-from mixonaut.utils.logger import LoggerProtocol, ensure_logger, with_child_logger
+from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 
 _SEP_SPLIT = re.compile(r"\s*;\s*")
 
 
-@with_child_logger
 def extract_manual_imports_and_decisions(
     logger: LoggerProtocol | None = None,
 ) -> dict[str, list[str]]:
