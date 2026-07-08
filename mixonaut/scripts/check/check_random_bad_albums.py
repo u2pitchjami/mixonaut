@@ -51,7 +51,7 @@ def check_random_albums(n: int = 3) -> None:
 
     # Liste des albums
     album_paths = get_beet_list(
-        query=None, format_fields="$path", album=True, format=True, logger=logger
+        query=None, format_fields="$path", album=False, format=True, logger=logger
     )
 
     if not album_paths:

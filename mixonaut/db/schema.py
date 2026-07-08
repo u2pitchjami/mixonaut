@@ -730,6 +730,59 @@ def create_tables() -> None:
         );
         """
         )
+        """
+        Initialise la table technique de claims/verrous de tracks.
+
+        Objectif :
+        - éviter que plusieurs instances Mixonaut/CronBoss traitent les mêmes tracks ;
+        - ne jamais écraser les statuts métier PENDING / KO / OK ;
+        - permettre la récupération automatique après crash via expires_at.
+        """
+
+        # 1) Table
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS track_claims (
+                track_id     INTEGER PRIMARY KEY,                      -- items.id (Beets)
+                worker_id    TEXT NOT NULL,                            -- ex: mixonaut-manual, mixonaut-cronboss
+                batch_id     TEXT NOT NULL,                            -- identifiant unique du run
+                run_source   TEXT NOT NULL DEFAULT 'manual',            -- manual / cronboss / autre
+                claimed_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                expires_at   TEXT NOT NULL,
+                created_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            """
+        )
+
+        # 2) Index
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_track_claims_batch_id
+            ON track_claims(batch_id);
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_track_claims_worker_id
+            ON track_claims(worker_id);
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_track_claims_expires_at
+            ON track_claims(expires_at);
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_track_claims_run_source
+            ON track_claims(run_source);
+            """
+        )
 
         conn.commit()
         print(f"✅ Base initialisée : {BEETS_DB}")

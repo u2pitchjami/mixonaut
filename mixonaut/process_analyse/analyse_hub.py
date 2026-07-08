@@ -24,9 +24,6 @@ from mixonaut.madmom.analyse.madmom_analyse import (
 )
 from mixonaut.madmom.reuse.reuse_gate import try_reuse_madmom
 from mixonaut.process_analyse.hash.chromaprint_integ import fingerprint_track
-from mixonaut.process_analyse.retro_beets.sync_beets_from_essentia import (
-    sync_fields_by_track_id,
-)
 from mixonaut.process_analyse.transposition.transposition import generate_transpositions
 from mixonaut.utils.logger import LoggerProtocol, ensure_logger
 from mixonaut.process_analyse.prep_analyse import prep_track, clean_temp_files
@@ -75,6 +72,17 @@ def run_step(
             logger.exception("Step '%s' failed for track_id=%s", table, track_id)
         update_table_status(table, track_id, KO, str(exc), logger=logger)
         return StepResult(code=KO, message=str(exc))
+
+
+def ko_step(
+    table: str, track_id: int, reason: str, logger: LoggerProtocol | None = None
+) -> StepResult:
+    """
+    Enregistre un statut KO dans la DB sans exécuter la tâche.
+    """
+    logger = ensure_logger(logger, __name__)
+    update_table_status(table, track_id, KO, reason, logger=logger)
+    return StepResult(code=KO, message=reason)
 
 
 def skip_step(
@@ -159,7 +167,7 @@ def analyse_hub(
     # 2) ESSENTIA
     if "essentia" in steps:
         if results["fingerprint"][0] in (KO, KO_FILE, KO_AUDIO) and not force:
-            skip_step("audio_features", track_id, "blocked by fingerprint", logger)
+            ko_step("audio_features", track_id, "blocked by fingerprint", logger)
             results["essentia"] = (SKIPPED, "blocked by fingerprint")
             results["sync"] = (SKIPPED, "blocked by fingerprint")
         elif duration and duration > MAX_DURATION:
@@ -223,11 +231,11 @@ def analyse_hub(
                 if track_features is None:
                     return error_code or KO, error_message or ""
 
-                sync_fields_by_track_id(
-                    track_id=track_id,
-                    track_features=track_features,
-                    logger=logger,
-                )
+                # sync_fields_by_track_id(
+                #     track_id=track_id,
+                #     track_features=track_features,
+                #     logger=logger,
+                # )
 
                 return OK, "Reused existing JSON" if reused else ""
 
@@ -253,8 +261,8 @@ def analyse_hub(
     # 3) MADMOM
     if "madmom" in steps:
         if results["essentia"][0] in (KO, KO_FILE, KO_AUDIO) and not force:
-            skip_step("madmom_features", track_id, "blocked by essentia", logger)
-            results["madmom"] = (SKIPPED, "blocked by essentia")
+            ko_step("madmom_features", track_id, "blocked by essentia", logger)
+            results["madmom"] = (KO, "blocked by essentia")
         elif duration and duration > MAX_DURATION:
             logger.warning(
                 "Skipping madmom for long track: %s (%ss)",
@@ -340,8 +348,8 @@ def analyse_hub(
     # 4) TRANSPOSITION
     if "transposition" in steps:
         if results["madmom"][0] in (KO, KO_FILE, KO_AUDIO) and not force:
-            skip_step("track_transpositions", track_id, "blocked by madmom", logger)
-            results["transposition"] = (SKIPPED, "blocked by madmom")
+            ko_step("track_transpositions", track_id, "blocked by madmom", logger)
+            results["transposition"] = (KO, "blocked by madmom")
         elif duration and duration > MAX_DURATION:
             logger.warning(
                 "Skipping transposition for long track: %s (%ss)",

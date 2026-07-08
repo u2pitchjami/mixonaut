@@ -2,7 +2,7 @@
 
 import argparse
 from datetime import datetime
-
+from pathlib import Path
 from mixonaut.beets_utils.commands.check_and_fix_utils import is_missing_mb_albumid
 from mixonaut.beets_utils.commands.commands import get_beet_list
 from mixonaut.utils.logger import get_logger
@@ -14,25 +14,17 @@ logger = get_logger("Check_Musicbrainz")
 @safe_main
 def check_mb_albumid(artist: str | None = None) -> None:
     """
-    Check if all albums in the specified artist have a MusicBrainz ID.
+    Vérifie si tous les albums ont un MusicBrainz Album ID.
 
-    This function queries the Beet library for a list of albums, then checks each one
-    to see if it has a valid MusicBrainz ID. If an album is missing an ID, it is added
-    to a set of directories without IDs. At the end, all albums without IDs are printed
-    out.
-
-    Parameters:
-        artist (str): The artist to query for albums (optional)
-
-    Returns:
-        None
+    On interroge les items Beets, puis on remonte au dossier album avec Path(path).parent. Si une seule track d'un album
+    n'a pas de mb_albumid, l'album est signalé.
     """
     logger.info(f"📅 CHECK MB_ALBUMID : {datetime.now().strftime('%d-%m-%Y')}")
     logger.info("--- (vérifie si tous les albums sont reliés à Musicbrainz) ---")
 
     lines = get_beet_list(
         query=artist,
-        album=True,
+        album=False,
         format=True,
         format_fields="$path|$mb_albumid",
         logger=logger,
@@ -40,8 +32,6 @@ def check_mb_albumid(artist: str | None = None) -> None:
     if not lines:
         return
 
-    logger.info(f"--- Nombre d'albums à contrôler : {len(lines)} ---")
-    # Étape 1 : détecter les albums sans genre
     dirs_without_mb_albumid = set()
     all_album_dirs = set()
 
@@ -51,15 +41,22 @@ def check_mb_albumid(artist: str | None = None) -> None:
             continue
 
         path, mb_albumid = (p.strip() for p in parts)
-        all_album_dirs.add(path)
-        mb_albumid_ok = is_missing_mb_albumid(mb_albumid)
 
-        if not mb_albumid_ok:
-            dirs_without_mb_albumid.add(path)
+        if not path:
+            continue
 
-    # ✅ Affichage une fois la boucle terminée
+        album_dir = Path(path).parent.as_posix()
+        all_album_dirs.add(album_dir)
+
+        if is_missing_mb_albumid(mb_albumid):
+            dirs_without_mb_albumid.add(album_dir)
+
+    logger.info(f"--- Nombre d'albums à contrôler : {len(all_album_dirs)} ---")
+
     if dirs_without_mb_albumid:
-        logger.info(f"⚠️ Albums sans mb_albumid : {len(dirs_without_mb_albumid)}")
+        logger.info(
+            f"⚠️ Albums avec au moins une track sans mb_albumid : {len(dirs_without_mb_albumid)}"
+        )
         for d in sorted(dirs_without_mb_albumid):
             logger.info(f" - {d}")
     else:

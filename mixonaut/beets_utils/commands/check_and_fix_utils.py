@@ -8,20 +8,16 @@ Requêtes de contrôles de valeurs dans beets.
 #     return True
 
 
-def is_missing_mb_albumid(val: str) -> bool:
+def is_missing_mb_albumid(val: str | None) -> bool:
     """
-    Returns `True` if the provided value is missing (i.e., an empty string, "unknown", "none", or "?"), and `False`
-    otherwise.
-
-    Args:
-        val: The value to check for being missing.
-
-    Returns:
-        bool: Whether the value is missing.
+    Retourne True si mb_albumid est absent ou non exploitable.
     """
-    if not val or val in {"", "unknown", "none", "?"}:
-        return False
-    return True
+    if val is None:
+        return True
+
+    cleaned = val.strip().lower()
+
+    return cleaned in {"", "unknown", "none", "?"}
 
 
 # def is_missing_gain(val):

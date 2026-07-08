@@ -35,30 +35,51 @@ def fetch_tracks(
     missing_field: str | None = None,
     path_contains: str | None = None,
     track_id: int | None = None,
+    exclude_claimed: bool = True,
     logger: LoggerProtocol | None = None,
 ) -> list[sqlite3.Row]:
     """
     Récupère les pistes selon divers critères.
 
-    Retourne une liste de sqlite3.Row (id, path, artist, title, album, essentia_status, madmom_status,
-    transposition_status, hash_status, duration).
+    Retourne une liste de sqlite3.Row : id, path, artist, title, album, essentia_status, madmom_status,
+    transposition_status, hash_status, duration.
+
+    Si exclude_claimed=True, exclut les tracks déjà réservées dans track_claims avec un expires_at encore actif.
     """
     logger = ensure_logger(logger, __name__)
 
     base_query = """
-    SELECT id, path, artist, title, album, essentia_status, madmom_status, transposition_status, hash_status, duration
-    FROM v_analyse
+    SELECT
+        v.id,
+        v.path,
+        v.artist,
+        v.title,
+        v.album,
+        v.essentia_status,
+        v.madmom_status,
+        v.transposition_status,
+        v.hash_status,
+        v.duration
+    FROM v_analyse AS v
+    LEFT JOIN track_claims AS tc
+        ON tc.track_id = v.id
+       AND tc.expires_at > datetime('now')
     """
 
     where_clauses: list[str] = []
     params: list[SqlParam] = []
 
-    # 0) Filtre direct par track_id (prioritaire)
+    # 0) Exclusion des tracks déjà claimées
+    # Sauf éventuellement si on cible explicitement une track_id.
+    if exclude_claimed and track_id is None:
+        where_clauses.append("tc.track_id IS NULL")
+
+    # 1) Filtre direct par track_id
     if track_id is not None:
-        where_clauses.append("id = ?")
+        where_clauses.append("v.id = ?")
         params.append(track_id)
 
-    # 1) Statuts Essentia
+    # 2) Statuts Essentia / analyses
     effective_status_list: list[str] | None = None
     if status_list and len(status_list) > 0:
         effective_status_list = status_list
@@ -69,10 +90,9 @@ def fetch_tracks(
         clause, p = build_status_filter(effective_status_list, logic=mf_logic)
         if clause:
             where_clauses.append(clause)
-            # p doit être list[SqlParam]
             params.extend(p)
 
-    # 2) Champ manquant
+    # 3) Champ manquant
     if missing_field:
         allowed_fields = {
             "bpm",
@@ -85,16 +105,17 @@ def fetch_tracks(
         }
         if missing_field not in allowed_fields:
             raise ValueError(f"Champ interdit : {missing_field}")
-        where_clauses.append(f"({missing_field} IS NULL OR {missing_field} = '')")
 
-    # 3) Filtre sur le chemin (insensible à la casse)
+        where_clauses.append(f"(v.{missing_field} IS NULL OR v.{missing_field} = '')")
+
+    # 4) Filtre sur le chemin
     if path_contains:
-        where_clauses.append("CAST(path AS TEXT) LIKE ? COLLATE NOCASE")
+        where_clauses.append("CAST(v.path AS TEXT) LIKE ? COLLATE NOCASE")
         params.append(f"%{path_contains}%")
 
-    # 4) Genres EDM
+    # 5) Genres EDM
     if is_edm:
-        edm_clauses = ["genre LIKE ?" for _ in EDM_GENRES]
+        edm_clauses = ["v.genre LIKE ?" for _ in EDM_GENRES]
         where_clauses.append(f"({' OR '.join(edm_clauses)})")
         params.extend([f"%{genre}%" for genre in EDM_GENRES])
 
@@ -104,7 +125,7 @@ def fetch_tracks(
 
     try:
         rows = execute_query(base_query, tuple(params), fetch=True, logger=logger)
-        assert rows is not None  # fetch=True ⇒ on s'attend à une liste
+        assert rows is not None
         return rows
     except Exception as e:  # pylint: disable=broad-except
         if logger:

@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import argparse
-
+from datetime import datetime
+from uuid import uuid4
 from mixonaut.db.analyse.essentia_queries import fetch_tracks
 from mixonaut.db.analyse.status_queries import sync_pending_tables
 from mixonaut.process_analyse.analyse_hub import analyse_hub
@@ -11,8 +12,28 @@ from mixonaut.utils.config import ALLOWED_STEPS, FPCALC_MAXLEN, EFFECTIVE_STATUS
 from mixonaut.utils.logger import get_logger
 from mixonaut.utils.safe_runner import safe_main
 from mixonaut.utils.utils_div import format_nb
+from mixonaut.db.analyse.claim_queries import (
+    claim_tracks,
+    refresh_track_claim,
+    release_track_claim,
+    count_active_claim_batches,
+)
 
 logger = get_logger("Analyse_Batch")
+
+
+def build_batch_identity(
+    run_source: str,
+    worker_id: str | None = None,
+    batch_id: str | None = None,
+) -> tuple[str, str]:
+    if worker_id is None:
+        worker_id = f"mixonaut-{run_source}"
+
+    if batch_id is None:
+        batch_id = f"{worker_id}-{datetime.now():%Y%m%d-%H%M%S}-{uuid4().hex[:8]}"
+
+    return worker_id, batch_id
 
 
 def _parse_steps(s: str | None) -> list[str] | None:
@@ -54,6 +75,9 @@ def main(
     track_id: int | None = None,
     max_length: int | None = None,
     timeout: int = 60,
+    run_source: str = "manual",
+    worker_id: str | None = None,
+    max_active_batches: int = 4,
 ) -> None:
     """
     Analyse batch of tracks.
@@ -102,7 +126,29 @@ def main(
     """
     sync_pending_tables(logger=logger)
 
-    logger.info("🔍 Lancement analyse batch avec steps=%s", steps or ["all"])
+    active_batches = count_active_claim_batches(logger=logger)
+
+    if active_batches >= args.max_active_batches:
+        logger.info(
+            "⏸️  Trop de batchs actifs : %s/%s. Sortie sans traitement.",
+            active_batches,
+            args.max_active_batches,
+        )
+        return
+
+    worker_id, batch_id = build_batch_identity(
+        run_source=args.run_source,
+        worker_id=args.worker_id,
+    )
+
+    run_source = args.run_source
+
+    logger.info(
+        "🔍 Lancement analyse batch avec steps=%s | worker_id=%s | batch_id=%s",
+        steps or ["all"],
+        worker_id,
+        batch_id,
+    )
 
     tracks = fetch_tracks(
         missing_features=missing_features,
@@ -114,6 +160,7 @@ def main(
         track_id=track_id,
         logger=logger,
     )
+
     if not tracks:
         logger.info("Aucune piste à traiter.")
         return
@@ -121,8 +168,41 @@ def main(
     if not count:
         count = len(tracks)
 
-    for idx, track in enumerate(tracks[:count], start=1):
-        track_id = track[0]
+    candidate_tracks = tracks[:count]
+
+    track_ids = [int(row["id"]) for row in candidate_tracks]
+
+    claimed_track_ids = claim_tracks(
+        track_ids=track_ids,
+        worker_id=worker_id,
+        batch_id=batch_id,
+        run_source=run_source,
+        ttl_hours=2,
+        logger=logger,
+    )
+
+    claimed_track_ids_set = set(claimed_track_ids)
+
+    tracks_to_process = [
+        row for row in candidate_tracks if int(row["id"]) in claimed_track_ids_set
+    ]
+
+    if not tracks_to_process:
+        logger.info(
+            "Aucune piste claimée pour ce batch. "
+            "Elles sont peut-être déjà réservées par une autre instance."
+        )
+        return
+
+    count = len(tracks_to_process)
+
+    for idx, track in enumerate(tracks_to_process, start=1):
+        track_id = int(track[0])
+
+        # Important : steps local à cette track.
+        # On évite que les steps calculés pour une track contaminent les suivantes.
+        track_steps = list(steps) if steps is not None else []
+
         if missing_features and not force:
             logger.info(
                 "▶️  [%s/%s] Analyse track_id=%s (missing features)",
@@ -136,44 +216,62 @@ def main(
             transposition_status = track[7]
             hash_status = track[8]
 
-            if steps is None:
-                steps = []
-
             if essentia_status in EFFECTIVE_STATUS_LIST:
-                add_step(steps, "essentia")
+                add_step(track_steps, "essentia")
 
             if madmom_status in EFFECTIVE_STATUS_LIST:
-                add_step(steps, "madmom")
+                add_step(track_steps, "madmom")
 
             if hash_status in EFFECTIVE_STATUS_LIST:
-                add_step(steps, "fingerprint")
+                add_step(track_steps, "fingerprint")
 
             if transposition_status in EFFECTIVE_STATUS_LIST:
-                add_step(steps, "transposition")
+                add_step(track_steps, "transposition")
 
-            if "essentia" in steps or "madmom" in steps:
-                add_step(steps, "transposition")
+            if "essentia" in track_steps or "madmom" in track_steps:
+                add_step(track_steps, "transposition")
 
         logger.info(
-            "▶️  [%s/%s] Analyse track_id=%s",
+            "▶️  [%s/%s] Analyse track_id=%s | steps=%s",
             format_nb(idx, logger=logger),
             format_nb(count, logger=logger),
             track_id,
+            track_steps or ["all"],
         )
 
         try:
+            refresh_track_claim(
+                track_id=track_id,
+                batch_id=batch_id,
+                ttl_hours=6,
+                logger=logger,
+            )
+
             result = analyse_hub(
                 tuple(track),
-                steps=steps,
+                steps=track_steps if track_steps else steps,
                 force=force,
                 max_length=max_length,
                 timeout=timeout,
                 logger=logger,
             )
 
-            logger.info("✅ Résultats : %s", result)
+            logger.info("✅ Résultats track_id=%s : %s", track_id, result)
+
         except Exception as e:
-            logger.exception("❌ Erreur inattendue track_id=%s : %s", track_id, str(e))
+            logger.exception(
+                "❌ Erreur inattendue track_id=%s : %s. "
+                "Claim conservé jusqu'à expiration.",
+                track_id,
+                str(e),
+            )
+
+        else:
+            release_track_claim(
+                track_id=track_id,
+                batch_id=batch_id,
+                logger=logger,
+            )
 
     logger.info("🏁 Analyse terminée.")
 
@@ -241,6 +339,23 @@ if __name__ == "__main__":
         default=60,
         help="SPECIFIQUE FPCALC Timeout fpcalc (s)",
     )
+    parser.add_argument(
+        "--run-source",
+        choices=["manual", "cronboss"],
+        default="manual",
+        help="Source du lancement : manual ou cronboss.",
+    )
+    parser.add_argument(
+        "--worker-id",
+        default=None,
+        help="Identifiant lisible du worker. Si absent, généré depuis run-source.",
+    )
+    parser.add_argument(
+        "--max-active-batches",
+        type=int,
+        default=4,
+        help="Nombre maximum de batchs Mixonaut actifs en parallèle.",
+    )
 
     args = parser.parse_args()
 
@@ -257,4 +372,7 @@ if __name__ == "__main__":
         track_id=args.track_id,
         max_length=args.fpcalc_length,
         timeout=args.fpcalc_timeout,
+        run_source=args.run_source,
+        worker_id=args.worker_id,
+        max_active_batches=args.max_active_batches,
     )

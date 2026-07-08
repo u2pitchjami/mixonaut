@@ -29,27 +29,30 @@ def sync_metadata(target_path: str | None = None, dry_run: bool = False) -> None
     scope = target_path if target_path else "toute la base"
     logger.info(f"🎯 Portée : {scope}")
 
-    run_beet_command(
+    result = run_beet_command(
         command="mbsync",
         args=[target_path] if target_path else None,
         interactive=False,
         dry_run=dry_run,
         logger=logger,
     )
-    run_beet_command(
+    logger.info(f"mbsync result: {result}")
+    result = run_beet_command(
         command="write -f",
         args=[target_path] if target_path else None,
         interactive=True,
         dry_run=dry_run,
         logger=logger,
     )
-    run_beet_command(
+    logger.info(f"write result: {result}")
+    result = run_beet_command(
         command="move",
         args=[target_path] if target_path else None,
         interactive=True,
         dry_run=dry_run,
         logger=logger,
     )
+    logger.info(f"move result: {result}")
 
     logger.info("🏁 SYNC MUSICBRAINZ : TERMINE !! \n\n")
 

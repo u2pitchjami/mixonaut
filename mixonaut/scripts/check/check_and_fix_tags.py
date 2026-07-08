@@ -5,7 +5,8 @@ import os
 import random
 import subprocess
 from typing import Any
-
+from pathlib import Path
+from os import PathLike
 from mixonaut.db.analyse.essentia_queries import (
     get_all_track_ids,
     get_audio_features_by_id,
@@ -23,17 +24,68 @@ from mixonaut.utils.config import (
     IMAGE_BEETS,
     MUSIC_BASE_PATH,
     RETRO_MIXONAUT_BEETS,
+    HOST_MUSIC,
 )
 from mixonaut.utils.logger import get_logger
 from mixonaut.utils.safe_runner import safe_main
 from mixonaut.utils.utils_div import (
     convert_path_format,
-    ensure_to_str,
     format_nb,
     format_percent,
 )
 
 logger = get_logger("Check_&_fix_tags")
+
+
+def to_beets_container_path(path: str | Path) -> str:
+    p = Path(path)
+
+    # Cas 1 : chemin host complet
+    try:
+        rel = p.relative_to(HOST_MUSIC)
+        return (BEETS_MUSIC / rel).as_posix()
+    except ValueError:
+        pass
+
+    # Cas 2 : ancien chemin conteneur déjà complet
+    try:
+        rel = p.relative_to(BEETS_MUSIC)
+        return (BEETS_MUSIC / rel).as_posix()
+    except ValueError:
+        pass
+
+    # Cas 3 : chemin Beets relatif depuis la BDD
+    return (Path(BEETS_MUSIC) / p.as_posix().lstrip("/")).as_posix()
+
+
+def ensure_to_str(path: str | bytes | PathLike[str] | PathLike[bytes]) -> str:
+    return os.fsdecode(path)
+
+
+def to_script_full_path(path: str | bytes | PathLike[str] | PathLike[bytes]) -> Path:
+    """
+    Convertit un path Beets relatif en chemin lisible par le script courant.
+    """
+    path_str = ensure_to_str(path)
+    p = Path(path_str)
+
+    if p.is_absolute():
+        # Si jamais ça arrive avec un ancien /app/data, on peut aussi remapper ici.
+        if p.as_posix().startswith("/app/data/"):
+            return HOST_MUSIC / p.relative_to("/app/data")
+
+        return p
+
+    return HOST_MUSIC / p
+
+
+def to_beets_full_path(path: str) -> Path:
+    p = Path(path)
+
+    if p.is_absolute():
+        return p
+
+    return BEETS_MUSIC / p
 
 
 def get_current_tags(path: str) -> dict[str, Any]:
@@ -48,7 +100,8 @@ def get_current_tags(path: str) -> dict[str, Any]:
     tags = {}
     try:
         ext = os.path.splitext(path)[1].lower()
-        container_path = path.replace(str(MUSIC_BASE_PATH), BEETS_MUSIC)
+        container_path = to_beets_container_path(path)
+        print(f"container_path: {container_path}")
 
         if ext == ".mp3":
             for tag in RETRO_MIXONAUT_BEETS:
@@ -64,6 +117,7 @@ def get_current_tags(path: str) -> dict[str, Any]:
                     f"eyeD3 --no-color '{container_path}'",
                 ]
                 result = subprocess.run(cmd, capture_output=True, text=True)
+                print(f"eyeD3 result: {result.stdout}")
                 if result.returncode == 0:
                     for line in result.stdout.splitlines():
                         for t in RETRO_MIXONAUT_BEETS:
@@ -80,6 +134,7 @@ def get_current_tags(path: str) -> dict[str, Any]:
                     text=True,
                     check=False,
                 )
+                print(f"metaflac result for {tag_upper}: {result.stdout}")
                 if result.stdout.strip():
                     tags[tag] = result.stdout.strip().split("=", 1)[-1]
 
@@ -190,17 +245,21 @@ def process_all_tracks(
         if not features:
             continue
 
-        path = get_item_field_value("path", track_id, logger=logger)
-        if not path:
+        raw_path = get_item_field_value("path", track_id, logger=logger)
+        if not raw_path:
             logger.warning(f"⚠️ Impossible de retrouver le chemin du morceau {track_id}")
             return
 
-        path = ensure_to_str(path)
-        if not path:
-            logger.warning(f"Fichier introuvable pour l'ID {track_id}: {path}")
+        db_path = ensure_to_str(raw_path)
+        file_path = to_script_full_path(raw_path)
+
+        if not file_path:
+            logger.warning(
+                f"Fichier introuvable pour l'ID {track_id}: {file_path.as_posix()}"
+            )
             continue
 
-        if check_and_fix_tags(track_id, path, features, dry_run=dry_run):
+        if check_and_fix_tags(track_id, str(file_path), features, dry_run=dry_run):
             updated += 1
 
     logger.info(
